@@ -81,9 +81,9 @@ fmt-web:
 test: test-rust test-web
 
 [group('test')]
-[doc("Run betc-core tests only")]
+[doc("Run app-core tests only")]
 test-core:
-    cargo test -p betc-core
+    cargo test -p app-core
 
 [group('test')]
 [private]
@@ -98,5 +98,5 @@ test-web:
 # Examples
 [group('examples')]
 [doc("Parse a CSV file")]
-parse csv_path:
-    cargo run -p betc-core --example parse_csv -- {{csv_path}}
+parse-csv:
+    cargo run -p app-core --example parse_csv

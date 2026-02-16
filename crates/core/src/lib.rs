@@ -1,5 +1,5 @@
 pub fn hello() -> String {
-    "betc-core works".to_string()
+    "app-core works".to_string()
 }
 
 #[cfg(test)]
@@ -8,6 +8,6 @@ mod tests {
 
     #[test]
     fn it_works() {
-        assert_eq!(hello(), "betc-core works");
+        assert_eq!(hello(), "app-core works");
     }
 }
