@@ -93,6 +93,7 @@ name = "app-core"
 version = "0.1.0"
 dependencies = [
  "csv",
+ "rust_decimal",
  "serde",
  "thiserror 2.0.18",
 ]
