@@ -1,9 +1,27 @@
 use std::fmt;
 use std::path::Path;
 
+use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 use thiserror::Error;
+
+mod datetime_format {
+    use chrono::{DateTime, NaiveDateTime, Utc};
+    use serde::{self, Deserialize, Deserializer};
+
+    const FORMAT: &str = "%Y-%m-%d %H:%M:%S";
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<DateTime<Utc>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let s: &str = Deserialize::deserialize(deserializer)?;
+        NaiveDateTime::parse_from_str(s, FORMAT)
+            .map(|n| n.and_utc())
+            .map_err(serde::de::Error::custom)
+    }
+}
 
 #[derive(Error, Debug)]
 pub enum Error {
@@ -20,7 +38,8 @@ pub type Result<T> = std::result::Result<T, Error>;
 pub struct LedgerEntry {
     pub txid: String,
     pub refid: String,
-    pub time: String,
+    #[serde(with = "datetime_format")]
+    pub time: DateTime<Utc>,
     #[serde(rename = "type")]
     pub type_: String,
     pub subtype: String,
@@ -35,18 +54,20 @@ pub struct LedgerEntry {
 
 impl fmt::Display for LedgerEntry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        let type_label = if self.subtype.is_empty() {
-            self.type_.clone()
-        } else {
-            format!("{}/{}", self.type_, self.subtype)
-        };
-
         // {:<20}  → left-align, pad to 20 chars
         // {:>+18.10} → right-align, pad to 18 chars, show +/- sign, 10 decimal places
         write!(
             f,
-            "{} | {:<20} | {:<5} | {:>+18.10} | {:.10} | {:<15}",
-            self.time, type_label, self.asset, self.amount, self.fee, self.wallet,
+            "{:<10.10} | {:<10.10} | {:<20} | {:<10.10} | {:<10.10} | {:<5} | {:>+15.10} | {:.10} | {:<15}",
+            self.txid,
+            self.refid,
+            self.time,
+            self.type_,
+            self.subtype,
+            self.asset,
+            self.amount,
+            self.fee,
+            self.wallet,
         )?;
 
         Ok(())
