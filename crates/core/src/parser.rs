@@ -3,7 +3,7 @@ use std::path::Path;
 
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
-use serde::{Deserialize};
+use serde::Deserialize;
 
 use super::error::Result;
 
@@ -32,7 +32,7 @@ pub enum EntryType {
     Withdrawal,
     Earn,
     Spend,
-    Receive
+    Receive,
 }
 
 impl fmt::Display for EntryType {
@@ -53,7 +53,7 @@ impl fmt::Display for EntryType {
 pub enum Asset {
     Btc,
     Eur,
-    Other(String)
+    Other(String),
 }
 
 impl From<String> for Asset {
@@ -61,7 +61,7 @@ impl From<String> for Asset {
         match s.as_str() {
             "BTC" | "XBT" => Self::Btc,
             "EUR" => Self::Eur,
-            _ => Self::Other(s)
+            _ => Self::Other(s),
         }
     }
 }
@@ -71,7 +71,7 @@ impl Asset {
         match self {
             Self::Btc => "BTC",
             Self::Eur => "EUR",
-            Self::Other(o) => o
+            Self::Other(o) => o,
         }
     }
 }
