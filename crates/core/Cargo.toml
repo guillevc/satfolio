@@ -8,4 +8,5 @@ serde = { workspace = true }
 chrono = { version = "0.4", features = ["serde"] }
 csv = "1"
 rust_decimal = { version = "1", features = ["serde-str"] }
+rust_decimal_macros = "1"
 thiserror = "2"
