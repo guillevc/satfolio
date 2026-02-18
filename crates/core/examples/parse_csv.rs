@@ -17,7 +17,7 @@ fn main() {
         println!("{entry}");
     }
 
-    let assets: BTreeSet<&str> = entries.iter().map(|e| e.asset.as_str()).collect();
+    let assets: BTreeSet<&str> = entries.iter().map(|e| e.asset.to_str()).collect();
 
     println!("\n--- Summary ---");
     println!("Total entries: {}", entries.len());

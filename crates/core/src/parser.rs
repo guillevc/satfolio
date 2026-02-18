@@ -3,8 +3,9 @@ use std::path::Path;
 
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
-use serde::Deserialize;
-use thiserror::Error;
+use serde::{Deserialize};
+
+use super::error::Result;
 
 mod datetime_format {
     use chrono::{DateTime, NaiveDateTime, Utc};
@@ -23,16 +24,63 @@ mod datetime_format {
     }
 }
 
-#[derive(Error, Debug)]
-pub enum Error {
-    #[error("CSV error: {0}")]
-    Csv(#[from] csv::Error),
-
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[serde(rename_all = "lowercase")]
+pub enum EntryType {
+    Deposit,
+    Trade,
+    Withdrawal,
+    Earn,
+    Spend,
+    Receive
 }
 
-pub type Result<T> = std::result::Result<T, Error>;
+impl fmt::Display for EntryType {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.pad(match self {
+            EntryType::Deposit => "deposit",
+            EntryType::Trade => "trade",
+            EntryType::Withdrawal => "withdrawal",
+            EntryType::Earn => "earn",
+            EntryType::Spend => "spend",
+            EntryType::Receive => "receive",
+        })
+    }
+}
+
+#[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[serde(from = "String")]
+pub enum Asset {
+    Btc,
+    Eur,
+    Other(String)
+}
+
+impl From<String> for Asset {
+    fn from(s: String) -> Self {
+        match s.as_str() {
+            "BTC" | "XBT" => Self::Btc,
+            "EUR" => Self::Eur,
+            _ => Self::Other(s)
+        }
+    }
+}
+
+impl Asset {
+    pub fn to_str(&self) -> &str {
+        match self {
+            Self::Btc => "BTC",
+            Self::Eur => "EUR",
+            Self::Other(o) => o
+        }
+    }
+}
+
+impl fmt::Display for Asset {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.pad(self.to_str())
+    }
+}
 
 #[derive(Deserialize, Debug)]
 pub struct LedgerEntry {
@@ -41,11 +89,11 @@ pub struct LedgerEntry {
     #[serde(with = "datetime_format")]
     pub time: DateTime<Utc>,
     #[serde(rename = "type")]
-    pub type_: String,
+    pub type_: EntryType,
     pub subtype: String,
     pub aclass: String,
     pub subclass: String,
-    pub asset: String,
+    pub asset: Asset,
     pub wallet: String,
     pub amount: Decimal,
     pub fee: Decimal,
