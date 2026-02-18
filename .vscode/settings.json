@@ -1,6 +1,11 @@
 {
   "files.associations": {
-    "*.css": "tailwindcss"
+    "*.css": "tailwindcss",
+    "justfile": "just",
+    ".env": "dotenv"
   },
-  "rust-analyzer.server.path": "rust-analyzer"
+  "rust-analyzer.server.path": "rust-analyzer",
+  "[rust]": {
+    "editor.formatOnSave": true
+  }
 }
