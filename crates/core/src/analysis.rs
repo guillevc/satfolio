@@ -70,7 +70,6 @@ mod tests {
     use super::*;
     use rust_decimal_macros::dec;
 
-    /// Helper: build a LedgerEntry with the given fields, defaults for the rest.
     fn make_entry(
         refid: &str,
         type_: EntryType,
@@ -122,12 +121,6 @@ mod tests {
         assert_eq!(buy.fee.asset, Asset::Eur);
     }
 
-    // Test: A Spend/Receive pair also produces one CryptoBuy.
-    //
-    // Example data:
-    //   refid: "SPEND-001"
-    //   Leg 1: type=Spend,   asset=EUR, amount=-50.00, fee=0.25
-    //   Leg 2: type=Receive, asset=BTC, amount=+0.001,  fee=0
     #[test]
     fn spend_receive_pair() {
         let a = make_entry(

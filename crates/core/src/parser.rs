@@ -136,17 +136,12 @@ pub fn parse_csv(path: &Path) -> Result<Vec<LedgerEntry>> {
 
 #[cfg(test)]
 mod tests {
-
     use std::io::Write;
 
-    // ── Helper ───────────────────────────────────────────────────
-    // Writes CSV content to a temp file and returns the path.
-    // Use this in parse_csv tests so you don't need external fixtures.
-    //
-    // Example usage:
-    //   let path = csv_tempfile("txid,refid,...\nval1,val2,...\n");
-    //   let entries = parse_csv(&path).unwrap();
-    //   std::fs::remove_file(&path).ok(); // cleanup
+    use rust_decimal_macros::dec;
+
+    use super::{Asset, EntryType, parse_csv};
+
     fn csv_tempfile(content: &str) -> std::path::PathBuf {
         let path = std::env::temp_dir().join(format!(
             "betc_test_{}.csv",
@@ -165,113 +160,96 @@ mod tests {
     const CSV_HEADER: &str =
         "txid,refid,time,type,subtype,aclass,subclass,asset,wallet,amount,fee,balance";
 
-    // ── Asset conversion tests ───────────────────────────────────
-    // Asset implements From<String> with special cases:
-    //   "BTC" | "XBT" → Asset::Btc
-    //   "EUR"          → Asset::Eur
-    //   anything else  → Asset::Other(s)
-    //
-    // Test each branch. Asset derives PartialEq so assert_eq! works.
-    // Hint: Asset::from("BTC".to_string())
-
     #[test]
     fn asset_from_btc() {
-        todo!("assert Asset::from(\"BTC\".to_string()) == Asset::Btc")
+        assert_eq!(Asset::from("BTC".to_string()), Asset::Btc)
     }
 
     #[test]
     fn asset_from_xbt_is_btc() {
-        // Kraken historically used "XBT" for Bitcoin — both should map to Btc
-        todo!("assert Asset::from(\"XBT\".to_string()) == Asset::Btc")
+        assert_eq!(Asset::from("XBT".to_string()), Asset::Btc)
     }
 
     #[test]
     fn asset_from_eur() {
-        todo!("assert Asset::from(\"EUR\".to_string()) == Asset::Eur")
+        assert_eq!(Asset::from("EUR".to_string()), Asset::Eur)
     }
 
     #[test]
     fn asset_from_unknown() {
-        // Any unrecognized ticker falls into Other(String)
-        todo!("assert Asset::from(\"ETH\".to_string()) == Asset::Other(\"ETH\".to_string())")
+        assert_eq!(
+            Asset::from("MSC".to_string()),
+            Asset::Other("MSC".to_string())
+        )
     }
-
-    // ── Asset::to_str roundtrip ──────────────────────────────────
-    // to_str() should return the canonical ticker string.
-    // For Other, it returns the original string.
 
     #[test]
     fn asset_to_str_roundtrip() {
-        todo!("assert Asset::Btc.to_str() == \"BTC\", etc.")
+        assert_eq!(Asset::Btc.to_str(), "BTC");
+        assert_eq!(Asset::Other("MSC".to_string()).to_str(), "MSC");
     }
-
-    // ── EntryType Display ────────────────────────────────────────
-    // Each variant should display as its lowercase name.
-    // Hint: format!("{}", EntryType::Trade) == "trade"
-    // Note: Display uses f.pad(), so format!("{:<10}", val) pads —
-    //       use .to_string() or format!("{}") for exact match.
 
     #[test]
     fn entry_type_display() {
-        todo!("assert each EntryType variant displays as lowercase")
+        assert_eq!(format!("{}", EntryType::Deposit), "deposit");
+        assert_eq!(format!("{}", EntryType::Withdrawal), "withdrawal");
     }
-
-    // ── parse_csv happy path ─────────────────────────────────────
-    // Write a minimal CSV with one valid row and parse it.
-    //
-    // Sample row (from real Kraken data):
-    //   txid:    "L3M4N5"
-    //   refid:   "MECOSFO-GY"
-    //   time:    "2024-01-15 12:00:00"   (format: %Y-%m-%d %H:%M:%S)
-    //   type:    "trade"
-    //   subtype: ""
-    //   aclass:  "currency"
-    //   subclass: ""
-    //   asset:   "EUR"
-    //   wallet:  "spot"
-    //   amount:  "-187.2514"
-    //   fee:     "0.749"
-    //   balance: "1000.00"
-    //
-    // After parsing, assert:
-    //   - entries.len() == 1
-    //   - entry.asset == Asset::Eur
-    //   - entry.amount == dec!(-187.2514)
-    //   - entry.type_ == EntryType::Trade
-    //
-    // Note: LedgerEntry doesn't derive PartialEq, so compare fields individually.
 
     #[test]
     fn parse_csv_single_row() {
-        todo!("write CSV with one row via csv_tempfile, parse, assert fields")
-    }
+        let csv = format!(
+            "{CSV_HEADER}\n\
+            L3M4N5,MECOSFO-GY,2024-01-15 12:00:00,trade,,currency,,EUR,spot,-187.2514,0.749,1000.00"
+        );
+        let path = csv_tempfile(&csv);
 
-    // ── parse_csv with multiple rows ─────────────────────────────
-    // Write 2-3 rows and verify the Vec has the right length
-    // and each entry has the expected asset/type.
+        let entries = parse_csv(&path).unwrap();
+        std::fs::remove_file(&path).ok();
+
+        assert_eq!(entries.len(), 1);
+        let entry = &entries[0];
+        assert_eq!(entry.asset, Asset::Eur);
+        assert_eq!(entry.amount, dec!(-187.2514));
+        assert_eq!(entry.type_, EntryType::Trade);
+    }
 
     #[test]
     fn parse_csv_multiple_rows() {
-        todo!("write CSV with multiple rows, assert len and key fields")
-    }
+        let csv = format!(
+            "{CSV_HEADER}\n\
+            TX1,REF-A,2024-01-15 12:00:00,trade,,currency,,EUR,spot,-187.2514,0.749,1000.00\n\
+            TX2,REF-A,2024-01-15 12:00:00,trade,,currency,,BTC,spot,0.002,0,0.002\n\
+            TX3,REF-B,2024-02-01 09:30:00,deposit,,currency,,EUR,spot,500.00,0,1500.00"
+        );
+        let path = csv_tempfile(&csv);
+        let entries = parse_csv(&path).unwrap();
+        std::fs::remove_file(&path).ok();
 
-    // ── parse_csv error on bad data ──────────────────────────────
-    // A malformed row (e.g. missing columns, bad date format)
-    // should return Err. Use assert!(result.is_err()).
-    //
-    // Try: a row with "not-a-date" in the time column.
+        assert_eq!(entries.len(), 3);
+        assert_eq!(entries[0].asset, Asset::Eur);
+        assert_eq!(entries[1].asset, Asset::Btc);
+        assert_eq!(entries[2].type_, EntryType::Deposit);
+    }
 
     #[test]
     fn parse_csv_bad_date_returns_error() {
-        todo!("write CSV with bad date, assert parse_csv returns Err")
-    }
+        let csv = format!(
+            "{CSV_HEADER}\n\
+            TX1,REF-A,not-a-date,trade,,currency,,EUR,spot,-100,0.5,900"
+        );
+        let path = csv_tempfile(&csv);
+        let result = parse_csv(&path);
+        std::fs::remove_file(&path).ok();
 
-    // ── parse_csv empty file ─────────────────────────────────────
-    // A CSV with only the header (no data rows) should return Ok
-    // with an empty Vec.
+        assert!(result.is_err());
+    }
 
     #[test]
     fn parse_csv_empty_returns_empty_vec() {
-        todo!("write header-only CSV, assert Ok(vec) where vec.is_empty()")
+        let path = csv_tempfile(CSV_HEADER);
+        let entries = parse_csv(&path).unwrap();
+        std::fs::remove_file(&path).ok();
+
+        assert!(entries.is_empty());
     }
 }
