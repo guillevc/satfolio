@@ -1,21 +1,3 @@
-// analysis.rs — Extract "crypto buy" events from parsed Kraken ledger data.
-//
-// A "crypto buy" is a transaction where you spent one asset (typically EUR)
-// to acquire another (typically BTC). In the Kraken CSV, these appear as
-// TWO entries sharing the same `refid`:
-//
-//   refid: "MECOSFO-GY"
-//   ├── EUR  amount: -187.2514   fee: 0.749    (the spend leg)
-//   └── BTC  amount: +0.0020104289  fee: 0.0   (the buy leg)
-//
-// Valid buy patterns (by EntryType):
-//   • (Trade, Trade)     — standard market/limit orders
-//   • (Spend, Receive)   — instant/simple buy via Kraken app
-//
-// NOT buys:
-//   • (Earn, Earn)       — staking rewards or wallet transfers, skip these
-//   • Single entries     — deposits, withdrawals, etc.
-
 use std::collections::HashMap;
 
 use chrono::{DateTime, Utc};
@@ -37,19 +19,6 @@ pub struct CryptoBuy {
     pub fee: AssetAmount,
 }
 
-/// Scans ledger entries and extracts crypto buy events.
-///
-/// Algorithm:
-///   1. Group entries by `refid` → HashMap<String, Vec<&LedgerEntry>>
-///   2. Keep only groups of exactly 2 entries whose types are
-///      (Trade, Trade) or (Spend, Receive)
-///   3. In each pair, the leg with negative amount is the "spend",
-///      positive is the "buy". Build a CryptoBuy from them.
-///
-/// Useful methods:
-///   - Decimal::is_sign_negative() / is_sign_positive()
-///   - Decimal::abs()
-///   - HashMap::entry(...).or_insert_with(Vec::new).push(item)
 pub fn find_crypto_buys(entries: &[LedgerEntry]) -> Vec<CryptoBuy> {
     let mut by_refid = HashMap::<&str, Vec<&LedgerEntry>>::new();
 
@@ -97,6 +66,8 @@ pub fn find_crypto_buys(entries: &[LedgerEntry]) -> Vec<CryptoBuy> {
 
 #[cfg(test)]
 mod tests {
+    use std::str::FromStr;
+
     use super::*;
     use rust_decimal_macros::dec;
 
@@ -125,20 +96,31 @@ mod tests {
         }
     }
 
-    // Test: A Trade/Trade pair produces one CryptoBuy with correct values.
-    //
-    // Use this real data from the Kraken CSV:
-    //   refid: "MECOSFO-GY"
-    //   Leg 1: type=Trade, asset=EUR, amount=-187.2514, fee=0.749
-    //   Leg 2: type=Trade, asset=BTC, amount=+0.0020104289, fee=0
-    //
-    // Expected CryptoBuy:
-    //   asset_bought = BTC, amount_bought = 0.0020104289
-    //   asset_spent  = EUR, amount_spent  = 187.2514  (positive!)
-    //   fee = 0.749
     #[test]
     fn trade_trade_pair() {
-        todo!("test: Trade/Trade pair → one CryptoBuy")
+        let spend = make_entry(
+            "MECOSFO-GY",
+            EntryType::Trade,
+            Asset::Eur,
+            dec!(-187.2514),
+            dec!(0.749),
+        );
+        let receive = make_entry(
+            "MECOSFO-GY",
+            EntryType::Trade,
+            Asset::Btc,
+            dec!(0.0020104289),
+            Decimal::ZERO,
+        );
+        let result = find_crypto_buys(&[spend, receive]);
+        assert_eq!(result.len(), 1);
+        let buy = result.first().unwrap();
+        assert_eq!(buy.spent.amount, dec!(187.2514));
+        assert_eq!(buy.spent.asset, Asset::Eur);
+        assert_eq!(buy.received.amount, dec!(0.0020104289));
+        assert_eq!(buy.received.asset, Asset::Btc);
+        assert_eq!(buy.fee.amount, dec!(0.749));
+        assert_eq!(buy.fee.asset, Asset::Eur);
     }
 
     // Test: A Spend/Receive pair also produces one CryptoBuy.
