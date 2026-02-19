@@ -23,20 +23,19 @@ use rust_decimal::Decimal;
 
 use crate::parser::{Asset, EntryType, LedgerEntry};
 
-// TODO(human): Define the CryptoBuy struct
-//
-// This struct represents a single "buy" event derived from a refid pair.
-// Fields you'll need:
-//   - date: DateTime<Utc>          — timestamp from the buy leg
-//   - asset_bought: Asset           — what you acquired (e.g. BTC)
-//   - amount_bought: Decimal        — how much you got (positive)
-//   - asset_spent: Asset            — what you paid with (e.g. EUR)
-//   - amount_spent: Decimal         — how much you paid (store as POSITIVE using .abs())
-//   - fee: Decimal                  — total fee (sum both legs' fees)
-//
-// Derive Debug so you can println!("{:?}", buy) while developing.
 #[derive(Debug)]
-pub struct CryptoBuy;
+pub struct AssetAmount {
+    pub amount: Decimal,
+    pub asset: Asset,
+}
+
+#[derive(Debug)]
+pub struct CryptoBuy {
+    pub date: DateTime<Utc>,
+    pub spent: AssetAmount,
+    pub received: AssetAmount,
+    pub fee: AssetAmount,
+}
 
 /// Scans ledger entries and extracts crypto buy events.
 ///
@@ -52,28 +51,48 @@ pub struct CryptoBuy;
 ///   - Decimal::abs()
 ///   - HashMap::entry(...).or_insert_with(Vec::new).push(item)
 pub fn find_crypto_buys(entries: &[LedgerEntry]) -> Vec<CryptoBuy> {
-    // Step 1: Group entries by refid
-    // ──────────────────────────────
-    // Create a HashMap<String, Vec<&LedgerEntry>>.
-    // Iterate over `entries` and group them by their `refid` field.
-    // Hint: use entry().or_default().push(&entry)
+    let mut by_refid = HashMap::<&str, Vec<&LedgerEntry>>::new();
 
-    // Step 2: Filter to valid buy pairs
-    // ──────────────────────────────────
-    // Iterate over the groups. Keep only groups where:
-    //   - group.len() == 2
-    //   - types are (Trade, Trade) or (Spend, Receive) in either order
-    // Hint: match on (&group[0].type_, &group[1].type_)
+    for entry in entries {
+        by_refid.entry(&entry.refid).or_default().push(entry);
+    }
 
-    // Step 3: Build CryptoBuy from each pair
-    // ───────────────────────────────────────
-    // For each valid pair:
-    //   - The entry with negative amount is the spend leg
-    //   - The entry with positive amount is the buy leg
-    //   - fee = spend_leg.fee + buy_leg.fee
-    //   - amount_spent should be stored as positive (use .abs())
-
-    todo!("implement find_crypto_buys")
+    by_refid
+        .into_iter()
+        .filter_map(|(_, entries)| {
+            let [left, right] = entries.as_slice() else {
+                return None;
+            };
+            match (&left.type_, &right.type_) {
+                (EntryType::Trade, EntryType::Trade)
+                | (EntryType::Spend, EntryType::Receive)
+                | (EntryType::Receive, EntryType::Spend) => Some((*left, *right)),
+                _ => None,
+            }
+        })
+        .map(|(left, right)| {
+            let (buy, sell) = if left.amount.is_sign_positive() {
+                (left, right)
+            } else {
+                (right, left)
+            };
+            CryptoBuy {
+                date: buy.time,
+                spent: AssetAmount {
+                    amount: sell.amount.abs(),
+                    asset: sell.asset.clone(),
+                },
+                received: AssetAmount {
+                    amount: buy.amount,
+                    asset: buy.asset.clone(),
+                },
+                fee: AssetAmount {
+                    amount: sell.fee.abs(),
+                    asset: sell.asset.clone(),
+                },
+            }
+        })
+        .collect()
 }
 
 #[cfg(test)]
