@@ -68,7 +68,7 @@ pub fn find_trades(entries: &[LedgerEntry]) -> Vec<Trade> {
                     asset: sell.asset.clone(),
                 },
                 received: AssetAmount {
-                    amount: buy.amount,
+                    amount: buy.amount.abs(),
                     asset: buy.asset.clone(),
                 },
                 fee: AssetAmount {
