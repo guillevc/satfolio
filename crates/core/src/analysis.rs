@@ -29,13 +29,13 @@ pub fn find_crypto_buys(entries: &[LedgerEntry]) -> Vec<CryptoBuy> {
     by_refid
         .into_iter()
         .filter_map(|(_, entries)| {
-            let [left, right] = entries.as_slice() else {
+            let [left, right] = *entries.as_slice() else {
                 return None;
             };
             match (&left.type_, &right.type_) {
                 (EntryType::Trade, EntryType::Trade)
                 | (EntryType::Spend, EntryType::Receive)
-                | (EntryType::Receive, EntryType::Spend) => Some((*left, *right)),
+                | (EntryType::Receive, EntryType::Spend) => Some((left, right)),
                 _ => None,
             }
         })
@@ -130,25 +130,60 @@ mod tests {
     //   Leg 2: type=Receive, asset=BTC, amount=+0.001,  fee=0
     #[test]
     fn spend_receive_pair() {
-        todo!("test: Spend/Receive pair → one CryptoBuy")
+        let a = make_entry(
+            "SPEND-001",
+            EntryType::Spend,
+            Asset::Eur,
+            dec!(-50),
+            dec!(0.25),
+        );
+        let b = make_entry(
+            "SPEND-001",
+            EntryType::Receive,
+            Asset::Btc,
+            dec!(0.001),
+            Decimal::ZERO,
+        );
+        let result = find_crypto_buys(&[a, b]);
+        assert_eq!(result.len(), 1);
+        let buy = &result[0];
+        assert_eq!(buy.spent.asset, Asset::Eur);
+        assert_eq!(buy.spent.amount, dec!(50));
+        assert_eq!(buy.received.asset, Asset::Btc);
+        assert_eq!(buy.received.amount, dec!(0.001));
+        assert_eq!(buy.fee.amount, dec!(0.25));
     }
 
-    // Test: Earn/Earn entries are NOT buys — they should be excluded.
-    //
-    //   refid: "EARN-001"
-    //   Leg 1: type=Earn, asset=BTC, amount=-0.001, fee=0
-    //   Leg 2: type=Earn, asset=BTC, amount=+0.001, fee=0
     #[test]
     fn earn_entries_excluded() {
-        todo!("test: Earn entries excluded")
+        let a = make_entry(
+            "EARN-001",
+            EntryType::Earn,
+            Asset::Btc,
+            dec!(-0.001),
+            Decimal::ZERO,
+        );
+        let b = make_entry(
+            "EARN-001",
+            EntryType::Earn,
+            Asset::Btc,
+            dec!(0.001),
+            Decimal::ZERO,
+        );
+        let result = find_crypto_buys(&[a, b]);
+        assert!(result.is_empty());
     }
 
-    // Test: A single Deposit entry has no matching pair → excluded.
-    //
-    //   refid: "DEP-001"
-    //   Only: type=Deposit, asset=EUR, amount=+1000.0, fee=0
     #[test]
     fn deposit_only_excluded() {
-        todo!("test: single Deposit excluded")
+        let dep = make_entry(
+            "DEP-001",
+            EntryType::Deposit,
+            Asset::Eur,
+            dec!(1000),
+            Decimal::ZERO,
+        );
+        let result = find_crypto_buys(&[dep]);
+        assert!(result.is_empty());
     }
 }
