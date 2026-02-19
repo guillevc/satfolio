@@ -66,7 +66,6 @@ pub fn find_crypto_buys(entries: &[LedgerEntry]) -> Vec<CryptoBuy> {
 
 #[cfg(test)]
 mod tests {
-    use std::str::FromStr;
 
     use super::*;
     use rust_decimal_macros::dec;

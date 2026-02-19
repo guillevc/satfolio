@@ -136,8 +136,7 @@ pub fn parse_csv(path: &Path) -> Result<Vec<LedgerEntry>> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-    use rust_decimal_macros::dec;
+
     use std::io::Write;
 
     // ── Helper ───────────────────────────────────────────────────
@@ -276,4 +275,3 @@ mod tests {
         todo!("write header-only CSV, assert Ok(vec) where vec.is_empty()")
     }
 }
-
