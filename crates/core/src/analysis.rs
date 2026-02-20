@@ -80,9 +80,76 @@ pub fn find_trades(entries: &[LedgerEntry]) -> Vec<Trade> {
         .collect()
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct TradesSummary {
+    pub total_trades: usize,
+    pub buys: usize,
+    pub sells: usize,
+    pub unknown: usize,
+    pub date_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
+    pub spent: AssetAmount,
+    pub received: AssetAmount,
+    pub fees: AssetAmount,
+}
+
+pub fn summarize_trades(
+    received_asset: &Asset,
+    spent_asset: &Asset,
+    trades: &[Trade],
+) -> TradesSummary {
+    let mut buys = 0usize;
+    let mut sells = 0usize;
+    let mut unknown = 0usize;
+    let mut spent = Decimal::ZERO;
+    let mut received = Decimal::ZERO;
+    let mut fees = Decimal::ZERO;
+    let mut earliest: Option<DateTime<Utc>> = None;
+    let mut latest: Option<DateTime<Utc>> = None;
+
+    for trade in trades {
+        let pair = (&trade.spent.asset, &trade.received.asset);
+        if pair == (spent_asset, received_asset) {
+            buys += 1;
+            spent += trade.spent.amount;
+            received += trade.received.amount;
+            fees += trade.fee.amount;
+        } else if pair == (received_asset, spent_asset) {
+            sells += 1;
+            spent += trade.received.amount;
+            received += trade.spent.amount;
+            fees += trade.fee.amount;
+        } else {
+            unknown += 1;
+            continue;
+        }
+
+        earliest = Some(earliest.map_or(trade.date, |e| e.min(trade.date)));
+        latest = Some(latest.map_or(trade.date, |l| l.max(trade.date)));
+    }
+
+    TradesSummary {
+        total_trades: trades.len(),
+        buys,
+        sells,
+        unknown,
+        date_range: earliest.zip(latest),
+        spent: AssetAmount {
+            amount: spent,
+            asset: spent_asset.clone(),
+        },
+        received: AssetAmount {
+            amount: received,
+            asset: received_asset.clone(),
+        },
+        fees: AssetAmount {
+            amount: fees,
+            asset: spent_asset.clone(),
+        },
+    }
+}
+
 #[cfg(test)]
 mod tests {
-
     use super::*;
     use chrono::TimeZone;
     use rust_decimal_macros::dec;
@@ -220,5 +287,144 @@ mod tests {
         let trade = make_trade();
         assert_eq!(trade.side_for(&Asset::Btc), Some(TradeSide::Buy));
         assert_eq!(trade.side_for(&Asset::Eur), Some(TradeSide::Sell));
+    }
+
+    fn make_trade_at(
+        year: i32,
+        month: u32,
+        day: u32,
+        spent: Decimal,
+        received: Decimal,
+        fee: Decimal,
+    ) -> Trade {
+        Trade {
+            date: Utc.with_ymd_and_hms(year, month, day, 12, 0, 0).unwrap(),
+            spent: AssetAmount {
+                amount: spent,
+                asset: Asset::Eur,
+            },
+            received: AssetAmount {
+                amount: received,
+                asset: Asset::Btc,
+            },
+            fee: AssetAmount {
+                amount: fee,
+                asset: Asset::Eur,
+            },
+        }
+    }
+
+    #[test]
+    fn summarize_two_buys() {
+        let trades = vec![
+            make_trade_at(2025, 2, 14, dec!(187.25), dec!(0.002), dec!(0.75)),
+            make_trade_at(2025, 6, 1, dec!(28.37), dec!(0.0003), dec!(0.28)),
+        ];
+        let summary = summarize_trades(&Asset::Btc, &Asset::Eur, &trades);
+
+        assert_eq!(summary.total_trades, 2);
+        assert_eq!(summary.buys, 2);
+        assert_eq!(summary.sells, 0);
+        assert_eq!(summary.unknown, 0);
+        assert_eq!(summary.spent.amount, dec!(215.62));
+        assert_eq!(summary.spent.asset, Asset::Eur);
+        assert_eq!(summary.received.amount, dec!(0.0023));
+        assert_eq!(summary.received.asset, Asset::Btc);
+        assert_eq!(summary.fees.amount, dec!(1.03));
+        assert_eq!(summary.fees.asset, Asset::Eur);
+        let (earliest, latest) = summary.date_range.unwrap();
+        assert_eq!(
+            earliest,
+            Utc.with_ymd_and_hms(2025, 2, 14, 12, 0, 0).unwrap()
+        );
+        assert_eq!(latest, Utc.with_ymd_and_hms(2025, 6, 1, 12, 0, 0).unwrap());
+    }
+
+    #[test]
+    fn summarize_empty() {
+        let summary = summarize_trades(&Asset::Btc, &Asset::Eur, &[]);
+        assert_eq!(summary.total_trades, 0);
+        assert_eq!(summary.buys, 0);
+        assert!(summary.date_range.is_none());
+        assert_eq!(summary.spent.amount, Decimal::ZERO);
+    }
+
+    #[test]
+    fn summarize_ignores_unrelated_pair() {
+        // ETH/USD trade should count as unknown when tracking BTC/EUR
+        let trade = Trade {
+            date: Utc.with_ymd_and_hms(2025, 3, 1, 12, 0, 0).unwrap(),
+            spent: AssetAmount {
+                amount: dec!(100),
+                asset: Asset::Other("USD".into()),
+            },
+            received: AssetAmount {
+                amount: dec!(0.05),
+                asset: Asset::Other("ETH".into()),
+            },
+            fee: AssetAmount {
+                amount: dec!(0.5),
+                asset: Asset::Other("USD".into()),
+            },
+        };
+        let summary = summarize_trades(&Asset::Btc, &Asset::Eur, &[trade]);
+
+        assert_eq!(summary.total_trades, 1);
+        assert_eq!(summary.buys, 0);
+        assert_eq!(summary.unknown, 1);
+        assert_eq!(summary.spent.amount, Decimal::ZERO);
+        assert_eq!(summary.fees.amount, Decimal::ZERO);
+        assert!(summary.date_range.is_none());
+    }
+
+    #[test]
+    fn summarize_btc_buy_with_wrong_fiat_is_unknown() {
+        // BTC/USD trade when tracking BTC/EUR — BTC side matches but EUR doesn't
+        let trade = Trade {
+            date: Utc.with_ymd_and_hms(2025, 3, 1, 12, 0, 0).unwrap(),
+            spent: AssetAmount {
+                amount: dec!(200),
+                asset: Asset::Other("USD".into()),
+            },
+            received: AssetAmount {
+                amount: dec!(0.002),
+                asset: Asset::Btc,
+            },
+            fee: AssetAmount {
+                amount: dec!(1),
+                asset: Asset::Other("USD".into()),
+            },
+        };
+        let summary = summarize_trades(&Asset::Btc, &Asset::Eur, &[trade]);
+
+        assert_eq!(summary.buys, 0);
+        assert_eq!(summary.unknown, 1);
+        assert_eq!(summary.spent.amount, Decimal::ZERO);
+    }
+
+    #[test]
+    fn summarize_sell_trade() {
+        // Selling BTC for EUR: spent=BTC, received=EUR (reverse of buy pair)
+        let trade = Trade {
+            date: Utc.with_ymd_and_hms(2025, 4, 1, 12, 0, 0).unwrap(),
+            spent: AssetAmount {
+                amount: dec!(0.005),
+                asset: Asset::Btc,
+            },
+            received: AssetAmount {
+                amount: dec!(300),
+                asset: Asset::Eur,
+            },
+            fee: AssetAmount {
+                amount: dec!(1.2),
+                asset: Asset::Eur,
+            },
+        };
+        let summary = summarize_trades(&Asset::Btc, &Asset::Eur, &[trade]);
+
+        assert_eq!(summary.buys, 0);
+        assert_eq!(summary.sells, 1);
+        assert_eq!(summary.unknown, 0);
+        // TODO(human): assert spent, received, and fees amounts for the sell case
     }
 }

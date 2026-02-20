@@ -1,6 +1,9 @@
 use std::path::Path;
 
-use app_core::{analysis, parser};
+use app_core::{
+    analysis::{self, summarize_trades},
+    parser::{self, Asset},
+};
 
 const SAMPLE_CSV: &str = "crates/core/fixtures/sample.csv";
 
@@ -9,8 +12,12 @@ fn main() {
     let entries = parser::parse_csv(Path::new(&path)).unwrap();
     let mut trades = analysis::find_trades(&entries);
     trades.sort_by_key(|t| t.date);
-    for trade in trades {
+    for trade in &trades {
         let side = trade.side_for(&parser::Asset::Btc);
         println!("BTC {:?}: {:#?}", side, trade);
     }
+    println!();
+    println!("=== summary BTC/EUR ===");
+    let summary = summarize_trades(&Asset::Btc, &Asset::Eur, &trades);
+    println!("{:#?}", summary);
 }

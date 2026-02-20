@@ -4,7 +4,6 @@
     "justfile": "just",
     ".env": "dotenv"
   },
-  "rust-analyzer.server.path": "rust-analyzer",
   "[rust]": {
     "editor.formatOnSave": true
   }
