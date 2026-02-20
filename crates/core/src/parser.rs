@@ -1,3 +1,4 @@
+use std::collections::HashMap;
 use std::fmt;
 use std::path::Path;
 
@@ -5,7 +6,8 @@ use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 use serde::Deserialize;
 
-use super::error::Result;
+use crate::errors::ParseResult;
+use crate::models::{Asset, AssetAmount, Trade};
 
 mod datetime_format {
     use chrono::{DateTime, NaiveDateTime, Utc};
@@ -26,7 +28,7 @@ mod datetime_format {
 
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
-pub enum EntryType {
+enum EntryType {
     Deposit,
     Trade,
     Withdrawal,
@@ -48,62 +50,27 @@ impl fmt::Display for EntryType {
     }
 }
 
-#[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
-#[serde(from = "String")]
-pub enum Asset {
-    Btc,
-    Eur,
-    Other(String),
-}
-
-impl From<String> for Asset {
-    fn from(s: String) -> Self {
-        match s.as_str() {
-            "BTC" | "XBT" => Self::Btc,
-            "EUR" => Self::Eur,
-            _ => Self::Other(s),
-        }
-    }
-}
-
-impl Asset {
-    pub fn to_str(&self) -> &str {
-        match self {
-            Self::Btc => "BTC",
-            Self::Eur => "EUR",
-            Self::Other(o) => o,
-        }
-    }
-}
-
-impl fmt::Display for Asset {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.pad(self.to_str())
-    }
-}
-
 #[derive(Deserialize, Debug)]
-pub struct LedgerEntry {
-    pub txid: String,
-    pub refid: String,
+#[allow(dead_code)]
+struct LedgerEntry {
+    txid: String,
+    refid: String,
     #[serde(with = "datetime_format")]
-    pub time: DateTime<Utc>,
+    time: DateTime<Utc>,
     #[serde(rename = "type")]
-    pub type_: EntryType,
-    pub subtype: String,
-    pub aclass: String,
-    pub subclass: String,
-    pub asset: Asset,
-    pub wallet: String,
-    pub amount: Decimal,
-    pub fee: Decimal,
-    pub balance: Decimal,
+    type_: EntryType,
+    subtype: String,
+    aclass: String,
+    subclass: String,
+    asset: Asset,
+    wallet: String,
+    amount: Decimal,
+    fee: Decimal,
+    balance: Decimal,
 }
 
 impl fmt::Display for LedgerEntry {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        // {:<20}  → left-align, pad to 20 chars
-        // {:>+18.10} → right-align, pad to 18 chars, show +/- sign, 10 decimal places
         write!(
             f,
             "{:<10.10} | {:<10.10} | {:<20} | {:<10.10} | {:<10.10} | {:<5} | {:>+15.10} | {:.10} | {:<15}",
@@ -116,13 +83,11 @@ impl fmt::Display for LedgerEntry {
             self.amount,
             self.fee,
             self.wallet,
-        )?;
-
-        Ok(())
+        )
     }
 }
 
-pub fn parse_csv(path: &Path) -> Result<Vec<LedgerEntry>> {
+fn parse_csv_entries(path: &Path) -> ParseResult<Vec<LedgerEntry>> {
     let mut reader = csv::Reader::from_path(path)?;
     let mut entries = Vec::new();
 
@@ -134,122 +99,257 @@ pub fn parse_csv(path: &Path) -> Result<Vec<LedgerEntry>> {
     Ok(entries)
 }
 
+fn find_trades(entries: &[LedgerEntry]) -> Vec<Trade> {
+    let mut by_refid = HashMap::<&str, Vec<&LedgerEntry>>::new();
+
+    for entry in entries {
+        by_refid.entry(&entry.refid).or_default().push(entry);
+    }
+
+    by_refid
+        .into_iter()
+        .filter_map(|(_, entries)| {
+            let [left, right] = *entries.as_slice() else {
+                return None;
+            };
+            match (&left.type_, &right.type_) {
+                (EntryType::Trade, EntryType::Trade)
+                | (EntryType::Spend, EntryType::Receive)
+                | (EntryType::Receive, EntryType::Spend) => Some((left, right)),
+                _ => None,
+            }
+        })
+        .map(|(left, right)| {
+            let (buy, sell) = if left.amount.is_sign_positive() {
+                (left, right)
+            } else {
+                (right, left)
+            };
+            Trade {
+                date: buy.time,
+                spent: AssetAmount {
+                    amount: sell.amount.abs(),
+                    asset: sell.asset.clone(),
+                },
+                received: AssetAmount {
+                    amount: buy.amount.abs(),
+                    asset: buy.asset.clone(),
+                },
+                fee: AssetAmount {
+                    amount: sell.fee.abs(),
+                    asset: sell.asset.clone(),
+                },
+            }
+        })
+        .collect()
+}
+
+pub(crate) fn parse_kraken_csv(path: &Path) -> ParseResult<Vec<Trade>> {
+    let entries = parse_csv_entries(path)?;
+    Ok(find_trades(&entries))
+}
+
 #[cfg(test)]
 mod tests {
-    use std::io::Write;
-
     use rust_decimal_macros::dec;
 
-    use super::{Asset, EntryType, parse_csv};
+    use super::*;
 
-    fn csv_tempfile(content: &str) -> std::path::PathBuf {
-        let path = std::env::temp_dir().join(format!(
-            "betc_test_{}.csv",
-            std::time::SystemTime::now()
-                .duration_since(std::time::UNIX_EPOCH)
-                .unwrap()
-                .as_nanos()
-        ));
-        let mut f = std::fs::File::create(&path).unwrap();
-        f.write_all(content.as_bytes()).unwrap();
-        path
-    }
+    mod csv {
+        use super::*;
 
-    // The CSV header that parse_csv expects (must match LedgerEntry fields).
-    // Reuse this constant in all parse_csv tests.
-    const CSV_HEADER: &str =
-        "txid,refid,time,type,subtype,aclass,subclass,asset,wallet,amount,fee,balance";
+        fn csv_tempfile(content: &str) -> std::path::PathBuf {
+            let path = std::env::temp_dir().join(format!(
+                "betc_test_{}.csv",
+                std::time::SystemTime::now()
+                    .duration_since(std::time::UNIX_EPOCH)
+                    .unwrap()
+                    .as_nanos()
+            ));
+            let mut f = std::fs::File::create(&path).unwrap();
+            use std::io::Write;
+            f.write_all(content.as_bytes()).unwrap();
+            path
+        }
 
-    #[test]
-    fn asset_from_btc() {
-        assert_eq!(Asset::from("BTC".to_string()), Asset::Btc)
-    }
+        const CSV_HEADER: &str =
+            "txid,refid,time,type,subtype,aclass,subclass,asset,wallet,amount,fee,balance";
 
-    #[test]
-    fn asset_from_xbt_is_btc() {
-        assert_eq!(Asset::from("XBT".to_string()), Asset::Btc)
-    }
+        #[test]
+        fn entry_type_display() {
+            assert_eq!(format!("{}", EntryType::Deposit), "deposit");
+            assert_eq!(format!("{}", EntryType::Withdrawal), "withdrawal");
+        }
 
-    #[test]
-    fn asset_from_eur() {
-        assert_eq!(Asset::from("EUR".to_string()), Asset::Eur)
-    }
-
-    #[test]
-    fn asset_from_unknown() {
-        assert_eq!(
-            Asset::from("MSC".to_string()),
-            Asset::Other("MSC".to_string())
-        )
-    }
-
-    #[test]
-    fn asset_to_str_roundtrip() {
-        assert_eq!(Asset::Btc.to_str(), "BTC");
-        assert_eq!(Asset::Other("MSC".to_string()).to_str(), "MSC");
-    }
-
-    #[test]
-    fn entry_type_display() {
-        assert_eq!(format!("{}", EntryType::Deposit), "deposit");
-        assert_eq!(format!("{}", EntryType::Withdrawal), "withdrawal");
-    }
-
-    #[test]
-    fn parse_csv_single_row() {
-        let csv = format!(
-            "{CSV_HEADER}\n\
+        #[test]
+        fn parse_csv_single_row() {
+            let csv = format!(
+                "{CSV_HEADER}\n\
             L3M4N5,MECOSFO-GY,2024-01-15 12:00:00,trade,,currency,,EUR,spot,-187.2514,0.749,1000.00"
-        );
-        let path = csv_tempfile(&csv);
+            );
+            let path = csv_tempfile(&csv);
+            let entries = parse_csv_entries(&path).unwrap();
+            std::fs::remove_file(&path).ok();
 
-        let entries = parse_csv(&path).unwrap();
-        std::fs::remove_file(&path).ok();
+            assert_eq!(entries.len(), 1);
+            let entry = &entries[0];
+            assert_eq!(entry.asset, Asset::Eur);
+            assert_eq!(entry.amount, dec!(-187.2514));
+            assert_eq!(entry.type_, EntryType::Trade);
+        }
 
-        assert_eq!(entries.len(), 1);
-        let entry = &entries[0];
-        assert_eq!(entry.asset, Asset::Eur);
-        assert_eq!(entry.amount, dec!(-187.2514));
-        assert_eq!(entry.type_, EntryType::Trade);
-    }
-
-    #[test]
-    fn parse_csv_multiple_rows() {
-        let csv = format!(
-            "{CSV_HEADER}\n\
+        #[test]
+        fn parse_csv_multiple_rows() {
+            let csv = format!(
+                "{CSV_HEADER}\n\
             TX1,REF-A,2024-01-15 12:00:00,trade,,currency,,EUR,spot,-187.2514,0.749,1000.00\n\
             TX2,REF-A,2024-01-15 12:00:00,trade,,currency,,BTC,spot,0.002,0,0.002\n\
             TX3,REF-B,2024-02-01 09:30:00,deposit,,currency,,EUR,spot,500.00,0,1500.00"
-        );
-        let path = csv_tempfile(&csv);
-        let entries = parse_csv(&path).unwrap();
-        std::fs::remove_file(&path).ok();
+            );
+            let path = csv_tempfile(&csv);
+            let entries = parse_csv_entries(&path).unwrap();
+            std::fs::remove_file(&path).ok();
 
-        assert_eq!(entries.len(), 3);
-        assert_eq!(entries[0].asset, Asset::Eur);
-        assert_eq!(entries[1].asset, Asset::Btc);
-        assert_eq!(entries[2].type_, EntryType::Deposit);
-    }
+            assert_eq!(entries.len(), 3);
+            assert_eq!(entries[0].asset, Asset::Eur);
+            assert_eq!(entries[1].asset, Asset::Btc);
+            assert_eq!(entries[2].type_, EntryType::Deposit);
+        }
 
-    #[test]
-    fn parse_csv_bad_date_returns_error() {
-        let csv = format!(
-            "{CSV_HEADER}\n\
+        #[test]
+        fn parse_csv_bad_date_returns_error() {
+            let csv = format!(
+                "{CSV_HEADER}\n\
             TX1,REF-A,not-a-date,trade,,currency,,EUR,spot,-100,0.5,900"
-        );
-        let path = csv_tempfile(&csv);
-        let result = parse_csv(&path);
-        std::fs::remove_file(&path).ok();
+            );
+            let path = csv_tempfile(&csv);
+            let result = parse_csv_entries(&path);
+            std::fs::remove_file(&path).ok();
 
-        assert!(result.is_err());
+            assert!(result.is_err());
+        }
+
+        #[test]
+        fn parse_csv_empty_returns_empty_vec() {
+            let path = csv_tempfile(CSV_HEADER);
+            let entries = parse_csv_entries(&path).unwrap();
+            std::fs::remove_file(&path).ok();
+
+            assert!(entries.is_empty());
+        }
     }
 
-    #[test]
-    fn parse_csv_empty_returns_empty_vec() {
-        let path = csv_tempfile(CSV_HEADER);
-        let entries = parse_csv(&path).unwrap();
-        std::fs::remove_file(&path).ok();
+    mod trades {
+        use super::*;
 
-        assert!(entries.is_empty());
+        #[test]
+        fn trade_trade_pair() {
+            let spend = make_entry(
+                "MECOSFO-GY",
+                EntryType::Trade,
+                Asset::Eur,
+                dec!(-187.2514),
+                dec!(0.749),
+            );
+            let receive = make_entry(
+                "MECOSFO-GY",
+                EntryType::Trade,
+                Asset::Btc,
+                dec!(0.0020104289),
+                Decimal::ZERO,
+            );
+            let result = find_trades(&[spend, receive]);
+            assert_eq!(result.len(), 1);
+            let trade = result.first().unwrap();
+            assert_eq!(trade.spent.amount, dec!(187.2514));
+            assert_eq!(trade.spent.asset, Asset::Eur);
+            assert_eq!(trade.received.amount, dec!(0.0020104289));
+            assert_eq!(trade.received.asset, Asset::Btc);
+            assert_eq!(trade.fee.amount, dec!(0.749));
+            assert_eq!(trade.fee.asset, Asset::Eur);
+        }
+
+        #[test]
+        fn spend_receive_pair() {
+            let a = make_entry(
+                "SPEND-001",
+                EntryType::Spend,
+                Asset::Eur,
+                dec!(-50),
+                dec!(0.25),
+            );
+            let b = make_entry(
+                "SPEND-001",
+                EntryType::Receive,
+                Asset::Btc,
+                dec!(0.001),
+                Decimal::ZERO,
+            );
+            let result = find_trades(&[a, b]);
+            assert_eq!(result.len(), 1);
+            let trade = &result[0];
+            assert_eq!(trade.spent.asset, Asset::Eur);
+            assert_eq!(trade.spent.amount, dec!(50));
+            assert_eq!(trade.received.asset, Asset::Btc);
+            assert_eq!(trade.received.amount, dec!(0.001));
+            assert_eq!(trade.fee.amount, dec!(0.25));
+        }
+
+        #[test]
+        fn earn_entries_excluded() {
+            let a = make_entry(
+                "EARN-001",
+                EntryType::Earn,
+                Asset::Btc,
+                dec!(-0.001),
+                Decimal::ZERO,
+            );
+            let b = make_entry(
+                "EARN-001",
+                EntryType::Earn,
+                Asset::Btc,
+                dec!(0.001),
+                Decimal::ZERO,
+            );
+            let result = find_trades(&[a, b]);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn deposit_only_excluded() {
+            let dep = make_entry(
+                "DEP-001",
+                EntryType::Deposit,
+                Asset::Eur,
+                dec!(1000),
+                Decimal::ZERO,
+            );
+            let result = find_trades(&[dep]);
+            assert!(result.is_empty());
+        }
+    }
+
+    fn make_entry(
+        refid: &str,
+        type_: EntryType,
+        asset: Asset,
+        amount: Decimal,
+        fee: Decimal,
+    ) -> LedgerEntry {
+        use chrono::TimeZone;
+        LedgerEntry {
+            txid: "TX001".into(),
+            refid: refid.into(),
+            time: Utc.with_ymd_and_hms(2024, 1, 15, 12, 0, 0).unwrap(),
+            type_,
+            subtype: String::new(),
+            aclass: "currency".into(),
+            subclass: String::new(),
+            asset,
+            wallet: String::new(),
+            amount,
+            fee,
+            balance: Decimal::ZERO,
+        }
     }
 }

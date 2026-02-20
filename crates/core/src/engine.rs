@@ -1,98 +1,56 @@
-use std::collections::HashMap;
+// engine.rs — BEP series, dashboard statistics & trade summaries
+//
+// Processes sorted trades and produces:
+// 1. BEP snapshots (one per trade) — the chart plots these as a stepped line
+// 2. Dashboard stats (aggregate) — stats cards on the main view
+// 3. Trade summaries — aggregate counts and totals for a given asset pair
+//
+// BEP = (counter_spent + fees - counter_received) / asset_held
+//
+// Example (3 trades):
+//
+//   BUY  100 EUR -> 0.001 BTC, fee 0.50
+//     held=0.001, spent=100, received=0, fees=0.50
+//     BEP = (100 + 0.50) / 0.001 = 100_500
+//
+//   BUY  200 EUR -> 0.003 BTC, fee 1.00
+//     held=0.004, spent=300, received=0, fees=1.50
+//     BEP = (300 + 1.50) / 0.004 = 75_375
+//
+//   SELL 0.001 BTC -> 120 EUR, fee 0.60
+//     held=0.003, spent=300, received=120, fees=2.10
+//     BEP = (300 + 2.10 - 120) / 0.003 = 60_700
 
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 
-use crate::parser::{Asset, EntryType, LedgerEntry};
+use crate::models::{Asset, AssetAmount, BepSnapshot, DashboardStats, Trade, TradesSummary};
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct AssetAmount {
-    pub amount: Decimal,
-    pub asset: Asset,
+// TODO(human):
+// Implement both functions. Trades must be pre-sorted by date.
+// - compute_bep_series: walk trades, skip non-matching pairs, accumulate running
+//   totals (asset_held, counter_spent, counter_received, fees), emit one BepSnapshot per trade.
+//   bep = None when asset_held is zero.
+// - compute_dashboard_stats: can delegate to compute_bep_series internally —
+//   last snapshot gives you the current BEP + totals, just add trade counts.
+
+pub(crate) fn compute_bep_series(
+    asset: &Asset,
+    counter: &Asset,
+    trades: &[Trade],
+) -> Vec<BepSnapshot> {
+    todo!()
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum TradeSide {
-    Buy,
-    Sell,
+pub(crate) fn compute_dashboard_stats(
+    asset: &Asset,
+    counter: &Asset,
+    trades: &[Trade],
+) -> DashboardStats {
+    todo!()
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct Trade {
-    pub date: DateTime<Utc>,
-    pub spent: AssetAmount,
-    pub received: AssetAmount,
-    pub fee: AssetAmount,
-}
-
-impl Trade {
-    pub fn side_for(&self, asset: &Asset) -> Option<TradeSide> {
-        match asset {
-            a if *a == self.spent.asset => Some(TradeSide::Sell),
-            a if *a == self.received.asset => Some(TradeSide::Buy),
-            _ => None,
-        }
-    }
-}
-
-pub fn find_trades(entries: &[LedgerEntry]) -> Vec<Trade> {
-    let mut by_refid = HashMap::<&str, Vec<&LedgerEntry>>::new();
-
-    for entry in entries {
-        by_refid.entry(&entry.refid).or_default().push(entry);
-    }
-
-    by_refid
-        .into_iter()
-        .filter_map(|(_, entries)| {
-            let [left, right] = *entries.as_slice() else {
-                return None;
-            };
-            match (&left.type_, &right.type_) {
-                (EntryType::Trade, EntryType::Trade)
-                | (EntryType::Spend, EntryType::Receive)
-                | (EntryType::Receive, EntryType::Spend) => Some((left, right)),
-                _ => None,
-            }
-        })
-        .map(|(left, right)| {
-            let (buy, sell) = if left.amount.is_sign_positive() {
-                (left, right)
-            } else {
-                (right, left)
-            };
-            Trade {
-                date: buy.time,
-                spent: AssetAmount {
-                    amount: sell.amount.abs(),
-                    asset: sell.asset.clone(),
-                },
-                received: AssetAmount {
-                    amount: buy.amount.abs(),
-                    asset: buy.asset.clone(),
-                },
-                fee: AssetAmount {
-                    amount: sell.fee.abs(),
-                    asset: sell.asset.clone(),
-                },
-            }
-        })
-        .collect()
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct TradesSummary {
-    pub total_trades: usize,
-    pub buys: usize,
-    pub sells: usize,
-    pub unknown: usize,
-    pub date_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
-    pub spent: AssetAmount,
-    pub received: AssetAmount,
-    pub fees: AssetAmount,
-}
-
-pub fn summarize_trades(
+pub(crate) fn summarize_trades(
     received_asset: &Asset,
     spent_asset: &Asset,
     trades: &[Trade],
@@ -154,139 +112,40 @@ mod tests {
     use chrono::TimeZone;
     use rust_decimal_macros::dec;
 
-    fn make_entry(
-        refid: &str,
-        type_: EntryType,
-        asset: Asset,
-        amount: Decimal,
-        fee: Decimal,
-    ) -> LedgerEntry {
-        use chrono::TimeZone;
-        LedgerEntry {
-            txid: "TX001".into(),
-            refid: refid.into(),
-            time: Utc.with_ymd_and_hms(2024, 1, 15, 12, 0, 0).unwrap(),
-            type_,
-            subtype: String::new(),
-            aclass: "currency".into(),
-            subclass: String::new(),
-            asset,
-            wallet: String::new(),
-            amount,
-            fee,
-            balance: Decimal::ZERO,
-        }
-    }
-
-    fn make_trade() -> Trade {
+    fn make_buy(y: i32, m: u32, d: u32, eur: Decimal, btc: Decimal, fee: Decimal) -> Trade {
         Trade {
-            date: Utc.with_ymd_and_hms(2024, 1, 15, 12, 0, 0).unwrap(),
+            date: Utc.with_ymd_and_hms(y, m, d, 12, 0, 0).unwrap(),
             spent: AssetAmount {
-                amount: dec!(187.2514),
+                amount: eur,
                 asset: Asset::Eur,
             },
             received: AssetAmount {
-                amount: dec!(0.0020104289),
+                amount: btc,
                 asset: Asset::Btc,
             },
             fee: AssetAmount {
-                amount: dec!(0.749),
+                amount: fee,
                 asset: Asset::Eur,
             },
         }
     }
 
-    #[test]
-    fn trade_trade_pair() {
-        let spend = make_entry(
-            "MECOSFO-GY",
-            EntryType::Trade,
-            Asset::Eur,
-            dec!(-187.2514),
-            dec!(0.749),
-        );
-        let receive = make_entry(
-            "MECOSFO-GY",
-            EntryType::Trade,
-            Asset::Btc,
-            dec!(0.0020104289),
-            Decimal::ZERO,
-        );
-        let result = find_trades(&[spend, receive]);
-        assert_eq!(result.len(), 1);
-        let trade = result.first().unwrap();
-        assert_eq!(trade.spent.amount, dec!(187.2514));
-        assert_eq!(trade.spent.asset, Asset::Eur);
-        assert_eq!(trade.received.amount, dec!(0.0020104289));
-        assert_eq!(trade.received.asset, Asset::Btc);
-        assert_eq!(trade.fee.amount, dec!(0.749));
-        assert_eq!(trade.fee.asset, Asset::Eur);
-    }
-
-    #[test]
-    fn spend_receive_pair() {
-        let a = make_entry(
-            "SPEND-001",
-            EntryType::Spend,
-            Asset::Eur,
-            dec!(-50),
-            dec!(0.25),
-        );
-        let b = make_entry(
-            "SPEND-001",
-            EntryType::Receive,
-            Asset::Btc,
-            dec!(0.001),
-            Decimal::ZERO,
-        );
-        let result = find_trades(&[a, b]);
-        assert_eq!(result.len(), 1);
-        let trade = &result[0];
-        assert_eq!(trade.spent.asset, Asset::Eur);
-        assert_eq!(trade.spent.amount, dec!(50));
-        assert_eq!(trade.received.asset, Asset::Btc);
-        assert_eq!(trade.received.amount, dec!(0.001));
-        assert_eq!(trade.fee.amount, dec!(0.25));
-    }
-
-    #[test]
-    fn earn_entries_excluded() {
-        let a = make_entry(
-            "EARN-001",
-            EntryType::Earn,
-            Asset::Btc,
-            dec!(-0.001),
-            Decimal::ZERO,
-        );
-        let b = make_entry(
-            "EARN-001",
-            EntryType::Earn,
-            Asset::Btc,
-            dec!(0.001),
-            Decimal::ZERO,
-        );
-        let result = find_trades(&[a, b]);
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn deposit_only_excluded() {
-        let dep = make_entry(
-            "DEP-001",
-            EntryType::Deposit,
-            Asset::Eur,
-            dec!(1000),
-            Decimal::ZERO,
-        );
-        let result = find_trades(&[dep]);
-        assert!(result.is_empty());
-    }
-
-    #[test]
-    fn trade_side_for() {
-        let trade = make_trade();
-        assert_eq!(trade.side_for(&Asset::Btc), Some(TradeSide::Buy));
-        assert_eq!(trade.side_for(&Asset::Eur), Some(TradeSide::Sell));
+    fn make_sell(y: i32, m: u32, d: u32, btc: Decimal, eur: Decimal, fee: Decimal) -> Trade {
+        Trade {
+            date: Utc.with_ymd_and_hms(y, m, d, 12, 0, 0).unwrap(),
+            spent: AssetAmount {
+                amount: btc,
+                asset: Asset::Btc,
+            },
+            received: AssetAmount {
+                amount: eur,
+                asset: Asset::Eur,
+            },
+            fee: AssetAmount {
+                amount: fee,
+                asset: Asset::Eur,
+            },
+        }
     }
 
     fn make_trade_at(
@@ -313,6 +172,66 @@ mod tests {
             },
         }
     }
+
+    // ── BEP series ──────────────────────────────────────────
+
+    #[test]
+    fn bep_two_buys() {
+        let trades = vec![
+            make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
+            make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
+        ];
+        let snaps = compute_bep_series(&Asset::Btc, &Asset::Eur, &trades);
+        assert_eq!(snaps.len(), 2);
+        assert_eq!(snaps[0].bep, Some(dec!(100500)));
+        assert_eq!(snaps[1].bep, Some(dec!(75375)));
+    }
+
+    #[test]
+    fn bep_buy_then_sell() {
+        let trades = vec![
+            make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
+            make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
+            make_sell(2025, 3, 1, dec!(0.001), dec!(120), dec!(0.60)),
+        ];
+        let snaps = compute_bep_series(&Asset::Btc, &Asset::Eur, &trades);
+        assert_eq!(snaps.len(), 3);
+        assert_eq!(snaps[2].asset_held, dec!(0.003));
+        assert_eq!(snaps[2].bep, Some(dec!(60700)));
+    }
+
+    #[test]
+    fn bep_sell_all_is_none() {
+        let trades = vec![
+            make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
+            make_sell(2025, 2, 1, dec!(0.001), dec!(120), dec!(0.60)),
+        ];
+        let snaps = compute_bep_series(&Asset::Btc, &Asset::Eur, &trades);
+        assert_eq!(snaps.len(), 2);
+        assert_eq!(snaps[1].asset_held, Decimal::ZERO);
+        assert_eq!(snaps[1].bep, None);
+    }
+
+    // ── Dashboard stats ─────────────────────────────────────
+
+    #[test]
+    fn dashboard_after_two_buys_and_sell() {
+        let trades = vec![
+            make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
+            make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
+            make_sell(2025, 3, 1, dec!(0.001), dec!(120), dec!(0.60)),
+        ];
+        let stats = compute_dashboard_stats(&Asset::Btc, &Asset::Eur, &trades);
+        assert_eq!(stats.bep, Some(dec!(60700)));
+        assert_eq!(stats.asset_held, dec!(0.003));
+        assert_eq!(stats.total_spent, dec!(300));
+        assert_eq!(stats.total_received, dec!(120));
+        assert_eq!(stats.total_fees, dec!(2.10));
+        assert_eq!(stats.buys, 2);
+        assert_eq!(stats.sells, 1);
+    }
+
+    // ── Trade summary ───────────────────────────────────────
 
     #[test]
     fn summarize_two_buys() {
@@ -351,7 +270,6 @@ mod tests {
 
     #[test]
     fn summarize_ignores_unrelated_pair() {
-        // ETH/USD trade should count as unknown when tracking BTC/EUR
         let trade = Trade {
             date: Utc.with_ymd_and_hms(2025, 3, 1, 12, 0, 0).unwrap(),
             spent: AssetAmount {
@@ -379,7 +297,6 @@ mod tests {
 
     #[test]
     fn summarize_btc_buy_with_wrong_fiat_is_unknown() {
-        // BTC/USD trade when tracking BTC/EUR — BTC side matches but EUR doesn't
         let trade = Trade {
             date: Utc.with_ymd_and_hms(2025, 3, 1, 12, 0, 0).unwrap(),
             spent: AssetAmount {
@@ -404,7 +321,6 @@ mod tests {
 
     #[test]
     fn summarize_sell_trade() {
-        // Selling BTC for EUR: spent=BTC, received=EUR (reverse of buy pair)
         let trade = Trade {
             date: Utc.with_ymd_and_hms(2025, 4, 1, 12, 0, 0).unwrap(),
             spent: AssetAmount {
@@ -425,6 +341,8 @@ mod tests {
         assert_eq!(summary.buys, 0);
         assert_eq!(summary.sells, 1);
         assert_eq!(summary.unknown, 0);
-        // TODO(human): assert spent, received, and fees amounts for the sell case
+        assert_eq!(summary.spent.amount, dec!(300));
+        assert_eq!(summary.received.amount, dec!(0.005));
+        assert_eq!(summary.fees.amount, dec!(1.2));
     }
 }

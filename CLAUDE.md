@@ -16,13 +16,35 @@ betc — Tauri 2 desktop app. Frontend: `src/` (Svelte 5 + TypeScript). Backend:
 
 ## Commands
 
+Use `just`
+
 ```
-pnpm install          # install deps
-pnpm dev              # vite dev server (:5173)
-pnpm tauri dev        # full desktop app dev mode
-pnpm tauri build      # native desktop bundle
-pnpm build            # frontend only (tsc + vite)
-pnpm check            # type-check svelte + ts
+Available recipes:
+    default
+
+    [build]
+    build        # Build native desktop bundle
+    build-web    # Build frontend only (tsc + vite)
+
+    [check]
+    check        # Check all (cargo + typecheck) [alias: c]
+
+    [dev]
+    dev          # Run full Tauri desktop app [alias: d]
+    dev-web      # Run Vite dev server only (:5173)
+
+    [examples]
+    example name # Run a core example by name (e.g. just example parse_csv)
+
+    [format]
+    fmt          # Format all [alias: f]
+
+    [lint]
+    lint         # Lint all [alias: l]
+
+    [test]
+    test         # Run all tests [alias: t]
+    test-core    # Run app-core tests only
 ```
 
 No test runner or linter configured.
@@ -57,6 +79,7 @@ Fetch docs directly via WebFetch — no index fetch needed.
 **URL pattern:** `https://v2.tauri.app/{section}/{topic}`
 
 Key paths:
+
 - Concepts: `concept/architecture`, `concept/process-model`, `concept/inter-process-communication`
 - Development: `develop/calling-rust`, `develop/calling-frontend`, `develop/configuration-files`, `develop/state-management`, `develop/resources`, `develop/sidecar`, `develop/plugins`, `develop/icons`
 - Security: `security/capabilities`, `security/permissions`, `security/scope`, `security/csp`
