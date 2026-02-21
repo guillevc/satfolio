@@ -146,7 +146,9 @@ fn find_trades(entries: &[LedgerEntry]) -> Vec<Trade> {
 
 pub(crate) fn parse_kraken_csv(path: &Path) -> ParseResult<Vec<Trade>> {
     let entries = parse_csv_entries(path)?;
-    Ok(find_trades(&entries))
+    let mut trades = find_trades(&entries);
+    trades.sort_by_key(|t| t.date);
+    Ok(trades)
 }
 
 #[cfg(test)]
