@@ -1,50 +1,19 @@
-// engine.rs — BEP series, dashboard statistics & trade summaries
-//
-// Processes sorted trades and produces:
-// 1. BEP snapshots (one per trade) — the chart plots these as a stepped line
-// 2. Dashboard stats (aggregate) — stats cards on the main view
-// 3. Trade summaries — aggregate counts and totals for a given asset pair
-//
-// BEP = (counter_spent + fees - counter_received) / asset_held
-//
-// Example (3 trades):
-//
-//   BUY  100 EUR -> 0.001 BTC, fee 0.50
-//     held=0.001, spent=100, received=0, fees=0.50
-//     BEP = (100 + 0.50) / 0.001 = 100_500
-//
-//   BUY  200 EUR -> 0.003 BTC, fee 1.00
-//     held=0.004, spent=300, received=0, fees=1.50
-//     BEP = (300 + 1.50) / 0.004 = 75_375
-//
-//   SELL 0.001 BTC -> 120 EUR, fee 0.60
-//     held=0.003, spent=300, received=120, fees=2.10
-//     BEP = (300 + 2.10 - 120) / 0.003 = 60_700
-
 use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 
 use crate::models::{Asset, AssetAmount, BepSnapshot, DashboardStats, Trade, TradesSummary};
 
-// TODO(human):
-// Implement both functions. Trades must be pre-sorted by date.
-// - compute_bep_series: walk trades, skip non-matching pairs, accumulate running
-//   totals (asset_held, counter_spent, counter_received, fees), emit one BepSnapshot per trade.
-//   bep = None when asset_held is zero.
-// - compute_dashboard_stats: can delegate to compute_bep_series internally —
-//   last snapshot gives you the current BEP + totals, just add trade counts.
-
-pub(crate) fn compute_bep_series(
-    asset: &Asset,
-    counter: &Asset,
+pub(crate) fn bep_series(
+    received_asset: &Asset,
+    spent_asset: &Asset,
     trades: &[Trade],
 ) -> Vec<BepSnapshot> {
     todo!()
 }
 
-pub(crate) fn compute_dashboard_stats(
-    asset: &Asset,
-    counter: &Asset,
+pub(crate) fn dashboard_stats(
+    received_asset: &Asset,
+    spent_asset: &Asset,
     trades: &[Trade],
 ) -> DashboardStats {
     todo!()
@@ -181,7 +150,7 @@ mod tests {
             make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
             make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
         ];
-        let snaps = compute_bep_series(&Asset::Btc, &Asset::Eur, &trades);
+        let snaps = bep_series(&Asset::Btc, &Asset::Eur, &trades);
         assert_eq!(snaps.len(), 2);
         assert_eq!(snaps[0].bep, Some(dec!(100500)));
         assert_eq!(snaps[1].bep, Some(dec!(75375)));
@@ -194,7 +163,7 @@ mod tests {
             make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
             make_sell(2025, 3, 1, dec!(0.001), dec!(120), dec!(0.60)),
         ];
-        let snaps = compute_bep_series(&Asset::Btc, &Asset::Eur, &trades);
+        let snaps = bep_series(&Asset::Btc, &Asset::Eur, &trades);
         assert_eq!(snaps.len(), 3);
         assert_eq!(snaps[2].asset_held, dec!(0.003));
         assert_eq!(snaps[2].bep, Some(dec!(60700)));
@@ -206,7 +175,7 @@ mod tests {
             make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
             make_sell(2025, 2, 1, dec!(0.001), dec!(120), dec!(0.60)),
         ];
-        let snaps = compute_bep_series(&Asset::Btc, &Asset::Eur, &trades);
+        let snaps = bep_series(&Asset::Btc, &Asset::Eur, &trades);
         assert_eq!(snaps.len(), 2);
         assert_eq!(snaps[1].asset_held, Decimal::ZERO);
         assert_eq!(snaps[1].bep, None);
@@ -221,7 +190,7 @@ mod tests {
             make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
             make_sell(2025, 3, 1, dec!(0.001), dec!(120), dec!(0.60)),
         ];
-        let stats = compute_dashboard_stats(&Asset::Btc, &Asset::Eur, &trades);
+        let stats = dashboard_stats(&Asset::Btc, &Asset::Eur, &trades);
         assert_eq!(stats.bep, Some(dec!(60700)));
         assert_eq!(stats.asset_held, dec!(0.003));
         assert_eq!(stats.total_spent, dec!(300));

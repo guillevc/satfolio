@@ -1,22 +1,38 @@
 use std::path::Path;
 
-use crate::engine;
 use crate::errors::CoreResult;
-use crate::models::{Asset, BepSnapshot, DashboardStats, Trade, TradesSummary};
-use crate::parser;
+use crate::models::*;
+use crate::{context::Context, db, engine, parser};
 
-pub fn import_csv(path: &Path) -> CoreResult<TradesSummary> {
-    let mut trades = parser::parse_kraken_csv(path)?;
-    // TODO: store in db
-    trades.sort_by_key(|t| t.date);
-    let summary = engine::summarize_trades(&Asset::Btc, &&Asset::Eur, &trades);
+// ── Import ──────────────────────────────────────────────
+
+pub fn preview_import(path: &Path) -> CoreResult<TradesSummary> {
+    let trades = parser::parse_kraken_csv(path)?;
+    let summary: TradesSummary = engine::summarize_trades(&Asset::Btc, &Asset::Eur, &trades);
     Ok(summary)
 }
 
-pub fn bep_series(asset: &Asset, counter: &Asset, trades: &[Trade]) -> Vec<BepSnapshot> {
-    engine::compute_bep_series(asset, counter, trades)
+pub fn confirm_import(ctx: &Context, path: &Path) -> CoreResult<TradesSummary> {
+    let trades = parser::parse_kraken_csv(path)?;
+    db::save_trades(&ctx.conn, &trades)?;
+    let summary: TradesSummary = engine::summarize_trades(&Asset::Btc, &Asset::Eur, &trades);
+    Ok(summary)
 }
 
-pub fn dashboard(asset: &Asset, counter: &Asset, trades: &[Trade]) -> DashboardStats {
-    engine::compute_dashboard_stats(asset, counter, trades)
+// ── Dashboard ───────────────────────────────────────────
+
+pub fn dashboard_stats(ctx: &Context) -> CoreResult<DashboardStats> {
+    let trades = db::load_trades(&ctx.conn)?;
+    let stats = engine::dashboard_stats(&Asset::Btc, &Asset::Eur, &trades);
+    Ok(stats)
+}
+
+pub fn bep_series(ctx: &Context) -> CoreResult<Vec<BepSnapshot>> {
+    let trades = db::load_trades(&ctx.conn)?;
+    let series = engine::bep_series(&Asset::Btc, &Asset::Eur, &trades);
+    Ok(series)
+}
+
+pub fn trades(ctx: &Context) -> CoreResult<Vec<Trade>> {
+    Ok(db::load_trades(&ctx.conn)?)
 }
