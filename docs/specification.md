@@ -23,7 +23,7 @@ The frontend is dumb. Rust owns all computation; the frontend receives structure
 
 - **Trade list** — parsed, normalized, stored in SQLite. Frontend renders the table.
 - **BEP time series** — sparse, one snapshot per trade event: `{ date, bep, btc_held, total_spent, total_received }`. Frontend plots it as a stepped line.
-- **Price series** — dense, one point per day: `{ date, close }`. ~4,000 rows from 2013 to today (~80KB JSON). Negligible over Tauri's in-process IPC.
+- **Price series** — dense, one candle per day: `{ date, open, high, low, close, volume, count }`. Full OHLC stored internally; frontend uses what it needs. ~4,000 rows from 2013 to today. Negligible over Tauri's in-process IPC.
 - **Dashboard stats** — current BEP, total held, total spent, total received, realized P&L total.
 - **Per-sell P&L** — each sell's realized gain (weighted average), attached to the trade.
 - **Tax view data** — FIFO lot matching per sell. Separate query.
@@ -43,25 +43,27 @@ BEP only changes on trade events, so there's no need to pre-compute P&L at every
 betc/
 ├── Cargo.toml              # workspace root
 ├── crates/
-│   └── core/               # betc-core: all business logic, zero Tauri knowledge
+│   └── core/               # app-core: all business logic, zero Tauri knowledge
 │       ├── Cargo.toml
 │       ├── src/
 │       │   ├── lib.rs
 │       │   ├── api.rs      # orchestration layer
+│       │   ├── context.rs  # Context struct (holds DB connection)
 │       │   ├── models.rs   # data types
 │       │   ├── errors.rs   # error + result types
-│       │   ├── parser.rs   # CSV → trades
+│       │   ├── parser.rs   # Kraken CSV → trades
 │       │   ├── engine.rs   # BEP computation
 │       │   ├── tax.rs      # cost basis lot matching
-│       │   ├── price.rs    # historical + live prices
-│       │   └── store.rs    # SQLite persistence
-│       ├── tests/
+│       │   ├── price.rs    # bundled CSV loading, Kraken OHLC + ticker HTTP
+│       │   └── db.rs       # SQLite persistence + migrations
+│       ├── fixtures/       # reduced test data (price CSVs, sample ledger)
 │       └── examples/
 ├── src-tauri/               # thin Tauri shell
 │   ├── Cargo.toml
 │   ├── src/
 │   │   ├── main.rs
 │   │   └── lib.rs           # #[tauri::command] one-liners
+│   ├── resources/prices/    # bundled full price CSVs (XBTEUR, XBTGBP, XBTUSD)
 │   └── tauri.conf.json
 ├── src/                     # Svelte frontend
 ├── package.json
@@ -76,20 +78,22 @@ One file per module, flat structure, no folders or `mod.rs`. Modern Rust convent
 crates/core/src/
 ├── lib.rs          # module declarations
 ├── api.rs          # orchestration
+├── context.rs      # Context struct (DB connection holder)
 ├── models.rs       # all data types
 ├── errors.rs       # all error + result types
-├── parser.rs       # CSV → trades
+├── parser.rs       # Kraken CSV → trades
 ├── engine.rs       # BEP math
 ├── tax.rs          # cost basis lots
-├── price.rs        # HTTP + bundled data
-└── store.rs        # SQLite
+├── price.rs        # bundled CSV + Kraken HTTP (OHLC gap-fill, live ticker)
+└── db.rs           # SQLite persistence + migrations
 ```
 
-**Module visibility** — `api`, `models`, and `errors` are public. Everything else is crate-internal:
+**Module visibility** — `api`, `context`, `models`, and `errors` are public. Everything else is crate-internal:
 
 ```rust
 // lib.rs
 pub mod api;       // public — the only way into core's logic
+pub mod context;   // public — Context appears in api signatures
 pub mod models;    // public — data types appear in api signatures
 pub mod errors;    // public — error and result types
 
@@ -97,60 +101,67 @@ mod parser;        // private — only reachable within this crate
 mod engine;        // private
 mod tax;           // private
 mod price;         // private
-mod store;         // private
+mod db;            // private
 ```
 
-Three public modules, each with a clear role: `models` for data types, `errors` for error and result types, `api` for functions. Private modules are visible to all siblings within the crate (`api.rs` can `use crate::parser`), but invisible from outside. The Tauri crate can only reach `betc_core::api`, `betc_core::models`, and `betc_core::errors`.
+Four public modules: `models` for data types, `errors` for error and result types, `context` for the DB connection holder, `api` for functions. Private modules are visible to all siblings within the crate (`api.rs` can `use crate::parser`), but invisible from outside. The Tauri crate can only reach `app_core::api`, `app_core::context`, `app_core::models`, and `app_core::errors`.
 
 ```
 api        orchestration (composes pure + IO)
-├── parser    pure: CSV → trades
+├── parser    pure: Kraken CSV → trades
 ├── engine    pure: trades → BEP, stats
 ├── tax       pure: trades → tax lots
-├── store     IO: SQLite reads/writes
-└── price     IO: HTTP + bundled data
+├── db        IO: SQLite reads/writes + migrations
+└── price     IO: bundled CSV + HTTP (OHLC gap-fill, live ticker)
 ```
 
-`parser`, `engine`, and `tax` are pure functions — no state, no IO, trivially testable. `store` wraps SQLite. `price` handles HTTP and bundled CSV loading. `api` composes them into workflows.
+`parser`, `engine`, and `tax` are pure functions — no state, no IO, trivially testable. `db` wraps SQLite with versioned migrations. `price` handles bundled CSV loading, Kraken OHLC API for gap-filling, and Kraken Ticker for live price. `api` composes them into workflows.
 
 ### Naming Convention
 
-- **LedgerRow**: raw CSV row (anything Kraken logged — deposits, withdrawals, staking, trades). Internal to `parser`, never exposed.
-- **Trade**: a normalized buy or sell that affects BEP. This is what the rest of the system works with.
+- **LedgerEntry**: raw CSV row (anything Kraken logged — deposits, withdrawals, staking, trades). Internal to `parser`, never exposed.
+- **Trade**: a normalized buy or sell. Uses `AssetAmount` (amount + asset) for `spent`, `received`, and `fee` fields. Direction determined by `side_for(pair)`.
+- **Candle**: daily OHLC price data. Full `{ date, open, high, low, close, volume, count }` stored internally; consumers use the fields they need.
+- **Asset**: universal identifier for any asset — `Btc`, `Eur`, `Gbp`, `Usd`, `Other(String)`. Handles Kraken's Z-prefixed codes (`ZEUR` → `Eur`). No separate `Currency` enum — `Asset` covers both crypto and fiat.
+- **AssetPair**: a `{ base, quote }` pair (e.g. BTC/EUR). Used by the engine to determine trade direction.
+- **Context**: holds the SQLite connection. Passed to `api` functions. Created via `Context::open(path)`.
 
 ### Signatures
 
 ```rust
 // lib.rs
 pub mod api;
+pub mod context;
 pub mod models;
 pub mod errors;
 
+mod db;
 mod engine;
 mod parser;
 mod price;
-mod store;
 mod tax;
 
 // models.rs — data types only
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum Currency { EUR, GBP, USD }
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
-pub enum TradeKind { Buy, Sell }
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Asset { Btc, Eur, Gbp, Usd, Other(String) }
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub struct AssetPair { base: Asset, quote: Asset }
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub struct AssetAmount { amount: Decimal, asset: Asset }  // checked arithmetic
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub enum TradeSide { Buy, Sell }
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum CostBasisMethod { WeightedAverage, Fifo }
 #[derive(Debug, Clone, Serialize)]
-pub struct Trade { id, date, kind, btc_amount, price, fee, total_fiat }
+pub struct Trade { date: DateTime<Utc>, spent: AssetAmount, received: AssetAmount, fee: AssetAmount }
 #[derive(Debug, Clone, Serialize)]
-pub struct BepSnapshot { date, bep, btc_held, total_spent, total_received }
+pub struct BepSnapshot { date, bep: Option<Decimal>, held, invested, proceeds, fees }
 #[derive(Debug, Clone, Serialize)]
-pub struct PricePoint { date, close }
+pub struct Candle { date: DateTime<Utc>, open, high, low, close: Decimal, volume: Decimal, count: u32 }
 #[derive(Debug, Clone, Serialize)]
-pub struct DashboardStats { current_bep, btc_held, total_spent, total_received, total_fees, realized_pnl }
+pub struct TradesSummary { total_trades, buys, sells, unknown, date_range, spent, received, fees }
 #[derive(Debug, Clone, Serialize)]
-pub struct ImportSummary { rows_parsed, rows_skipped, buys, sells, first_date, last_date, total_btc_bought, total_btc_sold, total_fiat_spent, total_fiat_received, total_fees, net_btc_held, warnings }
-#[derive(Debug, Clone, Serialize)]
-pub struct ImportWarning { line, message }
+pub struct PositionSummary { bep, held, invested, proceeds, fees, buys, sells }
 #[derive(Debug, Clone, Serialize)]
 pub struct TaxLot { sell_date, btc_amount, sell_price, assigned_cost, realized_pnl, lots_consumed }
 #[derive(Debug, Clone, Serialize)]
@@ -158,101 +169,103 @@ pub struct LotMatch { buy_date, btc_amount, cost_per_btc }
 
 // errors.rs — all error and result types
 #[derive(Debug, Error)]
-pub enum ParseError { Csv(#[from] csv::Error), Io(#[from] std::io::Error) }
+pub enum ParseError { Csv(#[from] csv::Error), Io(#[from] std::io::Error), InvalidRow { line, message } }
 #[derive(Debug, Error)]
-pub enum StoreError { Sqlite(#[from] rusqlite::Error) }
+pub enum DbError { Sql(#[from] rusqlite::Error) }
 #[derive(Debug, Error)]
-pub enum PriceError { Io(#[from] std::io::Error), Http(#[from] reqwest::Error), Csv(#[from] csv::Error) }
+pub enum PriceError { Io(#[from] std::io::Error), Csv(#[from] csv::Error), InvalidResponse(String), UnsupportedCurrency(String) }
 #[derive(Debug, Error)]
-pub enum CoreError { Parse(#[from] ParseError), Store(#[from] StoreError), Price(#[from] PriceError) }
+pub struct AssetMismatch { expected: Asset, got: Asset }
+#[derive(Debug, Error)]
+pub enum EngineError { AssetMismatch(#[from] AssetMismatch) }
+#[derive(Debug, Error)]
+pub enum CoreError { Parse(#[from] ParseError), Db(#[from] DbError), Price(#[from] PriceError), Engine(#[from] EngineError) }
 
 pub type ParseResult<T> = Result<T, ParseError>;
-pub type StoreResult<T> = Result<T, StoreError>;
+pub type DbResult<T> = Result<T, DbError>;
 pub type PriceResult<T> = Result<T, PriceError>;
+pub type EngineResult<T> = Result<T, EngineError>;
 pub type CoreResult<T> = Result<T, CoreError>;
 
-// parser.rs
-#[derive(Debug, Deserialize)]
-struct LedgerRow { txid, refid, time, type, subtype, aclass, asset, amount, fee, balance }
-
-pub fn parse_kraken_csv(path: &Path) -> ParseResult<(Vec<Trade>, Vec<ImportWarning>)>;
-
-// engine.rs
-pub fn compute_bep_series(trades: &[Trade]) -> Vec<BepSnapshot>;
-pub fn compute_dashboard_stats(trades: &[Trade]) -> DashboardStats;
-pub fn summarize_import(trades: &[Trade], warnings: &[ImportWarning]) -> ImportSummary;
-fn compute_realized_pnl(trades: &[Trade]) -> f64;
-
-// tax.rs
-pub fn compute_tax_lots(trades: &[Trade], method: CostBasisMethod) -> Vec<TaxLot>;
-fn compute_weighted_average(trades: &[Trade]) -> Vec<TaxLot>;
-fn compute_fifo(trades: &[Trade]) -> Vec<TaxLot>;
-
-// price.rs
-pub fn load_bundled_prices(currency: Currency) -> PriceResult<Vec<PricePoint>>;
-pub fn fetch_latest_price(currency: Currency) -> PriceResult<PricePoint>;
-pub fn fill_price_gap(bundled: &[PricePoint], currency: Currency) -> PriceResult<Vec<PricePoint>>;
-
-// store.rs
-pub struct Store { conn }
-
-impl Store {
-    pub fn open(path: &Path) -> StoreResult<Self>;
-    pub fn save_trades(&self, trades: &[Trade]) -> StoreResult<()>;
-    pub fn save_bep_series(&self, series: &[BepSnapshot]) -> StoreResult<()>;
-    pub fn save_prices(&self, prices: &[PricePoint], currency: Currency) -> StoreResult<()>;
-    pub fn get_trades(&self) -> StoreResult<Vec<Trade>>;
-    pub fn get_bep_series(&self) -> StoreResult<Vec<BepSnapshot>>;
-    pub fn get_prices(&self, currency: Currency) -> StoreResult<Vec<PricePoint>>;
-    pub fn has_trades(&self) -> StoreResult<bool>;
+// context.rs
+pub struct Context { conn: Connection }
+impl Context {
+    pub fn open(path: &Path) -> CoreResult<Self>;
 }
 
-// api.rs
-pub use crate::store::Store;
+// parser.rs
+struct LedgerEntry { txid, refid, time, type_, subtype, aclass, subclass, asset, wallet, amount, fee, balance }
+pub(crate) fn parse_kraken_csv(path: &Path) -> ParseResult<Vec<Trade>>;
 
-pub fn import_csv(path: &Path) -> CoreResult<ImportSummary>;
-pub fn confirm_import(path: &Path, store: &Store) -> CoreResult<()>;
-pub fn get_trades(store: &Store) -> CoreResult<Vec<Trade>>;
-pub fn get_bep_series(store: &Store) -> CoreResult<Vec<BepSnapshot>>;
-pub fn get_price_series(currency: Currency, store: &Store) -> CoreResult<Vec<PricePoint>>;
-pub fn get_dashboard_stats(store: &Store) -> CoreResult<DashboardStats>;
-pub fn get_tax_lots(method: CostBasisMethod, store: &Store) -> CoreResult<Vec<TaxLot>>;
+// engine.rs
+pub(crate) fn bep_snaps(pair: &AssetPair, trades: &[Trade]) -> EngineResult<BTreeMap<NaiveDate, BepSnapshot>>;
+pub(crate) fn position_summary(pair: &AssetPair, trades: &[Trade]) -> EngineResult<PositionSummary>;
+pub(crate) fn trades_summary(pair: &AssetPair, trades: &[Trade]) -> EngineResult<TradesSummary>;
+
+// tax.rs
+pub(crate) fn compute_tax_lots(trades: &[Trade], method: CostBasisMethod) -> Vec<TaxLot>;
+
+// price.rs
+pub(crate) fn load_bundled_prices(dir: &Path, quote: &Asset) -> PriceResult<Vec<Candle>>;
+pub(crate) fn fetch_ohlc(quote: &Asset, since: i64) -> PriceResult<Vec<Candle>>;
+pub(crate) fn fetch_ticker(quote: &Asset) -> PriceResult<Decimal>;
+
+// db.rs
+pub(crate) fn open(path: &Path) -> DbResult<Connection>;
+pub(crate) fn save_trades(conn: &Connection, trades: &[Trade]) -> DbResult<()>;
+pub(crate) fn load_trades(conn: &Connection) -> DbResult<Vec<Trade>>;
+pub(crate) fn save_candles(conn: &Connection, quote: &Asset, candles: &[Candle]) -> DbResult<()>;
+pub(crate) fn load_candles(conn: &Connection, quote: &Asset) -> DbResult<Vec<Candle>>;
+
+// api.rs — orchestration, all functions take &Context
+pub fn preview_import(path: &Path) -> CoreResult<TradesSummary>;
+pub fn confirm_import(ctx: &Context, path: &Path) -> CoreResult<TradesSummary>;
+pub fn candles(ctx: &Context, prices_dir: &Path, quote: &Asset) -> CoreResult<Vec<Candle>>;
+pub fn bep_snaps(ctx: &Context) -> CoreResult<BTreeMap<NaiveDate, BepSnapshot>>;
+pub fn position_summary(ctx: &Context) -> CoreResult<PositionSummary>;
+pub fn trades(ctx: &Context) -> CoreResult<Vec<Trade>>;
 ```
 
 From outside the crate, the full public surface is:
 
 ```rust
-betc_core::api::Store::open(...)
-betc_core::api::import_csv(...)
-betc_core::api::get_trades(...)
-betc_core::models::Trade
-betc_core::models::BepSnapshot
-betc_core::errors::CoreError
-betc_core::errors::CoreResult
+app_core::context::Context::open(...)
+app_core::api::preview_import(...)
+app_core::api::confirm_import(...)
+app_core::api::candles(...)
+app_core::api::bep_snaps(...)
+app_core::api::position_summary(...)
+app_core::api::trades(...)
+app_core::models::Trade
+app_core::models::Candle
+app_core::models::BepSnapshot
+app_core::errors::CoreError
+app_core::errors::CoreResult
 // ...
 ```
 
 ### Tauri Shell
 
-Every Tauri command is a one-liner: extract `State<Store>`, call `betc_core::api`, map the error.
+Every Tauri command is a one-liner: extract `State<Context>`, call `app_core::api`, map the error.
 
 ```rust
 #[tauri::command]
-fn import_csv(path: PathBuf, store: State<Store>) -> Result<ImportSummary, AppError> {
-    Ok(betc_core::api::import_csv(&path, &store)?)
+fn preview_import(path: PathBuf) -> Result<TradesSummary, AppError> {
+    Ok(app_core::api::preview_import(&path)?)
 }
 
 #[tauri::command]
-fn confirm_import(path: PathBuf, store: State<Store>) -> Result<(), AppError> {
-    Ok(betc_core::api::confirm_import(&path, &store)?)
+fn confirm_import(path: PathBuf, ctx: State<Context>) -> Result<TradesSummary, AppError> {
+    Ok(app_core::api::confirm_import(&ctx, &path)?)
 }
 ```
 
-Live price is the only Tauri-specific concern — a background task that polls and emits events:
+Live price polling is a Tauri background task, but the HTTP call itself lives in `app-core` (`price::fetch_ticker`). Tauri handles only scheduling and event emission:
 
 ```rust
-// Backend emits every ~30s
-app.emit("price_tick", PriceTick { price: 97420.0, currency: Currency::EUR });
+// Tauri background task every ~30s
+let price = app_core::price::fetch_ticker(&quote)?;  // core does the HTTP call
+app.emit("price_tick", PriceTick { price, quote });   // Tauri emits the event
 ```
 
 ```typescript
@@ -263,7 +276,7 @@ listen("price_tick", (event) => {
 });
 ```
 
-Nine commands, one event. The Tauri crate has no business logic.
+The Tauri crate has no business logic — only command wiring, state management, and event scheduling.
 
 ## Core Principle: Dashboard vs Tax Layer
 
@@ -322,9 +335,11 @@ Export to CSV for external use.
 
 ### 6. Historical Price Data
 
-The app ships with bundled CSVs of daily BTC close prices for EUR, GBP, and USD from 2013 to the release date (~4,000 rows each, negligible file size). On launch, it loads the selected currency's data into SQLite and fills the gap from the last bundled date to today using Kraken's public Ticker endpoint. Daily updates are a single HTTP call.
+The app ships with bundled CSVs of daily BTC OHLC candles for EUR, GBP, and USD from 2013 to the release date (~4,000 rows each, negligible file size). Stored as full OHLC candles (`Candle` type: date, open, high, low, close, volume, count).
 
-No API keys required. Kraken's public Ticker endpoint (unauthenticated) is the sole external dependency. The bundled CSVs are updated with each app release, so the app renders a chart instantly on first launch.
+**Data flow**: On first call to `api::candles()`, bundled CSVs are parsed and saved to SQLite. If the most recent candle is older than today, the gap is filled via Kraken's public OHLC API (`/0/public/OHLC?pair=XBTEUR&interval=1440&since={timestamp}`). The DB uses `UNIQUE(quote, date)` with upsert, so overlapping candles from gap-fills are safely overwritten. Subsequent calls read directly from DB.
+
+No API keys required. Kraken's public OHLC endpoint (unauthenticated) is the sole external dependency for historical data. Live price uses the separate Ticker endpoint. The bundled CSVs are updated with each app release, so the app renders a chart instantly on first launch.
 
 ### 7. Realized Gains
 
