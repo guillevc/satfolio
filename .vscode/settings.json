@@ -7,6 +7,5 @@
   "[rust]": {
     "editor.formatOnSave": true
   },
-  "rust-analyzer.server.path": "rust-analyzer",
   "mise.autoDetectMiseBinPath": true
 }
