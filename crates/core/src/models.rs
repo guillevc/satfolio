@@ -1,8 +1,10 @@
 use std::fmt;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+
+use crate::errors::AssetMismatch;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash)]
 #[serde(from = "String")]
@@ -23,7 +25,7 @@ impl From<String> for Asset {
 }
 
 impl Asset {
-    pub fn to_str(&self) -> &str {
+    pub fn as_str(&self) -> &str {
         match self {
             Self::Btc => "BTC",
             Self::Eur => "EUR",
@@ -34,14 +36,64 @@ impl Asset {
 
 impl fmt::Display for Asset {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.pad(self.to_str())
+        f.pad(self.as_str())
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub struct AssetPair {
+    pub base: Asset,
+    pub quote: Asset,
+}
+
+impl fmt::Display for AssetPair {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}/{}", self.base, self.quote)
     }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct AssetAmount {
-    pub amount: Decimal,
-    pub asset: Asset,
+    amount: Decimal,
+    asset: Asset,
+}
+
+impl AssetAmount {
+    pub fn new(amount: Decimal, asset: Asset) -> Self {
+        Self { amount, asset }
+    }
+
+    pub fn zero(asset: Asset) -> Self {
+        Self::new(Decimal::ZERO, asset)
+    }
+
+    pub fn amount(&self) -> Decimal {
+        self.amount
+    }
+
+    pub fn asset(&self) -> &Asset {
+        &self.asset
+    }
+
+    pub fn checked_add(&self, rhs: &AssetAmount) -> Result<AssetAmount, AssetMismatch> {
+        if self.asset != rhs.asset {
+            return Err(AssetMismatch {
+                expected: self.asset.clone(),
+                got: rhs.asset.clone(),
+            });
+        }
+        Ok(Self::new(self.amount + rhs.amount, self.asset.clone()))
+    }
+
+    pub fn checked_sub(&self, rhs: &AssetAmount) -> Result<AssetAmount, AssetMismatch> {
+        if self.asset != rhs.asset {
+            return Err(AssetMismatch {
+                expected: self.asset.clone(),
+                got: rhs.asset.clone(),
+            });
+        }
+        Ok(Self::new(self.amount - rhs.amount, self.asset.clone()))
+    }
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
@@ -59,11 +111,14 @@ pub struct Trade {
 }
 
 impl Trade {
-    pub fn side_for(&self, asset: &Asset) -> Option<TradeSide> {
-        match asset {
-            a if *a == self.spent.asset => Some(TradeSide::Sell),
-            a if *a == self.received.asset => Some(TradeSide::Buy),
-            _ => None,
+    pub fn side_for(&self, pair: &AssetPair) -> Option<TradeSide> {
+        let trade_pair = (self.spent.asset(), self.received.asset());
+        if trade_pair == (&pair.quote, &pair.base) {
+            Some(TradeSide::Buy)
+        } else if trade_pair == (&pair.base, &pair.quote) {
+            Some(TradeSide::Sell)
+        } else {
+            None
         }
     }
 }
@@ -82,21 +137,21 @@ pub struct TradesSummary {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct BepSnapshot {
-    pub date: DateTime<Utc>,
-    pub asset_held: Decimal,
-    pub counter_spent: Decimal,
-    pub counter_received: Decimal,
-    pub fees: Decimal,
+    pub date: NaiveDate,
+    pub held: AssetAmount,
+    pub spent: AssetAmount,
+    pub received: AssetAmount,
+    pub fees: AssetAmount,
     pub bep: Option<Decimal>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-pub struct DashboardStats {
+pub struct PositionSummary {
     pub bep: Option<Decimal>,
-    pub asset_held: Decimal,
-    pub total_spent: Decimal,
-    pub total_received: Decimal,
-    pub total_fees: Decimal,
+    pub held: AssetAmount,
+    pub spent: AssetAmount,
+    pub received: AssetAmount,
+    pub fees: AssetAmount,
     pub buys: usize,
     pub sells: usize,
 }
@@ -131,29 +186,33 @@ mod tests {
     }
 
     #[test]
-    fn asset_to_str_roundtrip() {
-        assert_eq!(Asset::Btc.to_str(), "BTC");
-        assert_eq!(Asset::Other("MSC".to_string()).to_str(), "MSC");
+    fn asset_as_str_roundtrip() {
+        assert_eq!(Asset::Btc.as_str(), "BTC");
+        assert_eq!(Asset::Other("MSC".to_string()).as_str(), "MSC");
     }
 
     #[test]
     fn trade_side_for() {
+        let btc_eur = AssetPair {
+            base: Asset::Btc,
+            quote: Asset::Eur,
+        };
         let trade = Trade {
             date: Utc.with_ymd_and_hms(2024, 1, 15, 12, 0, 0).unwrap(),
-            spent: AssetAmount {
-                amount: dec!(187.2514),
-                asset: Asset::Eur,
-            },
-            received: AssetAmount {
-                amount: dec!(0.0020104289),
-                asset: Asset::Btc,
-            },
-            fee: AssetAmount {
-                amount: dec!(0.749),
-                asset: Asset::Eur,
-            },
+            spent: AssetAmount::new(dec!(187.2514), Asset::Eur),
+            received: AssetAmount::new(dec!(0.0020104289), Asset::Btc),
+            fee: AssetAmount::new(dec!(0.749), Asset::Eur),
         };
-        assert_eq!(trade.side_for(&Asset::Btc), Some(TradeSide::Buy));
-        assert_eq!(trade.side_for(&Asset::Eur), Some(TradeSide::Sell));
+        assert_eq!(trade.side_for(&btc_eur), Some(TradeSide::Buy));
+        let eur_btc = AssetPair {
+            base: Asset::Eur,
+            quote: Asset::Btc,
+        };
+        assert_eq!(trade.side_for(&eur_btc), Some(TradeSide::Sell));
+        let btc_usd = AssetPair {
+            base: Asset::Btc,
+            quote: Asset::Other("USD".into()),
+        };
+        assert_eq!(trade.side_for(&btc_usd), None);
     }
 }

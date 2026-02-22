@@ -2,6 +2,6 @@
   "recommendations": [
     "svelte.svelte-vscode",
     "tauri-apps.tauri-vscode",
-    "loong-vsx.rust-analyzer"
+    "rust-lang.rust-analyzer"
   ]
 }

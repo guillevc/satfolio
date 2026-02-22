@@ -89,14 +89,7 @@ impl fmt::Display for LedgerEntry {
 
 fn parse_csv_entries(path: &Path) -> ParseResult<Vec<LedgerEntry>> {
     let mut reader = csv::Reader::from_path(path)?;
-    let mut entries = Vec::new();
-
-    for result in reader.deserialize() {
-        let entry: LedgerEntry = result?;
-        entries.push(entry);
-    }
-
-    Ok(entries)
+    Ok(reader.deserialize().collect::<Result<Vec<_>, csv::Error>>()?)
 }
 
 fn find_trades(entries: &[LedgerEntry]) -> Vec<Trade> {
@@ -127,18 +120,9 @@ fn find_trades(entries: &[LedgerEntry]) -> Vec<Trade> {
             };
             Trade {
                 date: buy.time,
-                spent: AssetAmount {
-                    amount: sell.amount.abs(),
-                    asset: sell.asset.clone(),
-                },
-                received: AssetAmount {
-                    amount: buy.amount.abs(),
-                    asset: buy.asset.clone(),
-                },
-                fee: AssetAmount {
-                    amount: sell.fee.abs(),
-                    asset: sell.asset.clone(),
-                },
+                spent: AssetAmount::new(sell.amount.abs(), sell.asset.clone()),
+                received: AssetAmount::new(buy.amount.abs(), buy.asset.clone()),
+                fee: AssetAmount::new(sell.fee.abs(), sell.asset.clone()),
             }
         })
         .collect()
@@ -263,12 +247,12 @@ mod tests {
             let result = find_trades(&[spend, receive]);
             assert_eq!(result.len(), 1);
             let trade = result.first().unwrap();
-            assert_eq!(trade.spent.amount, dec!(187.2514));
-            assert_eq!(trade.spent.asset, Asset::Eur);
-            assert_eq!(trade.received.amount, dec!(0.0020104289));
-            assert_eq!(trade.received.asset, Asset::Btc);
-            assert_eq!(trade.fee.amount, dec!(0.749));
-            assert_eq!(trade.fee.asset, Asset::Eur);
+            assert_eq!(trade.spent.amount(), dec!(187.2514));
+            assert_eq!(*trade.spent.asset(), Asset::Eur);
+            assert_eq!(trade.received.amount(), dec!(0.0020104289));
+            assert_eq!(*trade.received.asset(), Asset::Btc);
+            assert_eq!(trade.fee.amount(), dec!(0.749));
+            assert_eq!(*trade.fee.asset(), Asset::Eur);
         }
 
         #[test]
@@ -290,11 +274,11 @@ mod tests {
             let result = find_trades(&[a, b]);
             assert_eq!(result.len(), 1);
             let trade = &result[0];
-            assert_eq!(trade.spent.asset, Asset::Eur);
-            assert_eq!(trade.spent.amount, dec!(50));
-            assert_eq!(trade.received.asset, Asset::Btc);
-            assert_eq!(trade.received.amount, dec!(0.001));
-            assert_eq!(trade.fee.amount, dec!(0.25));
+            assert_eq!(*trade.spent.asset(), Asset::Eur);
+            assert_eq!(trade.spent.amount(), dec!(50));
+            assert_eq!(*trade.received.asset(), Asset::Btc);
+            assert_eq!(trade.received.amount(), dec!(0.001));
+            assert_eq!(trade.fee.amount(), dec!(0.25));
         }
 
         #[test]

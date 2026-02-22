@@ -1,3 +1,4 @@
+use crate::models::Asset;
 use thiserror::Error;
 
 #[derive(Debug, Error)]
@@ -27,6 +28,19 @@ pub enum PriceError {
     InvalidResponse(String),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq, Error)]
+#[error("asset mismatch: expected {expected}, got {got}")]
+pub struct AssetMismatch {
+    pub expected: Asset,
+    pub got: Asset,
+}
+
+#[derive(Debug, Error)]
+pub enum EngineError {
+    #[error(transparent)]
+    AssetMismatch(#[from] AssetMismatch),
+}
+
 #[derive(Debug, Error)]
 pub enum CoreError {
     #[error(transparent)]
@@ -37,9 +51,13 @@ pub enum CoreError {
 
     #[error(transparent)]
     Price(#[from] PriceError),
+
+    #[error(transparent)]
+    Engine(#[from] EngineError),
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;
 pub type DbResult<T> = Result<T, DbError>;
 pub type PriceResult<T> = Result<T, PriceError>;
+pub type EngineResult<T> = Result<T, EngineError>;
 pub type CoreResult<T> = Result<T, CoreError>;
