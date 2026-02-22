@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use app_core::{api, context::Context};
+use app_core::{api, context::Context, models::Asset};
 
 const SAMPLE_CSV: &str = "crates/core/fixtures/sample.csv";
 
@@ -8,8 +8,12 @@ fn main() {
     let path = std::env::args().nth(1).unwrap_or(SAMPLE_CSV.to_string());
     let path = Path::new(&path);
 
+    // ── persist to DB, then query ──────────────────────────
+    let db_path = std::env::temp_dir().join("betc_engine_example.db");
+    let ctx = Context::open(&db_path, Asset::Eur).unwrap();
+
     // ── trades_summary (via preview_import) ────────────────
-    let summary = api::preview_import(path).unwrap();
+    let summary = api::preview_import(&ctx, path).unwrap();
     println!("=== Trades Summary ===");
     println!(
         "{} trades ({} buys, {} sells, {} unknown)",
@@ -21,10 +25,6 @@ fn main() {
     println!("Spent:    {} {}", summary.spent.amount(), summary.spent.asset());
     println!("Received: {} {}", summary.received.amount(), summary.received.asset());
     println!("Fees:     {} {}", summary.fees.amount(), summary.fees.asset());
-
-    // ── persist to DB, then query ──────────────────────────
-    let db_path = std::env::temp_dir().join("betc_engine_example.db");
-    let ctx = Context::open(&db_path).unwrap();
     api::confirm_import(&ctx, path).unwrap();
 
     // ── position_summary ───────────────────────────────────

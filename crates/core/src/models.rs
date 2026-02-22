@@ -141,7 +141,6 @@ pub struct TradesSummary {
     pub fees: AssetAmount,
 }
 
-// TODO: migrate date to DateTime<Utc> for consistency with Trade and Candle
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct BepSnapshot {
     pub date: NaiveDate,
@@ -165,7 +164,7 @@ pub struct PositionSummary {
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct Candle {
-    pub date: DateTime<Utc>,
+    pub date: NaiveDate,
     pub open: Decimal,
     pub high: Decimal,
     pub low: Decimal,

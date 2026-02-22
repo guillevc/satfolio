@@ -27,6 +27,9 @@ pub enum PriceError {
     #[error("CSV error: {0}")]
     Csv(#[from] csv::Error),
 
+    #[error("HTTP error: {0}")]
+    Http(#[from] reqwest::Error),
+
     #[error("Invalid API response: {0}")]
     InvalidResponse(String),
 

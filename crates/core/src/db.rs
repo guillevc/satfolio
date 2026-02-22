@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use rusqlite::{Connection, params};
 use rust_decimal::Decimal;
 
@@ -125,7 +125,7 @@ pub(crate) fn save_candles(conn: &Connection, quote: &Asset, candles: &[Candle])
     for c in candles {
         stmt.execute(params![
             quote_str,
-            c.date.to_rfc3339(),
+            c.date.to_string(),
             c.open.to_string(),
             c.high.to_string(),
             c.low.to_string(),
@@ -153,9 +153,7 @@ pub(crate) fn load_candles(conn: &Connection, quote: &Asset) -> DbResult<Vec<Can
         let volume: String = row.get(5)?;
         let count: u32 = row.get(6)?;
         Ok(Candle {
-            date: DateTime::parse_from_rfc3339(&date)
-                .unwrap()
-                .with_timezone(&Utc),
+            date: date.parse().unwrap(),
             open: Decimal::from_str_exact(&open).unwrap(),
             high: Decimal::from_str_exact(&high).unwrap(),
             low: Decimal::from_str_exact(&low).unwrap(),
@@ -235,7 +233,7 @@ mod tests {
 
     fn sample_candle(year: i32, month: u32, day: u32, close: Decimal) -> Candle {
         Candle {
-            date: Utc.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap(),
+            date: NaiveDate::from_ymd_opt(year, month, day).unwrap(),
             open: close,
             high: close,
             low: close,
