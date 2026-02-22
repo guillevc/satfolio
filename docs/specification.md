@@ -124,7 +124,7 @@ api        orchestration (composes pure + IO)
 - **Candle**: daily OHLC price data. Full `{ date, open, high, low, close, volume, count }` stored internally; consumers use the fields they need.
 - **Asset**: universal identifier for any asset — `Btc`, `Eur`, `Gbp`, `Usd`, `Other(String)`. Handles Kraken's Z-prefixed codes (`ZEUR` → `Eur`). No separate `Currency` enum — `Asset` covers both crypto and fiat.
 - **AssetPair**: a `{ base, quote }` pair (e.g. BTC/EUR). Used by the engine to determine trade direction.
-- **Context**: holds the SQLite connection. Passed to `api` functions. Created via `Context::open(path)`.
+- **Context**: holds the SQLite connection and the user's selected quote currency. Passed to `api` functions. Created via `Context::open(path, quote)`.
 
 ### Signatures
 
@@ -157,7 +157,7 @@ pub struct Trade { date: DateTime<Utc>, spent: AssetAmount, received: AssetAmoun
 #[derive(Debug, Clone, Serialize)]
 pub struct BepSnapshot { date, bep: Option<Decimal>, held, invested, proceeds, fees }
 #[derive(Debug, Clone, Serialize)]
-pub struct Candle { date: DateTime<Utc>, open, high, low, close: Decimal, volume: Decimal, count: u32 }
+pub struct Candle { date: NaiveDate, open, high, low, close: Decimal, volume: Decimal, count: u32 }
 #[derive(Debug, Clone, Serialize)]
 pub struct TradesSummary { total_trades, buys, sells, unknown, date_range, spent, received, fees }
 #[derive(Debug, Clone, Serialize)]
@@ -173,7 +173,7 @@ pub enum ParseError { Csv(#[from] csv::Error), Io(#[from] std::io::Error), Inval
 #[derive(Debug, Error)]
 pub enum DbError { Sql(#[from] rusqlite::Error) }
 #[derive(Debug, Error)]
-pub enum PriceError { Io(#[from] std::io::Error), Csv(#[from] csv::Error), InvalidResponse(String), UnsupportedCurrency(String) }
+pub enum PriceError { Io(#[from] std::io::Error), Csv(#[from] csv::Error), Http(#[from] reqwest::Error), InvalidResponse(String), UnsupportedCurrency(String) }
 #[derive(Debug, Error)]
 pub struct AssetMismatch { expected: Asset, got: Asset }
 #[derive(Debug, Error)]
@@ -188,9 +188,10 @@ pub type EngineResult<T> = Result<T, EngineError>;
 pub type CoreResult<T> = Result<T, CoreError>;
 
 // context.rs
-pub struct Context { conn: Connection }
+pub struct Context { conn: Connection, quote: Asset }
 impl Context {
-    pub fn open(path: &Path) -> CoreResult<Self>;
+    pub fn open(path: &Path, quote: Asset) -> CoreResult<Self>;
+    pub fn quote(&self) -> &Asset;
 }
 
 // parser.rs
@@ -207,7 +208,7 @@ pub(crate) fn compute_tax_lots(trades: &[Trade], method: CostBasisMethod) -> Vec
 
 // price.rs
 pub(crate) fn load_bundled_prices(dir: &Path, quote: &Asset) -> PriceResult<Vec<Candle>>;
-pub(crate) fn fetch_ohlc(quote: &Asset, since: i64) -> PriceResult<Vec<Candle>>;
+pub(crate) fn fetch_ohlc(quote: &Asset, since: NaiveDate) -> PriceResult<Vec<Candle>>;
 pub(crate) fn fetch_ticker(quote: &Asset) -> PriceResult<Decimal>;
 
 // db.rs
@@ -217,10 +218,10 @@ pub(crate) fn load_trades(conn: &Connection) -> DbResult<Vec<Trade>>;
 pub(crate) fn save_candles(conn: &Connection, quote: &Asset, candles: &[Candle]) -> DbResult<()>;
 pub(crate) fn load_candles(conn: &Connection, quote: &Asset) -> DbResult<Vec<Candle>>;
 
-// api.rs — orchestration, all functions take &Context
-pub fn preview_import(path: &Path) -> CoreResult<TradesSummary>;
+// api.rs — orchestration, most functions take &Context
+pub fn preview_import(quote: &Asset, path: &Path) -> CoreResult<TradesSummary>;
 pub fn confirm_import(ctx: &Context, path: &Path) -> CoreResult<TradesSummary>;
-pub fn candles(ctx: &Context, prices_dir: &Path, quote: &Asset) -> CoreResult<Vec<Candle>>;
+pub fn candles(ctx: &Context, prices_dir: &Path) -> CoreResult<Vec<Candle>>;
 pub fn bep_snaps(ctx: &Context) -> CoreResult<BTreeMap<NaiveDate, BepSnapshot>>;
 pub fn position_summary(ctx: &Context) -> CoreResult<PositionSummary>;
 pub fn trades(ctx: &Context) -> CoreResult<Vec<Trade>>;
@@ -230,9 +231,9 @@ From outside the crate, the full public surface is:
 
 ```rust
 app_core::context::Context::open(...)
-app_core::api::preview_import(...)
-app_core::api::confirm_import(...)
-app_core::api::candles(...)
+app_core::api::preview_import(quote, path)
+app_core::api::confirm_import(ctx, path)
+app_core::api::candles(ctx, prices_dir)
 app_core::api::bep_snaps(...)
 app_core::api::position_summary(...)
 app_core::api::trades(...)
@@ -250,8 +251,8 @@ Every Tauri command is a one-liner: extract `State<Context>`, call `app_core::ap
 
 ```rust
 #[tauri::command]
-fn preview_import(path: PathBuf) -> Result<TradesSummary, AppError> {
-    Ok(app_core::api::preview_import(&path)?)
+fn preview_import(path: PathBuf, ctx: State<Context>) -> Result<TradesSummary, AppError> {
+    Ok(app_core::api::preview_import(ctx.quote(), &path)?)
 }
 
 #[tauri::command]
