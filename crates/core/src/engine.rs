@@ -13,33 +13,36 @@ pub(crate) fn bep_snaps(
 ) -> EngineResult<BTreeMap<NaiveDate, BepSnapshot>> {
     let mut snaps = BTreeMap::new();
     let mut held = AssetAmount::zero(pair.base.clone());
-    let mut spent = AssetAmount::zero(pair.quote.clone());
-    let mut received = AssetAmount::zero(pair.quote.clone());
+    let mut invested = AssetAmount::zero(pair.quote.clone());
+    let mut proceeds = AssetAmount::zero(pair.quote.clone());
     let mut fees = AssetAmount::zero(pair.quote.clone());
     for trade in trades {
         let date = trade.date.date_naive();
         match trade.side_for(pair) {
             Some(TradeSide::Buy) => {
                 held = held.checked_add(&trade.received)?;
-                spent = spent.checked_add(&trade.spent)?;
+                invested = invested.checked_add(&trade.spent)?;
                 fees = fees.checked_add(&trade.fee)?;
             }
             Some(TradeSide::Sell) => {
                 held = held.checked_sub(&trade.spent)?;
-                received = received.checked_add(&trade.received)?;
+                proceeds = proceeds.checked_add(&trade.received)?;
                 fees = fees.checked_add(&trade.fee)?;
             }
             None => continue,
         }
-        let bep =
-            spent.checked_sub(&received)?.checked_add(&fees)?.amount().checked_div(held.amount());
+        let bep = invested
+            .checked_sub(&proceeds)?
+            .checked_add(&fees)?
+            .amount()
+            .checked_div(held.amount());
         snaps.insert(
             date,
             BepSnapshot {
                 date,
                 held: held.clone(),
-                spent: spent.clone(),
-                received: received.clone(),
+                invested: invested.clone(),
+                proceeds: proceeds.clone(),
                 fees: fees.clone(),
                 bep,
             },
@@ -53,8 +56,8 @@ pub(crate) fn position_summary(
     trades: &[Trade],
 ) -> EngineResult<PositionSummary> {
     let mut held = AssetAmount::zero(pair.base.clone());
-    let mut spent = AssetAmount::zero(pair.quote.clone());
-    let mut received = AssetAmount::zero(pair.quote.clone());
+    let mut invested = AssetAmount::zero(pair.quote.clone());
+    let mut proceeds = AssetAmount::zero(pair.quote.clone());
     let mut fees = AssetAmount::zero(pair.quote.clone());
     let mut buys = 0;
     let mut sells = 0;
@@ -64,36 +67,33 @@ pub(crate) fn position_summary(
             Some(TradeSide::Buy) => {
                 buys += 1;
                 held = held.checked_add(&trade.received)?;
-                spent = spent.checked_add(&trade.spent)?;
+                invested = invested.checked_add(&trade.spent)?;
                 fees = fees.checked_add(&trade.fee)?;
             }
             Some(TradeSide::Sell) => {
                 sells += 1;
                 held = held.checked_sub(&trade.spent)?;
-                received = received.checked_add(&trade.received)?;
+                proceeds = proceeds.checked_add(&trade.received)?;
                 fees = fees.checked_add(&trade.fee)?;
             }
             None => continue,
         }
     }
 
-    let bep = (spent.amount() - received.amount() + fees.amount()).checked_div(held.amount());
+    let bep = (invested.amount() - proceeds.amount() + fees.amount()).checked_div(held.amount());
 
     Ok(PositionSummary {
         bep,
         held,
-        spent,
-        received,
+        invested,
+        proceeds,
         fees,
         buys,
         sells,
     })
 }
 
-pub(crate) fn summarize_trades(
-    pair: &AssetPair,
-    trades: &[Trade],
-) -> EngineResult<TradesSummary> {
+pub(crate) fn trades_summary(pair: &AssetPair, trades: &[Trade]) -> EngineResult<TradesSummary> {
     let mut buys = 0;
     let mut sells = 0;
     let mut unknown = 0;
@@ -243,8 +243,8 @@ mod tests {
         let pos = position_summary(&btc_eur(), &trades).unwrap();
         assert_eq!(pos.bep, Some(dec!(60700)));
         assert_eq!(pos.held, AssetAmount::new(dec!(0.003), Asset::Btc));
-        assert_eq!(pos.spent, AssetAmount::new(dec!(300), Asset::Eur));
-        assert_eq!(pos.received, AssetAmount::new(dec!(120), Asset::Eur));
+        assert_eq!(pos.invested, AssetAmount::new(dec!(300), Asset::Eur));
+        assert_eq!(pos.proceeds, AssetAmount::new(dec!(120), Asset::Eur));
         assert_eq!(pos.fees, AssetAmount::new(dec!(2.10), Asset::Eur));
         assert_eq!(pos.buys, 2);
         assert_eq!(pos.sells, 1);
@@ -253,12 +253,12 @@ mod tests {
     // ── Trade summary ───────────────────────────────────────
 
     #[test]
-    fn summarize_two_buys() {
+    fn summary_two_buys() {
         let trades = vec![
             make_trade_at(2025, 2, 14, dec!(187.25), dec!(0.002), dec!(0.75)),
             make_trade_at(2025, 6, 1, dec!(28.37), dec!(0.0003), dec!(0.28)),
         ];
-        let summary = summarize_trades(&btc_eur(), &trades).unwrap();
+        let summary = trades_summary(&btc_eur(), &trades).unwrap();
 
         assert_eq!(summary.total_trades, 2);
         assert_eq!(summary.buys, 2);
@@ -279,8 +279,8 @@ mod tests {
     }
 
     #[test]
-    fn summarize_empty() {
-        let summary = summarize_trades(&btc_eur(), &[]).unwrap();
+    fn summary_empty() {
+        let summary = trades_summary(&btc_eur(), &[]).unwrap();
         assert_eq!(summary.total_trades, 0);
         assert_eq!(summary.buys, 0);
         assert!(summary.date_range.is_none());
@@ -288,14 +288,14 @@ mod tests {
     }
 
     #[test]
-    fn summarize_ignores_unrelated_pair() {
+    fn summary_ignores_unrelated_pair() {
         let trade = Trade {
             date: Utc.with_ymd_and_hms(2025, 3, 1, 12, 0, 0).unwrap(),
             spent: AssetAmount::new(dec!(100), Asset::Other("USD".into())),
             received: AssetAmount::new(dec!(0.05), Asset::Other("ETH".into())),
             fee: AssetAmount::new(dec!(0.5), Asset::Other("USD".into())),
         };
-        let summary = summarize_trades(&btc_eur(), &[trade]).unwrap();
+        let summary = trades_summary(&btc_eur(), &[trade]).unwrap();
 
         assert_eq!(summary.total_trades, 1);
         assert_eq!(summary.buys, 0);
@@ -306,14 +306,14 @@ mod tests {
     }
 
     #[test]
-    fn summarize_btc_buy_with_wrong_fiat_is_unknown() {
+    fn summary_btc_buy_with_wrong_fiat_is_unknown() {
         let trade = Trade {
             date: Utc.with_ymd_and_hms(2025, 3, 1, 12, 0, 0).unwrap(),
             spent: AssetAmount::new(dec!(200), Asset::Other("USD".into())),
             received: AssetAmount::new(dec!(0.002), Asset::Btc),
             fee: AssetAmount::new(dec!(1), Asset::Other("USD".into())),
         };
-        let summary = summarize_trades(&btc_eur(), &[trade]).unwrap();
+        let summary = trades_summary(&btc_eur(), &[trade]).unwrap();
 
         assert_eq!(summary.buys, 0);
         assert_eq!(summary.unknown, 1);
@@ -321,14 +321,14 @@ mod tests {
     }
 
     #[test]
-    fn summarize_sell_trade() {
+    fn summary_sell_trade() {
         let trade = Trade {
             date: Utc.with_ymd_and_hms(2025, 4, 1, 12, 0, 0).unwrap(),
             spent: AssetAmount::new(dec!(0.005), Asset::Btc),
             received: AssetAmount::new(dec!(300), Asset::Eur),
             fee: AssetAmount::new(dec!(1.2), Asset::Eur),
         };
-        let summary = summarize_trades(&btc_eur(), &[trade]).unwrap();
+        let summary = trades_summary(&btc_eur(), &[trade]).unwrap();
 
         assert_eq!(summary.buys, 0);
         assert_eq!(summary.sells, 1);

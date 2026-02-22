@@ -12,22 +12,18 @@ const BTC_EUR: AssetPair = AssetPair {
     quote: Asset::Eur,
 };
 
-// ── Import ──────────────────────────────────────────────
-
 pub fn preview_import(path: &Path) -> CoreResult<TradesSummary> {
     let trades = parser::parse_kraken_csv(path)?;
-    let summary = engine::summarize_trades(&BTC_EUR, &trades)?;
+    let summary = engine::trades_summary(&BTC_EUR, &trades)?;
     Ok(summary)
 }
 
 pub fn confirm_import(ctx: &Context, path: &Path) -> CoreResult<TradesSummary> {
     let trades = parser::parse_kraken_csv(path)?;
     db::save_trades(&ctx.conn, &trades)?;
-    let summary = engine::summarize_trades(&BTC_EUR, &trades)?;
+    let summary = engine::trades_summary(&BTC_EUR, &trades)?;
     Ok(summary)
 }
-
-// ── Position ────────────────────────────────────────────
 
 pub fn position_summary(ctx: &Context) -> CoreResult<PositionSummary> {
     let trades = db::load_trades(&ctx.conn)?;

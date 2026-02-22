@@ -139,8 +139,8 @@ pub struct TradesSummary {
 pub struct BepSnapshot {
     pub date: NaiveDate,
     pub held: AssetAmount,
-    pub spent: AssetAmount,
-    pub received: AssetAmount,
+    pub invested: AssetAmount,
+    pub proceeds: AssetAmount,
     pub fees: AssetAmount,
     pub bep: Option<Decimal>,
 }
@@ -149,8 +149,8 @@ pub struct BepSnapshot {
 pub struct PositionSummary {
     pub bep: Option<Decimal>,
     pub held: AssetAmount,
-    pub spent: AssetAmount,
-    pub received: AssetAmount,
+    pub invested: AssetAmount,
+    pub proceeds: AssetAmount,
     pub fees: AssetAmount,
     pub buys: usize,
     pub sells: usize,
