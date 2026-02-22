@@ -11,6 +11,8 @@ use crate::errors::AssetMismatch;
 pub enum Asset {
     Btc,
     Eur,
+    Gbp,
+    Usd,
     Other(String),
 }
 
@@ -18,7 +20,9 @@ impl From<String> for Asset {
     fn from(s: String) -> Self {
         match s.as_str() {
             "BTC" | "XBT" => Self::Btc,
-            "EUR" => Self::Eur,
+            "EUR" | "ZEUR" => Self::Eur,
+            "GBP" | "ZGBP" => Self::Gbp,
+            "USD" | "ZUSD" => Self::Usd,
             _ => Self::Other(s),
         }
     }
@@ -29,6 +33,8 @@ impl Asset {
         match self {
             Self::Btc => "BTC",
             Self::Eur => "EUR",
+            Self::Gbp => "GBP",
+            Self::Usd => "USD",
             Self::Other(o) => o,
         }
     }
@@ -135,6 +141,7 @@ pub struct TradesSummary {
     pub fees: AssetAmount,
 }
 
+// TODO: migrate date to DateTime<Utc> for consistency with Trade and Candle
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 pub struct BepSnapshot {
     pub date: NaiveDate,
@@ -154,6 +161,17 @@ pub struct PositionSummary {
     pub fees: AssetAmount,
     pub buys: usize,
     pub sells: usize,
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+pub struct Candle {
+    pub date: DateTime<Utc>,
+    pub open: Decimal,
+    pub high: Decimal,
+    pub low: Decimal,
+    pub close: Decimal,
+    pub volume: Decimal,
+    pub count: u32,
 }
 
 #[cfg(test)]
@@ -178,6 +196,23 @@ mod tests {
     }
 
     #[test]
+    fn asset_from_gbp() {
+        assert_eq!(Asset::from("GBP".to_string()), Asset::Gbp);
+    }
+
+    #[test]
+    fn asset_from_usd() {
+        assert_eq!(Asset::from("USD".to_string()), Asset::Usd);
+    }
+
+    #[test]
+    fn asset_from_kraken_prefixed() {
+        assert_eq!(Asset::from("ZEUR".to_string()), Asset::Eur);
+        assert_eq!(Asset::from("ZGBP".to_string()), Asset::Gbp);
+        assert_eq!(Asset::from("ZUSD".to_string()), Asset::Usd);
+    }
+
+    #[test]
     fn asset_from_unknown() {
         assert_eq!(
             Asset::from("MSC".to_string()),
@@ -188,6 +223,9 @@ mod tests {
     #[test]
     fn asset_as_str_roundtrip() {
         assert_eq!(Asset::Btc.as_str(), "BTC");
+        assert_eq!(Asset::Eur.as_str(), "EUR");
+        assert_eq!(Asset::Gbp.as_str(), "GBP");
+        assert_eq!(Asset::Usd.as_str(), "USD");
         assert_eq!(Asset::Other("MSC".to_string()).as_str(), "MSC");
     }
 
@@ -211,7 +249,7 @@ mod tests {
         assert_eq!(trade.side_for(&eur_btc), Some(TradeSide::Sell));
         let btc_usd = AssetPair {
             base: Asset::Btc,
-            quote: Asset::Other("USD".into()),
+            quote: Asset::Usd,
         };
         assert_eq!(trade.side_for(&btc_usd), None);
     }

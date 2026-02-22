@@ -6,3 +6,4 @@ pub mod models;
 mod db;
 mod engine;
 mod parser;
+mod price;

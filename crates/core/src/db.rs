@@ -6,7 +6,7 @@ use rust_decimal::Decimal;
 
 use crate::{
     errors::DbResult,
-    models::{Asset, AssetAmount, Trade},
+    models::{Asset, AssetAmount, Candle, Trade},
 };
 
 pub(crate) fn open(path: &Path) -> DbResult<Connection> {
@@ -36,12 +36,25 @@ pub(crate) fn migrate(conn: &Connection) -> DbResult<()> {
         ",
         )?;
     }
-    // if version < 2 {
-    //     conn.execute_batch("
-    //       ALTER TABLE trades ADD COLUMN todo TEXT;
-    //       PRAGMA user_version = 2;
-    //   ")?;
-    // }
+    if version < 2 {
+        conn.execute_batch(
+            "
+            CREATE TABLE IF NOT EXISTS candles (
+                id      INTEGER PRIMARY KEY,
+                quote   TEXT NOT NULL,
+                date    TEXT NOT NULL,
+                open    TEXT NOT NULL,
+                high    TEXT NOT NULL,
+                low     TEXT NOT NULL,
+                close   TEXT NOT NULL,
+                volume  TEXT NOT NULL,
+                count   INTEGER NOT NULL,
+                UNIQUE(quote, date)
+            );
+            PRAGMA user_version = 2;
+        ",
+        )?;
+    }
     Ok(())
 }
 
@@ -100,6 +113,58 @@ pub(crate) fn load_trades(conn: &Connection) -> DbResult<Vec<Trade>> {
     })?;
     let trades = rows.collect::<Result<Vec<_>, _>>()?;
     Ok(trades)
+}
+
+pub(crate) fn save_candles(conn: &Connection, quote: &Asset, candles: &[Candle]) -> DbResult<()> {
+    let tx = conn.unchecked_transaction()?;
+    let mut stmt = tx.prepare_cached(
+        "INSERT OR REPLACE INTO candles (quote, date, open, high, low, close, volume, count) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)",
+    )?;
+    let quote_str = quote.as_str();
+    for c in candles {
+        stmt.execute(params![
+            quote_str,
+            c.date.to_rfc3339(),
+            c.open.to_string(),
+            c.high.to_string(),
+            c.low.to_string(),
+            c.close.to_string(),
+            c.volume.to_string(),
+            c.count,
+        ])?;
+    }
+    drop(stmt);
+    tx.commit()?;
+    Ok(())
+}
+
+pub(crate) fn load_candles(conn: &Connection, quote: &Asset) -> DbResult<Vec<Candle>> {
+    let mut stmt = conn.prepare(
+        "SELECT date, open, high, low, close, volume, count \
+         FROM candles WHERE quote = ?1 ORDER BY date ASC",
+    )?;
+    let rows = stmt.query_map(params![quote.as_str()], |row| {
+        let date: String = row.get(0)?;
+        let open: String = row.get(1)?;
+        let high: String = row.get(2)?;
+        let low: String = row.get(3)?;
+        let close: String = row.get(4)?;
+        let volume: String = row.get(5)?;
+        let count: u32 = row.get(6)?;
+        Ok(Candle {
+            date: DateTime::parse_from_rfc3339(&date)
+                .unwrap()
+                .with_timezone(&Utc),
+            open: Decimal::from_str_exact(&open).unwrap(),
+            high: Decimal::from_str_exact(&high).unwrap(),
+            low: Decimal::from_str_exact(&low).unwrap(),
+            close: Decimal::from_str_exact(&close).unwrap(),
+            volume: Decimal::from_str_exact(&volume).unwrap(),
+            count,
+        })
+    })?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
 #[cfg(test)]
@@ -165,6 +230,64 @@ mod tests {
         let trades = load_trades(&conn).unwrap();
         assert!(trades.is_empty());
     }
+
+    // ── Candles ──────────────────────────────────────────
+
+    fn sample_candle(year: i32, month: u32, day: u32, close: Decimal) -> Candle {
+        Candle {
+            date: Utc.with_ymd_and_hms(year, month, day, 0, 0, 0).unwrap(),
+            open: close,
+            high: close,
+            low: close,
+            close,
+            volume: dec!(1.0),
+            count: 1,
+        }
+    }
+
+    #[test]
+    fn candles_save_and_load_roundtrip() {
+        let conn = test_conn();
+        let candles = vec![
+            sample_candle(2024, 1, 1, dec!(42000)),
+            sample_candle(2024, 1, 2, dec!(43000)),
+        ];
+        save_candles(&conn, &Asset::Eur, &candles).unwrap();
+        let loaded = load_candles(&conn, &Asset::Eur).unwrap();
+        assert_eq!(loaded, candles);
+    }
+
+    #[test]
+    fn candles_filtered_by_quote() {
+        let conn = test_conn();
+        save_candles(&conn, &Asset::Eur, &[sample_candle(2024, 1, 1, dec!(42000))]).unwrap();
+        save_candles(&conn, &Asset::Usd, &[sample_candle(2024, 1, 1, dec!(45000))]).unwrap();
+        let eur = load_candles(&conn, &Asset::Eur).unwrap();
+        let usd = load_candles(&conn, &Asset::Usd).unwrap();
+        assert_eq!(eur.len(), 1);
+        assert_eq!(usd.len(), 1);
+        assert_eq!(eur[0].close, dec!(42000));
+        assert_eq!(usd[0].close, dec!(45000));
+    }
+
+    #[test]
+    fn candles_upsert_on_duplicate() {
+        let conn = test_conn();
+        save_candles(&conn, &Asset::Eur, &[sample_candle(2024, 1, 1, dec!(42000))]).unwrap();
+        save_candles(&conn, &Asset::Eur, &[sample_candle(2024, 1, 1, dec!(43000))]).unwrap();
+        let loaded = load_candles(&conn, &Asset::Eur).unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0].close, dec!(43000));
+    }
+
+    #[test]
+    fn candles_load_empty() {
+        let conn = test_conn();
+        let candles = load_candles(&conn, &Asset::Eur).unwrap();
+        assert!(candles.is_empty());
+    }
+
+    // ── Trades ──────────────────────────────────────────
 
     #[test]
     fn load_preserves_chronological_order() {

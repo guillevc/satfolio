@@ -4,8 +4,8 @@ use std::path::Path;
 use chrono::NaiveDate;
 
 use crate::errors::CoreResult;
-use crate::models::{Asset, AssetPair, BepSnapshot, PositionSummary, Trade, TradesSummary};
-use crate::{context::Context, db, engine, parser};
+use crate::models::{Asset, AssetPair, BepSnapshot, Candle, PositionSummary, Trade, TradesSummary};
+use crate::{context::Context, db, engine, parser, price};
 
 const BTC_EUR: AssetPair = AssetPair {
     base: Asset::Btc,
@@ -40,4 +40,14 @@ pub fn bep_snaps(ctx: &Context) -> CoreResult<BTreeMap<NaiveDate, BepSnapshot>> 
 pub fn trades(ctx: &Context) -> CoreResult<Vec<Trade>> {
     let trades = db::load_trades(&ctx.conn)?;
     Ok(trades)
+}
+
+pub fn candles(ctx: &Context, prices_dir: &Path, quote: &Asset) -> CoreResult<Vec<Candle>> {
+    let existing = db::load_candles(&ctx.conn, quote)?;
+    if !existing.is_empty() {
+        return Ok(existing);
+    }
+    let candles = price::load_bundled_prices(prices_dir, quote)?;
+    db::save_candles(&ctx.conn, quote, &candles)?;
+    Ok(candles)
 }

@@ -24,8 +24,14 @@ pub enum PriceError {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
+    #[error("CSV error: {0}")]
+    Csv(#[from] csv::Error),
+
     #[error("Invalid API response: {0}")]
     InvalidResponse(String),
+
+    #[error("Unsupported currency: {0}")]
+    UnsupportedCurrency(String),
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Error)]

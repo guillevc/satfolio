@@ -291,9 +291,9 @@ mod tests {
     fn summary_ignores_unrelated_pair() {
         let trade = Trade {
             date: Utc.with_ymd_and_hms(2025, 3, 1, 12, 0, 0).unwrap(),
-            spent: AssetAmount::new(dec!(100), Asset::Other("USD".into())),
+            spent: AssetAmount::new(dec!(100), Asset::Usd),
             received: AssetAmount::new(dec!(0.05), Asset::Other("ETH".into())),
-            fee: AssetAmount::new(dec!(0.5), Asset::Other("USD".into())),
+            fee: AssetAmount::new(dec!(0.5), Asset::Usd),
         };
         let summary = trades_summary(&btc_eur(), &[trade]).unwrap();
 
@@ -309,9 +309,9 @@ mod tests {
     fn summary_btc_buy_with_wrong_fiat_is_unknown() {
         let trade = Trade {
             date: Utc.with_ymd_and_hms(2025, 3, 1, 12, 0, 0).unwrap(),
-            spent: AssetAmount::new(dec!(200), Asset::Other("USD".into())),
+            spent: AssetAmount::new(dec!(200), Asset::Usd),
             received: AssetAmount::new(dec!(0.002), Asset::Btc),
-            fee: AssetAmount::new(dec!(1), Asset::Other("USD".into())),
+            fee: AssetAmount::new(dec!(1), Asset::Usd),
         };
         let summary = trades_summary(&btc_eur(), &[trade]).unwrap();
 
