@@ -143,19 +143,13 @@ mod tests {
 
     mod csv {
         use super::*;
+        use std::io::Write;
+        use tempfile::NamedTempFile;
 
-        fn csv_tempfile(content: &str) -> std::path::PathBuf {
-            let path = std::env::temp_dir().join(format!(
-                "betc_test_{}.csv",
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_nanos()
-            ));
-            let mut f = std::fs::File::create(&path).unwrap();
-            use std::io::Write;
+        fn csv_tempfile(content: &str) -> NamedTempFile {
+            let mut f = NamedTempFile::with_suffix(".csv").unwrap();
             f.write_all(content.as_bytes()).unwrap();
-            path
+            f
         }
 
         const CSV_HEADER: &str =
@@ -173,10 +167,8 @@ mod tests {
                 "{CSV_HEADER}\n\
             L3M4N5,MECOSFO-GY,2024-01-15 12:00:00,trade,,currency,,EUR,spot,-187.2514,0.749,1000.00"
             );
-            let path = csv_tempfile(&csv);
-            let entries = parse_csv_entries(&path).unwrap();
-            std::fs::remove_file(&path).ok();
-
+            let f = csv_tempfile(&csv);
+            let entries = parse_csv_entries(f.path()).unwrap();
             assert_eq!(entries.len(), 1);
             let entry = &entries[0];
             assert_eq!(entry.asset, Asset::Eur);
@@ -192,10 +184,8 @@ mod tests {
             TX2,REF-A,2024-01-15 12:00:00,trade,,currency,,BTC,spot,0.002,0,0.002\n\
             TX3,REF-B,2024-02-01 09:30:00,deposit,,currency,,EUR,spot,500.00,0,1500.00"
             );
-            let path = csv_tempfile(&csv);
-            let entries = parse_csv_entries(&path).unwrap();
-            std::fs::remove_file(&path).ok();
-
+            let f = csv_tempfile(&csv);
+            let entries = parse_csv_entries(f.path()).unwrap();
             assert_eq!(entries.len(), 3);
             assert_eq!(entries[0].asset, Asset::Eur);
             assert_eq!(entries[1].asset, Asset::Btc);
@@ -208,19 +198,14 @@ mod tests {
                 "{CSV_HEADER}\n\
             TX1,REF-A,not-a-date,trade,,currency,,EUR,spot,-100,0.5,900"
             );
-            let path = csv_tempfile(&csv);
-            let result = parse_csv_entries(&path);
-            std::fs::remove_file(&path).ok();
-
-            assert!(result.is_err());
+            let f = csv_tempfile(&csv);
+            assert!(parse_csv_entries(f.path()).is_err());
         }
 
         #[test]
         fn parse_csv_empty_returns_empty_vec() {
-            let path = csv_tempfile(CSV_HEADER);
-            let entries = parse_csv_entries(&path).unwrap();
-            std::fs::remove_file(&path).ok();
-
+            let f = csv_tempfile(CSV_HEADER);
+            let entries = parse_csv_entries(f.path()).unwrap();
             assert!(entries.is_empty());
         }
     }

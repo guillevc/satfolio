@@ -1,50 +1,85 @@
 use std::collections::BTreeMap;
 
 use chrono::{DateTime, NaiveDate, Utc};
+use rust_decimal::Decimal;
 
 use crate::errors::EngineResult;
 use crate::models::{
     AssetAmount, AssetPair, BepSnapshot, PositionSummary, Trade, TradeSide, TradesSummary,
 };
 
+struct Accumulator {
+    held: AssetAmount,
+    invested: AssetAmount,
+    proceeds: AssetAmount,
+    fees: AssetAmount,
+    buys: usize,
+    sells: usize,
+}
+
+impl Accumulator {
+    fn new(pair: &AssetPair) -> Self {
+        Self {
+            held: AssetAmount::zero(pair.base.clone()),
+            invested: AssetAmount::zero(pair.quote.clone()),
+            proceeds: AssetAmount::zero(pair.quote.clone()),
+            fees: AssetAmount::zero(pair.quote.clone()),
+            buys: 0,
+            sells: 0,
+        }
+    }
+
+    /// Apply a trade, returning the matched side (or None if unrelated).
+    fn apply(&mut self, pair: &AssetPair, trade: &Trade) -> EngineResult<Option<TradeSide>> {
+        match trade.side_for(pair) {
+            Some(TradeSide::Buy) => {
+                self.buys += 1;
+                self.held = self.held.checked_add(&trade.received)?;
+                self.invested = self.invested.checked_add(&trade.spent)?;
+                self.fees = self.fees.checked_add(&trade.fee)?;
+                Ok(Some(TradeSide::Buy))
+            }
+            Some(TradeSide::Sell) => {
+                self.sells += 1;
+                self.held = self.held.checked_sub(&trade.spent)?;
+                self.proceeds = self.proceeds.checked_add(&trade.received)?;
+                self.fees = self.fees.checked_add(&trade.fee)?;
+                Ok(Some(TradeSide::Sell))
+            }
+            None => Ok(None),
+        }
+    }
+
+    fn bep(&self) -> EngineResult<Option<Decimal>> {
+        Ok(self
+            .invested
+            .checked_sub(&self.proceeds)?
+            .checked_add(&self.fees)?
+            .amount()
+            .checked_div(self.held.amount()))
+    }
+}
+
 pub(crate) fn bep_snaps(
     pair: &AssetPair,
     trades: &[Trade],
 ) -> EngineResult<BTreeMap<NaiveDate, BepSnapshot>> {
+    let mut acc = Accumulator::new(pair);
     let mut snaps = BTreeMap::new();
-    let mut held = AssetAmount::zero(pair.base.clone());
-    let mut invested = AssetAmount::zero(pair.quote.clone());
-    let mut proceeds = AssetAmount::zero(pair.quote.clone());
-    let mut fees = AssetAmount::zero(pair.quote.clone());
     for trade in trades {
-        let date = trade.date.date_naive();
-        match trade.side_for(pair) {
-            Some(TradeSide::Buy) => {
-                held = held.checked_add(&trade.received)?;
-                invested = invested.checked_add(&trade.spent)?;
-                fees = fees.checked_add(&trade.fee)?;
-            }
-            Some(TradeSide::Sell) => {
-                held = held.checked_sub(&trade.spent)?;
-                proceeds = proceeds.checked_add(&trade.received)?;
-                fees = fees.checked_add(&trade.fee)?;
-            }
-            None => continue,
+        if acc.apply(pair, trade)?.is_none() {
+            continue;
         }
-        let bep = invested
-            .checked_sub(&proceeds)?
-            .checked_add(&fees)?
-            .amount()
-            .checked_div(held.amount());
+        let date = trade.date.date_naive();
         snaps.insert(
             date,
             BepSnapshot {
                 date,
-                held: held.clone(),
-                invested: invested.clone(),
-                proceeds: proceeds.clone(),
-                fees: fees.clone(),
-                bep,
+                held: acc.held.clone(),
+                invested: acc.invested.clone(),
+                proceeds: acc.proceeds.clone(),
+                fees: acc.fees.clone(),
+                bep: acc.bep()?,
             },
         );
     }
@@ -55,41 +90,18 @@ pub(crate) fn position_summary(
     pair: &AssetPair,
     trades: &[Trade],
 ) -> EngineResult<PositionSummary> {
-    let mut held = AssetAmount::zero(pair.base.clone());
-    let mut invested = AssetAmount::zero(pair.quote.clone());
-    let mut proceeds = AssetAmount::zero(pair.quote.clone());
-    let mut fees = AssetAmount::zero(pair.quote.clone());
-    let mut buys = 0;
-    let mut sells = 0;
-
+    let mut acc = Accumulator::new(pair);
     for trade in trades {
-        match trade.side_for(pair) {
-            Some(TradeSide::Buy) => {
-                buys += 1;
-                held = held.checked_add(&trade.received)?;
-                invested = invested.checked_add(&trade.spent)?;
-                fees = fees.checked_add(&trade.fee)?;
-            }
-            Some(TradeSide::Sell) => {
-                sells += 1;
-                held = held.checked_sub(&trade.spent)?;
-                proceeds = proceeds.checked_add(&trade.received)?;
-                fees = fees.checked_add(&trade.fee)?;
-            }
-            None => continue,
-        }
+        acc.apply(pair, trade)?;
     }
-
-    let bep = (invested.amount() - proceeds.amount() + fees.amount()).checked_div(held.amount());
-
     Ok(PositionSummary {
-        bep,
-        held,
-        invested,
-        proceeds,
-        fees,
-        buys,
-        sells,
+        bep: acc.bep()?,
+        held: acc.held,
+        invested: acc.invested,
+        proceeds: acc.proceeds,
+        fees: acc.fees,
+        buys: acc.buys,
+        sells: acc.sells,
     })
 }
 

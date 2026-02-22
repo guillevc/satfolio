@@ -14,8 +14,8 @@ fn btc_pair(quote: &Asset) -> AssetPair {
     }
 }
 
-pub fn preview_import(ctx: &Context, path: &Path) -> CoreResult<TradesSummary> {
-    let pair = btc_pair(ctx.quote());
+pub fn preview_import(quote: &Asset, path: &Path) -> CoreResult<TradesSummary> {
+    let pair = btc_pair(quote);
     let trades = parser::parse_kraken_csv(path)?;
     let summary = engine::trades_summary(&pair, &trades)?;
     Ok(summary)
@@ -64,7 +64,7 @@ pub fn candles(ctx: &Context, prices_dir: &Path) -> CoreResult<Vec<Candle>> {
             let new = price::fetch_ohlc(quote, last.date)?;
             if !new.is_empty() {
                 db::save_candles(&ctx.conn, quote, &new)?;
-                candles.extend(new);
+                candles = db::load_candles(&ctx.conn, quote)?;
             }
         }
     }

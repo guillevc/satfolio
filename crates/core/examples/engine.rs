@@ -13,7 +13,7 @@ fn main() {
     let ctx = Context::open(&db_path, Asset::Eur).unwrap();
 
     // ── trades_summary (via preview_import) ────────────────
-    let summary = api::preview_import(&ctx, path).unwrap();
+    let summary = api::preview_import(ctx.quote(), path).unwrap();
     println!("=== Trades Summary ===");
     println!(
         "{} trades ({} buys, {} sells, {} unknown)",

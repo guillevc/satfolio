@@ -1,13 +1,27 @@
 use std::path::Path;
 
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use rusqlite::{Connection, params};
-use rust_decimal::Decimal;
 
 use crate::{
     errors::DbResult,
     models::{Asset, AssetAmount, Candle, Trade},
 };
+
+/// Parse a TEXT column value, mapping parse failures to `rusqlite::Error`
+/// so they propagate through `DbResult` without panicking.
+fn parse_col<T: std::str::FromStr>(val: &str, col: &str) -> Result<T, rusqlite::Error>
+where
+    T::Err: std::fmt::Display,
+{
+    val.parse().map_err(|e: T::Err| {
+        rusqlite::Error::FromSqlConversionFailure(
+            0,
+            rusqlite::types::Type::Text,
+            Box::from(format!("{col}: {e}")),
+        )
+    })
+}
 
 pub(crate) fn open(path: &Path) -> DbResult<Connection> {
     let conn = Connection::open(path)?;
@@ -94,19 +108,18 @@ pub(crate) fn load_trades(conn: &Connection) -> DbResult<Vec<Trade>> {
         let fee_amount = row.get::<_, String>(5)?;
         let fee_asset: String = row.get(6)?;
         Ok(Trade {
-            date: DateTime::parse_from_rfc3339(&date)
-                .unwrap()
+            date: parse_col::<DateTime<chrono::FixedOffset>>(&date, "trade.date")?
                 .with_timezone(&Utc),
             spent: AssetAmount::new(
-                Decimal::from_str_exact(&spent_amount).unwrap(),
+                parse_col(&spent_amount, "trade.spent_amount")?,
                 Asset::from(spent_asset),
             ),
             received: AssetAmount::new(
-                Decimal::from_str_exact(&received_amount).unwrap(),
+                parse_col(&received_amount, "trade.received_amount")?,
                 Asset::from(received_asset),
             ),
             fee: AssetAmount::new(
-                Decimal::from_str_exact(&fee_amount).unwrap(),
+                parse_col(&fee_amount, "trade.fee_amount")?,
                 Asset::from(fee_asset),
             ),
         })
@@ -153,12 +166,12 @@ pub(crate) fn load_candles(conn: &Connection, quote: &Asset) -> DbResult<Vec<Can
         let volume: String = row.get(5)?;
         let count: u32 = row.get(6)?;
         Ok(Candle {
-            date: date.parse().unwrap(),
-            open: Decimal::from_str_exact(&open).unwrap(),
-            high: Decimal::from_str_exact(&high).unwrap(),
-            low: Decimal::from_str_exact(&low).unwrap(),
-            close: Decimal::from_str_exact(&close).unwrap(),
-            volume: Decimal::from_str_exact(&volume).unwrap(),
+            date: parse_col(&date, "candle.date")?,
+            open: parse_col(&open, "candle.open")?,
+            high: parse_col(&high, "candle.high")?,
+            low: parse_col(&low, "candle.low")?,
+            close: parse_col(&close, "candle.close")?,
+            volume: parse_col(&volume, "candle.volume")?,
             count,
         })
     })?;
@@ -168,7 +181,8 @@ pub(crate) fn load_candles(conn: &Connection, quote: &Asset) -> DbResult<Vec<Can
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
+    use chrono::{NaiveDate, TimeZone};
+    use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
 
     fn test_conn() -> Connection {
