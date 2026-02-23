@@ -2,11 +2,12 @@ default:
     @just --list
 
 # Aliases
-alias d := dev
-alias l := lint
-alias f := fmt
-alias t := test
-alias c := check
+alias d  := dev
+alias dw := dev-web
+alias l  := lint
+alias f  := fmt
+alias t  := test
+alias c  := check
 
 # Dev
 [group('dev')]
