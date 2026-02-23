@@ -56,12 +56,12 @@
   --accent: oklch(0.252 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.68 0.22 25);
-  --success: oklch(0.75 0.22 143);
+  --success: oklch(0.735 0.24 142);
   --border: oklch(1 0 0 / 12%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.765 0.162 71);
   --chart-1: oklch(0.765 0.162 71);
-  --chart-2: oklch(0.75 0.22 143);
+  --chart-2: oklch(0.735 0.24 142);
   --chart-3: oklch(0.62 0.03 257);
   --chart-4: oklch(0.627 0.265 303.9);
   --chart-5: oklch(0.68 0.22 25);
@@ -133,6 +133,12 @@
   }
   body {
     @apply bg-background text-foreground;
+  }
+}
+
+@layer base {
+  * {
+    user-select: none;
   }
 }
 

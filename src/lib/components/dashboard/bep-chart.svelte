@@ -1,9 +1,11 @@
 <script lang="ts">
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 
-	let range: string = $state('1M');
+	type Range = '1D' | '1W' | '1M' | '3M' | '1Y' | 'ALL';
 
-	const ranges = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
+	let range: Range = $state('1M');
+
+	const ranges: Range[] = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
 
 	const chartPoints = [
 		{ x: 0, price: 35000, bep: 35000 },
@@ -21,7 +23,7 @@
 		'M ' + chartPoints.map((p) => `${p.x},${200 - ((p.bep - 25000) / 45000) * 180}`).join(' L ')
 	);
 
-	const trades = [
+	const trades: { x: number; type: 'buy' | 'sell' }[] = [
 		{ x: 0, type: 'buy' },
 		{ x: 60, type: 'sell' },
 		{ x: 120, type: 'buy' },
@@ -42,10 +44,10 @@
 			<h3 class="text-sm font-semibold">Performance vs BEP</h3>
 			<div class="flex items-center gap-3">
 				{@render legendPill('var(--primary)', 'BEP')}
-				{@render legendPill('oklch(0.72 0.26 142)', 'BTC Price')}
+				{@render legendPill('var(--success)', 'BTC Price')}
 			</div>
 		</div>
-		<ToggleGroup.Root type="single" value={range} onValueChange={(v) => { if (v) range = v; }}>
+		<ToggleGroup.Root type="single" value={range} onValueChange={(v) => { if (v) range = v as Range; }}>
 			{#each ranges as r (r)}
 				<ToggleGroup.Item value={r} class="h-7 px-2 text-xs">
 					{r}
@@ -58,8 +60,8 @@
 		<svg viewBox="0 0 300 200" class="h-full w-full" preserveAspectRatio="none">
 			<defs>
 				<linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-					<stop offset="0%" stop-color="oklch(0.72 0.26 142)" stop-opacity="0.3" />
-					<stop offset="100%" stop-color="oklch(0.72 0.26 142)" stop-opacity="0" />
+					<stop offset="0%" stop-color="var(--success)" stop-opacity="0.3" />
+					<stop offset="100%" stop-color="var(--success)" stop-opacity="0" />
 				</linearGradient>
 			</defs>
 
@@ -83,7 +85,7 @@
 			<path
 				d={pricePath}
 				fill="none"
-				stroke="oklch(0.72 0.26 142)"
+				stroke="var(--success)"
 				stroke-width="2"
 				vector-effect="non-scaling-stroke"
 			/>
@@ -96,7 +98,7 @@
 						cx={trade.x}
 						cy={200 - ((point.price - 25000) / 45000) * 180}
 						r="4"
-						fill={trade.type === 'buy' ? 'oklch(0.72 0.26 142)' : 'var(--destructive)'}
+						fill={trade.type === 'buy' ? 'var(--success)' : 'var(--destructive)'}
 						vector-effect="non-scaling-stroke"
 					/>
 				{/if}

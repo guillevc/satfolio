@@ -2,8 +2,7 @@
 	import { ChartLine, ScrollText, FlaskConical, Settings } from '@lucide/svelte';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Separator } from '$lib/components/ui/separator';
-
-	type View = 'dashboard' | 'ledger' | 'simulator' | 'settings';
+	import type { View } from '$lib/types';
 
 	interface Props {
 		active: View;

@@ -3,17 +3,9 @@
 	import TitleBar from '$lib/components/title-bar.svelte';
 	import AppSidebar from '$lib/components/app-sidebar.svelte';
 	import { Dashboard } from '$lib/components/dashboard';
-
-	type View = 'dashboard' | 'ledger' | 'simulator' | 'settings';
+	import { type View, viewTitles } from '$lib/types';
 
 	let view: View = $state('dashboard');
-
-	const viewTitles: Record<View, string> = {
-		dashboard: 'Dashboard',
-		ledger: 'Ledger',
-		simulator: 'Simulator',
-		settings: 'Settings',
-	};
 </script>
 
 <svelte:head>
