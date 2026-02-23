@@ -9,7 +9,7 @@
 </script>
 
 <header
-	class="flex h-8 items-center bg-sidebar px-3 select-none"
+	class="flex h-8 items-center border-b border-sidebar-border bg-sidebar px-3 select-none"
 	data-tauri-drag-region
 >
 	<div class="flex items-center gap-2 pl-[70px]">
