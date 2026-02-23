@@ -3,10 +3,14 @@ use std::fmt;
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
 use serde::{Deserialize, Serialize};
+#[cfg(test)]
+use ts_rs::TS;
 
 use crate::errors::AssetMismatch;
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(test, derive(TS))]
+#[cfg_attr(test, ts(export, type = "string"))]
 #[serde(from = "String")]
 pub enum Asset {
     Btc,
@@ -59,7 +63,10 @@ impl fmt::Display for AssetPair {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(test, derive(TS))]
+#[cfg_attr(test, ts(export))]
 pub struct AssetAmount {
+    #[cfg_attr(test, ts(as = "String"))]
     amount: Decimal,
     asset: Asset,
 }
@@ -142,17 +149,23 @@ pub struct TradesSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(TS))]
+#[cfg_attr(test, ts(export))]
 pub struct BepSnapshot {
     pub date: NaiveDate,
     pub held: AssetAmount,
     pub invested: AssetAmount,
     pub proceeds: AssetAmount,
     pub fees: AssetAmount,
+    #[cfg_attr(test, ts(as = "Option<String>"))]
     pub bep: Option<Decimal>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(TS))]
+#[cfg_attr(test, ts(export))]
 pub struct PositionSummary {
+    #[cfg_attr(test, ts(as = "Option<String>"))]
     pub bep: Option<Decimal>,
     pub held: AssetAmount,
     pub invested: AssetAmount,
@@ -163,12 +176,19 @@ pub struct PositionSummary {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(TS))]
+#[cfg_attr(test, ts(export))]
 pub struct Candle {
     pub date: NaiveDate,
+    #[cfg_attr(test, ts(as = "String"))]
     pub open: Decimal,
+    #[cfg_attr(test, ts(as = "String"))]
     pub high: Decimal,
+    #[cfg_attr(test, ts(as = "String"))]
     pub low: Decimal,
+    #[cfg_attr(test, ts(as = "String"))]
     pub close: Decimal,
+    #[cfg_attr(test, ts(as = "String"))]
     pub volume: Decimal,
     pub count: u32,
 }

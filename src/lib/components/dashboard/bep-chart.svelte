@@ -1,34 +1,122 @@
 <script lang="ts">
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
+	import type { BepSnapshot, Candle } from '$lib/types/bindings';
 
-	type Range = '1D' | '1W' | '1M' | '3M' | '1Y' | 'ALL';
+	let {
+		bepSnaps,
+		candles,
+	}: {
+		bepSnaps: Record<string, BepSnapshot>;
+		candles: Candle[];
+	} = $props();
 
-	let range: Range = $state('1M');
+	type Range = '1W' | '1M' | '3M' | '1Y' | 'ALL';
 
-	const ranges: Range[] = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
+	let range: Range = $state('ALL');
 
-	const chartPoints = [
-		{ x: 0, price: 35000, bep: 35000 },
-		{ x: 60, price: 32800, bep: 35000 },
-		{ x: 120, price: 38500, bep: 36750 },
-		{ x: 180, price: 42000, bep: 38500 },
-		{ x: 240, price: 56000, bep: 42500 },
-		{ x: 300, price: 64230, bep: 42500 },
-	];
+	const ranges: Range[] = ['1W', '1M', '3M', '1Y', 'ALL'];
 
-	let pricePath = $derived(
-		'M ' + chartPoints.map((p) => `${p.x},${200 - ((p.price - 25000) / 45000) * 180}`).join(' L ')
-	);
-	let bepPath = $derived(
-		'M ' + chartPoints.map((p) => `${p.x},${200 - ((p.bep - 25000) / 45000) * 180}`).join(' L ')
-	);
+	const VIEWBOX_W = 300;
+	const VIEWBOX_H = 200;
+	const PAD = 10;
 
-	const trades: { x: number; type: 'buy' | 'sell' }[] = [
-		{ x: 0, type: 'buy' },
-		{ x: 60, type: 'sell' },
-		{ x: 120, type: 'buy' },
-		{ x: 180, type: 'buy' },
-	];
+	let filteredCandles = $derived.by(() => {
+		if (range === 'ALL') return candles;
+		const now = new Date();
+		const cutoff = new Date(now);
+		if (range === '1W') cutoff.setDate(now.getDate() - 7);
+		else if (range === '1M') cutoff.setMonth(now.getMonth() - 1);
+		else if (range === '3M') cutoff.setMonth(now.getMonth() - 3);
+		else if (range === '1Y') cutoff.setFullYear(now.getFullYear() - 1);
+		const cutoffStr = cutoff.toISOString().slice(0, 10);
+		return candles.filter((c) => c.date >= cutoffStr);
+	});
+
+	/** Merge candle close prices with BEP snapshots, aligned by date */
+	let chartData = $derived.by(() => {
+		const fc = filteredCandles;
+		if (fc.length === 0) return [];
+
+		// Build a sorted list of BEP values — carry forward last known BEP
+		const snapDates = Object.keys(bepSnaps).sort();
+		let lastBep: number | null = null;
+
+		return fc.map((c) => {
+			const date = c.date;
+			// Find the most recent BEP snapshot at or before this date
+			for (let i = snapDates.length - 1; i >= 0; i--) {
+				if (snapDates[i] <= date) {
+					const snap = bepSnaps[snapDates[i]];
+					lastBep = snap.bep ? parseFloat(snap.bep) : null;
+					break;
+				}
+			}
+			return {
+				date,
+				price: parseFloat(c.close),
+				bep: lastBep,
+			};
+		});
+	});
+
+	/** Dates where BEP changed (i.e. a trade happened) */
+	let tradeDots = $derived.by(() => {
+		const data = chartData;
+		const dots: { idx: number; type: 'buy' | 'sell' }[] = [];
+		for (let i = 1; i < data.length; i++) {
+			if (data[i].bep !== data[i - 1].bep && data[i].bep !== null) {
+				// BEP went up → likely a buy at higher price; went down → sell
+				const type = (data[i].bep ?? 0) > (data[i - 1].bep ?? 0) ? 'buy' : 'sell';
+				dots.push({ idx: i, type });
+			}
+		}
+		// Also mark the first point if BEP exists (first trade)
+		if (data.length > 0 && data[0].bep !== null) {
+			dots.unshift({ idx: 0, type: 'buy' });
+		}
+		return dots;
+	});
+
+	/** Scale helpers */
+	let scaleInfo = $derived.by(() => {
+		const data = chartData;
+		if (data.length === 0) return { minY: 0, maxY: 1, scaleX: (_i: number) => 0, scaleY: (_v: number) => 0 };
+
+		const allValues = data.flatMap((d) => (d.bep !== null ? [d.price, d.bep] : [d.price]));
+		const minY = Math.min(...allValues) * 0.95;
+		const maxY = Math.max(...allValues) * 1.05;
+		const rangeY = maxY - minY || 1;
+
+		const scaleX = (i: number) => (data.length > 1 ? (i / (data.length - 1)) * VIEWBOX_W : VIEWBOX_W / 2);
+		const scaleY = (v: number) => VIEWBOX_H - PAD - ((v - minY) / rangeY) * (VIEWBOX_H - PAD * 2);
+
+		return { minY, maxY, scaleX, scaleY };
+	});
+
+	let pricePath = $derived.by(() => {
+		const data = chartData;
+		const { scaleX, scaleY } = scaleInfo;
+		if (data.length === 0) return '';
+		return 'M ' + data.map((d, i) => `${scaleX(i)},${scaleY(d.price)}`).join(' L ');
+	});
+
+	let bepPath = $derived.by(() => {
+		const data = chartData;
+		const { scaleX, scaleY } = scaleInfo;
+		if (data.length === 0) return '';
+		// Only draw segments where BEP is known
+		const segments: string[] = [];
+		let inSegment = false;
+		for (let i = 0; i < data.length; i++) {
+			if (data[i].bep !== null) {
+				segments.push(`${inSegment ? 'L' : 'M'} ${scaleX(i)},${scaleY(data[i].bep!)}`);
+				inSegment = true;
+			} else {
+				inSegment = false;
+			}
+		}
+		return segments.join(' ');
+	});
 </script>
 
 {#snippet legendPill(color: string, label: string)}
@@ -57,52 +145,58 @@
 	</div>
 
 	<div class="relative min-h-0 flex-1">
-		<svg viewBox="0 0 300 200" class="h-full w-full" preserveAspectRatio="none">
-			<defs>
-				<linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-					<stop offset="0%" stop-color="var(--success)" stop-opacity="0.3" />
-					<stop offset="100%" stop-color="var(--success)" stop-opacity="0" />
-				</linearGradient>
-			</defs>
+		{#if chartData.length > 0}
+			<svg viewBox="0 0 {VIEWBOX_W} {VIEWBOX_H}" class="h-full w-full" preserveAspectRatio="none">
+				<defs>
+					<linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
+						<stop offset="0%" stop-color="var(--success)" stop-opacity="0.3" />
+						<stop offset="100%" stop-color="var(--success)" stop-opacity="0" />
+					</linearGradient>
+				</defs>
 
-			<!-- Price area fill -->
-			<path
-				d="{pricePath} L 300,200 L 0,200 Z"
-				fill="url(#priceGrad)"
-			/>
+				<!-- Price area fill -->
+				<path
+					d="{pricePath} L {VIEWBOX_W},{VIEWBOX_H} L 0,{VIEWBOX_H} Z"
+					fill="url(#priceGrad)"
+				/>
 
-			<!-- BEP step line -->
-			<path
-				d={bepPath}
-				fill="none"
-				stroke="var(--primary)"
-				stroke-width="2"
-				stroke-dasharray="4 4"
-				vector-effect="non-scaling-stroke"
-			/>
-
-			<!-- Price line -->
-			<path
-				d={pricePath}
-				fill="none"
-				stroke="var(--success)"
-				stroke-width="2"
-				vector-effect="non-scaling-stroke"
-			/>
-
-			<!-- Trade dots -->
-			{#each trades as trade (trade.x)}
-				{@const point = chartPoints.find((p) => p.x === trade.x)}
-				{#if point}
-					<circle
-						cx={trade.x}
-						cy={200 - ((point.price - 25000) / 45000) * 180}
-						r="4"
-						fill={trade.type === 'buy' ? 'var(--success)' : 'var(--destructive)'}
+				<!-- BEP step line -->
+				{#if bepPath}
+					<path
+						d={bepPath}
+						fill="none"
+						stroke="var(--primary)"
+						stroke-width="2"
+						stroke-dasharray="4 4"
 						vector-effect="non-scaling-stroke"
 					/>
 				{/if}
-			{/each}
-		</svg>
+
+				<!-- Price line -->
+				<path
+					d={pricePath}
+					fill="none"
+					stroke="var(--success)"
+					stroke-width="2"
+					vector-effect="non-scaling-stroke"
+				/>
+
+				<!-- Trade dots -->
+				{#each tradeDots as dot (dot.idx)}
+					{@const d = chartData[dot.idx]}
+					<circle
+						cx={scaleInfo.scaleX(dot.idx)}
+						cy={scaleInfo.scaleY(d.price)}
+						r="4"
+						fill={dot.type === 'buy' ? 'var(--success)' : 'var(--destructive)'}
+						vector-effect="non-scaling-stroke"
+					/>
+				{/each}
+			</svg>
+		{:else}
+			<div class="flex h-full items-center justify-center">
+				<span class="text-muted-foreground text-sm">No price data available</span>
+			</div>
+		{/if}
 	</div>
 </div>

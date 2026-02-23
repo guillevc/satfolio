@@ -77,6 +77,22 @@ fn candles(state: State<AppState>) -> Result<Vec<Candle>, AppError> {
     Ok(app_core::api::candles(&ctx, &state.prices_dir)?)
 }
 
+#[tauri::command]
+fn load_sample(state: State<AppState>) -> Result<(), AppError> {
+    if cfg!(debug_assertions) {
+        let ctx = state.ctx.lock().unwrap_or_else(|e| e.into_inner());
+        let trades = app_core::api::trades(&ctx)?;
+        if trades.is_empty() {
+            let fixture = std::path::PathBuf::from(concat!(
+                env!("CARGO_MANIFEST_DIR"),
+                "/../crates/core/fixtures/sample.csv"
+            ));
+            app_core::api::confirm_import(&ctx, &fixture)?;
+        }
+    }
+    Ok(())
+}
+
 // -- Entrypoint ----------------------------------------------------------
 
 pub fn run() {
@@ -114,6 +130,7 @@ pub fn run() {
             bep_snaps,
             trades,
             candles,
+            load_sample,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

@@ -84,12 +84,12 @@ test: test-rust test-web
 [group('test')]
 [doc("Run app-core tests only")]
 test-core:
-    cargo test -p app-core
+    cargo test -p app-core -- --skip export_bindings
 
 [group('test')]
 [private]
 test-rust:
-    cargo test
+    cargo test -- --skip export_bindings
 
 [group('test')]
 [private]
@@ -101,6 +101,12 @@ test-web:
 [doc("Run a core example by name (e.g. just example parse_csv)")]
 example name:
     cargo run -p app-core --example {{name}}
+
+# Gen
+[group('gen')]
+[doc("Generate TS types from Rust models")]
+gen-types:
+    TS_RS_EXPORT_DIR="$(pwd)/src/lib/types/bindings" cargo test -p app-core export_bindings
 
 # Tools
 shadcn *args:
