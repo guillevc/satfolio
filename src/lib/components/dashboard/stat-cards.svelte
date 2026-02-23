@@ -38,12 +38,13 @@
 	</Card.Root>
 
 	<!-- Break-Even Price -->
-	<Card.Root class="glass-panel border-primary/20 shadow-[0_0_15px_-3px] shadow-primary/20">
-		<Card.Header>
-			<Card.Description>Break-Even Price</Card.Description>
-			<Card.Title class="text-2xl font-bold text-primary">{formatUsd(mockPositionSummary.break_even_price)}</Card.Title>
+	<Card.Root class="relative overflow-hidden border-primary/20 shadow-[0_0_15px] shadow-primary/5">
+		<div class="pointer-events-none absolute right-0 top-0 h-24 w-24 translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-2xl"></div>
+		<Card.Header class="relative z-10">
+			<Card.Description class="text-primary">Break-Even Price</Card.Description>
+			<Card.Title class="text-2xl font-bold">{formatUsd(mockPositionSummary.break_even_price)}</Card.Title>
 		</Card.Header>
-		<Card.Content>
+		<Card.Content class="relative z-10">
 			<span class="text-xs text-muted-foreground">
 				{mockPositionSummary.buy_count} buys, {mockPositionSummary.sell_count} sell
 			</span>
