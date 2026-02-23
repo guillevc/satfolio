@@ -21,7 +21,7 @@
 	<Card.Root class="glass-panel border-white/[0.08]">
 		<Card.Header>
 			<Card.Description>BTC Price</Card.Description>
-			<Card.Title class="text-2xl font-bold">{formatUsd(mockBtcPrice.price)}</Card.Title>
+			<Card.Title class="text-2xl font-bold tabular-nums">{formatUsd(mockBtcPrice.price)}</Card.Title>
 		</Card.Header>
 		<Card.Content>
 			<span class={['inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium',
@@ -42,7 +42,7 @@
 		<div class="pointer-events-none absolute right-0 top-0 h-24 w-24 translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-2xl"></div>
 		<Card.Header class="relative z-10">
 			<Card.Description class="text-primary">Break-Even Price</Card.Description>
-			<Card.Title class="text-2xl font-bold">{formatUsd(mockPositionSummary.break_even_price)}</Card.Title>
+			<Card.Title class="text-2xl font-bold tabular-nums">{formatUsd(mockPositionSummary.break_even_price)}</Card.Title>
 		</Card.Header>
 		<Card.Content class="relative z-10">
 			<span class="text-xs text-muted-foreground">
@@ -55,7 +55,7 @@
 	<Card.Root class="glass-panel border-white/[0.08]">
 		<Card.Header>
 			<Card.Description>Unrealized P&L</Card.Description>
-			<Card.Title class={['text-2xl font-bold', pnl >= 0 ? 'text-success' : 'text-destructive']}>
+			<Card.Title class={['text-2xl font-bold tabular-nums', pnl >= 0 ? 'text-success' : 'text-destructive']}>
 				{pnl >= 0 ? '+' : ''}{formatUsd(pnl)}
 			</Card.Title>
 		</Card.Header>
@@ -70,7 +70,7 @@
 	<Card.Root class="glass-panel border-white/[0.08]">
 		<Card.Header>
 			<Card.Description>Total Held</Card.Description>
-			<Card.Title class="text-2xl font-bold">{formatBtc(mockPositionSummary.total_held_btc)}</Card.Title>
+			<Card.Title class="text-2xl font-bold tabular-nums">{formatBtc(mockPositionSummary.total_held_btc)}</Card.Title>
 		</Card.Header>
 		<Card.Content>
 			<span class="text-xs text-muted-foreground">

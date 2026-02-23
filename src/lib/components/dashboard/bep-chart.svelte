@@ -1,9 +1,7 @@
 <script lang="ts">
-	import { Switch } from '$lib/components/ui/switch';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 
 	let range: string = $state('1M');
-	let showDca: boolean = $state(true);
 
 	const ranges = ['1D', '1W', '1M', '3M', '1Y', 'ALL'];
 
@@ -38,7 +36,7 @@
 	</div>
 {/snippet}
 
-<div class="glass-panel flex flex-col gap-4 p-5">
+<div class="glass-panel flex min-h-0 flex-1 flex-col gap-4 p-5">
 	<div class="flex items-center justify-between">
 		<div class="flex items-center gap-4">
 			<h3 class="text-sm font-semibold">Performance vs BEP</h3>
@@ -47,22 +45,16 @@
 				{@render legendPill('oklch(0.72 0.26 142)', 'BTC Price')}
 			</div>
 		</div>
-		<div class="flex items-center gap-3">
-			<label class="flex items-center gap-2 text-xs text-muted-foreground">
-				DCA
-				<Switch checked={showDca} onCheckedChange={(v) => (showDca = v)} />
-			</label>
-			<ToggleGroup.Root type="single" value={range} onValueChange={(v) => { if (v) range = v; }}>
-				{#each ranges as r (r)}
-					<ToggleGroup.Item value={r} class="h-7 px-2 text-xs">
-						{r}
-					</ToggleGroup.Item>
-				{/each}
-			</ToggleGroup.Root>
-		</div>
+		<ToggleGroup.Root type="single" value={range} onValueChange={(v) => { if (v) range = v; }}>
+			{#each ranges as r (r)}
+				<ToggleGroup.Item value={r} class="h-7 px-2 text-xs">
+					{r}
+				</ToggleGroup.Item>
+			{/each}
+		</ToggleGroup.Root>
 	</div>
 
-	<div class="relative h-52">
+	<div class="relative min-h-0 flex-1">
 		<svg viewBox="0 0 300 200" class="h-full w-full" preserveAspectRatio="none">
 			<defs>
 				<linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
