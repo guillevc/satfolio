@@ -138,7 +138,7 @@
 
 @layer base {
   * {
-    user-select: none;
+    @apply select-none;
   }
 }
 

@@ -24,9 +24,9 @@
 	const cardRoot = 'gap-1 py-4 shadow-none';
 	const cardHeader = 'px-4 gap-1';
 	const cardContent = 'px-4';
-	const cardLabel = 'text-sm font-medium uppercase tracking-wider';
-	const cardValue = 'text-2xl font-mono';
-	const cardSub = 'text-xs font-medium text-muted-foreground tabular-nums';
+	const cardLabel = 'text-xs font-medium uppercase tracking-wider';
+	const cardValue = 'text-xl font-mono';
+	const cardSub = 'text-xs text-muted-foreground tabular-nums';
 </script>
 
 <div class="grid grid-cols-4 gap-4">
