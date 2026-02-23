@@ -100,3 +100,7 @@ test-web:
 [doc("Run a core example by name (e.g. just example parse_csv)")]
 example name:
     cargo run -p app-core --example {{name}}
+
+# Tools
+shadcn *args:
+  -pnpm dlx shadcn-svelte@latest {{args}}

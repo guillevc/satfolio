@@ -1,52 +1,42 @@
 <script lang="ts">
 	import './app.css';
-	import svelteLogo from './assets/svelte.svg';
-	import viteLogo from '/vite.svg';
-	import Counter from './lib/Counter.svelte';
+	import TitleBar from '$lib/components/title-bar.svelte';
+	import AppSidebar from '$lib/components/app-sidebar.svelte';
+	import { Dashboard } from '$lib/components/dashboard';
+
+	type View = 'dashboard' | 'ledger' | 'simulator' | 'settings';
+
+	let view: View = $state('dashboard');
+
+	const viewTitles: Record<View, string> = {
+		dashboard: 'Dashboard',
+		ledger: 'Ledger',
+		simulator: 'Simulator',
+		settings: 'Settings',
+	};
 </script>
 
-<main class="mx-auto max-w-3xl px-4 py-16 text-center">
-	<div class="flex items-center justify-center gap-4">
-		<a
-			href="https://vite.dev"
-			target="_blank"
-			rel="noreferrer"
-		>
-			<img
-				src={viteLogo}
-				class="h-24 p-6 transition-[filter] duration-300 hover:drop-shadow-[0_0_2em_#646cffaa]"
-				alt="Vite Logo"
-			/>
-		</a>
+<svelte:head>
+	<title>betc — {viewTitles[view]}</title>
+</svelte:head>
 
-		<a
-			href="https://svelte.dev"
-			target="_blank"
-			rel="noreferrer"
+<div class="dark flex h-screen flex-col overflow-hidden bg-background text-foreground">
+	<TitleBar title={viewTitles[view]} />
+
+	<div class="flex flex-1 overflow-hidden">
+		<AppSidebar active={view} onnavigate={(v) => (view = v)} />
+
+		<main
+			class="flex flex-1 flex-col overflow-hidden"
+			style="background-image: radial-gradient(circle, oklch(1 0 0 / 0.03) 1px, transparent 1px); background-size: 24px 24px;"
 		>
-			<img
-				src={svelteLogo}
-				class="h-24 p-6 transition-[filter] duration-300 hover:drop-shadow-[0_0_2em_#ff3e00aa]"
-				alt="Svelte Logo"
-			/>
-		</a>
+			{#if view === 'dashboard'}
+				<Dashboard />
+			{:else}
+				<div class="flex h-full items-center justify-center">
+					<p class="text-muted-foreground">Coming soon</p>
+				</div>
+			{/if}
+		</main>
 	</div>
-
-	<h1 class="mt-8 text-4xl font-bold">Vite + Svelte</h1>
-	<div class="mt-6"><Counter /></div>
-
-	<p class="mt-6">
-		Check out
-
-		<a
-			href="https://github.com/sveltejs/kit#readme"
-			target="_blank"
-			rel="noreferrer"
-		>
-			SvelteKit
-		</a>
-		, the official Svelte app framework powered by Vite!
-	</p>
-
-	<p class="mt-4 text-muted-foreground">Click on the Vite and Svelte logos to learn more</p>
-</main>
+</div>
