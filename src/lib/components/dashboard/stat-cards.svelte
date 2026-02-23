@@ -49,13 +49,12 @@
 	</Card.Root>
 
 	<!-- Break-Even Price -->
-	<Card.Root class={[cardRoot, 'relative overflow-hidden border-primary/20 shadow-[0_0_15px] shadow-primary/5']}>
-		<div class="pointer-events-none absolute right-0 top-0 h-24 w-24 translate-x-1/2 -translate-y-1/2 rounded-full bg-primary/10 blur-2xl"></div>
-		<Card.Header class={[cardHeader, 'relative z-10']}>
+	<Card.Root class={[cardRoot, 'glow-top-right border-primary/20 shadow-[0_0_15px] shadow-primary/5']}>
+		<Card.Header class={cardHeader}>
 			<Card.Description class={[cardLabel, 'text-primary']}>Break-Even Price</Card.Description>
 			<Card.Title class={cardValue}>{formatUsd(mockPositionSummary.break_even_price)}</Card.Title>
 		</Card.Header>
-		<Card.Content class={[cardContent, 'relative z-10']}>
+		<Card.Content class={cardContent}>
 			<span class={cardSub}>{tradeCount} trades</span>
 		</Card.Content>
 	</Card.Root>

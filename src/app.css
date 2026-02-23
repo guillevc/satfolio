@@ -149,4 +149,12 @@
     border: 1px solid oklch(1 0 0 / 0.08);
     border-radius: var(--radius-xl);
   }
+
+  .glow-top-right {
+    background-image: radial-gradient(
+      circle at 120% -20%,
+      oklch(from var(--primary) l c h / 0.1) 0%,
+      transparent 50%
+    );
+  }
 }
