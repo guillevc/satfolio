@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
-	import { createChart, LineSeries, createSeriesMarkers, ColorType } from 'lightweight-charts';
+	import { createChart, LineSeries, HistogramSeries, ColorType } from 'lightweight-charts';
 	import type { IChartApi, Time } from 'lightweight-charts';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import type { BepSnapshot, Candle } from '$lib/types/bindings';
@@ -14,14 +14,14 @@
 	} = $props();
 
 	type Range = '1M' | '3M' | '1Y' | '3Y' | '5Y' | 'ALL';
-	let range: Range = $state('ALL');
+	let range: Range = $state('1Y');
 	const ranges: Range[] = ['1M', '3M', '1Y', '3Y', '5Y', 'ALL'];
 
 	let container: HTMLDivElement;
 	let chart: IChartApi | undefined;
 	let priceSeries: ReturnType<IChartApi['addSeries']> | undefined;
 	let bepSeries: ReturnType<IChartApi['addSeries']> | undefined;
-	let markersHandle: { setMarkers: (m: typeof tradeMarkers) => void } | undefined;
+	let bandsSeries: ReturnType<IChartApi['addSeries']> | undefined;
 
 	// Crosshair state — null means "show latest values"
 	let crosshairData = $state<{ date: string; price: number | null; bep: number | null } | null>(
@@ -57,25 +57,17 @@
 		return points;
 	});
 
-	// Trade markers: dots on the BTC price line at each trade date
-	let tradeMarkers = $derived.by(() => {
+	// Trade bands: full-height vertical lines at each trade date
+	let tradeBands = $derived.by(() => {
 		const snapDates = Object.keys(bepSnaps).sort();
-		const markers: Array<{
-			time: Time;
-			position: 'inBar';
-			color: string;
-			shape: 'circle';
-			size: number;
-		}> = [];
+		const bands: Array<{ time: Time; value: number; color: string }> = [];
 
 		// First trade
 		if (snapDates.length > 0 && bepSnaps[snapDates[0]].bep) {
-			markers.push({
+			bands.push({
 				time: snapDates[0] as Time,
-				position: 'inBar',
-				color: '#fbbf24',
-				shape: 'circle',
-				size: 1,
+				value: 999_999_999,
+				color: 'rgba(251,191,36,0.15)',
 			});
 		}
 
@@ -86,16 +78,14 @@
 			if (!curr.bep || curr.bep === prev.bep) continue;
 
 			const isBuy = parseFloat(curr.bep) > parseFloat(prev.bep ?? '0');
-			markers.push({
+			bands.push({
 				time: snapDates[i] as Time,
-				position: 'inBar',
-				color: isBuy ? '#fbbf24' : '#10b981',
-				shape: 'circle',
-				size: 1,
+				value: 999_999_999,
+				color: isBuy ? 'rgba(251,191,36,0.15)' : 'rgba(16,185,129,0.15)',
 			});
 		}
 
-		return markers;
+		return bands;
 	});
 
 	// Legend: crosshair values or latest from series
@@ -136,7 +126,7 @@
 	});
 
 	$effect(() => {
-		markersHandle?.setMarkers(tradeMarkers);
+		bandsSeries?.setData(tradeBands);
 	});
 
 	function applyRange(r: Range) {
@@ -178,6 +168,17 @@
 			},
 		});
 
+		// Trade bands — full-height histogram on hidden scale, renders behind lines
+		bandsSeries = chart.addSeries(HistogramSeries, {
+			priceScaleId: 'bands',
+			lastValueVisible: false,
+			priceLineVisible: false,
+		});
+		chart.priceScale('bands').applyOptions({
+			visible: false,
+			scaleMargins: { top: 0, bottom: 0 },
+		});
+
 		// BTC price — neutral zinc reference line
 		priceSeries = chart.addSeries(LineSeries, {
 			color: '#d4d4d8',
@@ -200,9 +201,9 @@
 		});
 
 		// Initial data load
+		bandsSeries.setData(tradeBands);
 		priceSeries.setData(marketPrices);
 		bepSeries.setData(bepPrices);
-		markersHandle = createSeriesMarkers(priceSeries, tradeMarkers);
 
 		// Crosshair → legend
 		chart.subscribeCrosshairMove((param) => {
