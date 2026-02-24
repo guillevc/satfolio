@@ -205,7 +205,8 @@
 		});
 
 		// Initial data load
-		bandsSeries.setData(tradeBands);
+    // Initially disabled
+		//bandsSeries.setData(tradeBands);
 		priceSeries.setData(marketPrices);
 		bepSeries.setData(bepPrices);
 
@@ -273,14 +274,14 @@
 		<div class="flex items-center gap-6">
 		<div class="flex items-center gap-2 text-xs">
 			<Switch
-        id="show-trades-switch"
+        id="show-buys-sells-switch"
 				checked={showTrades}
 				onCheckedChange=  {(v) => {
 					showTrades = v;
 					applyShowTrades(v);
 				}}
 			/>
-      <Label class="text-xs" for="show-trades-switch">Show buys/sells</Label>
+      <Label class="text-xs" for="show-buys-sells-switch">Show buys/sells</Label>
 		</div>
 		<ToggleGroup.Root
 			type="single"
@@ -306,24 +307,23 @@
 	<div class="relative min-h-0 flex-1">
 		{#if candles.length > 0}
 			<div
-				class="pointer-events-none absolute left-3 top-2 z-10 flex items-center gap-4 text-xs tabular-nums"
+				class="pointer-events-none absolute left-3 top-2 z-10 flex items-center gap-2 text-xs font-mono tracking-wide"
 			>
-				<span class="text-zinc-500">{legend.date}</span>
 				<span class="flex items-center gap-1">
 					<span class="size-2 rounded-full bg-zinc-300"></span>
-					<span class="text-zinc-400">BTC</span>
-					<span class="text-zinc-200">{formatPrice(legend.price)}</span>
+					<span class="text-muted-foreground font-medium">BTC</span>
+					<span class="text-zinc-200 min-w-[9ch]">{formatPrice(legend.price)}</span>
 				</span>
 				{#if legend.bep !== null}
 				<span class="flex items-center gap-1">
 					<span class="size-2 rounded-full bg-amber-400"></span>
-					<span class="text-zinc-400">BEP</span>
-					<span class="text-amber-400">{formatPrice(legend.bep)}</span>
+					<span class="text-muted-foreground font-medium">BEP</span>
+					<span class="text-amber-400 min-w-[9ch]">{formatPrice(legend.bep)}</span>
 				</span>
 				{/if}
 				{#if legendSpread !== null}
 					<span class="flex items-center gap-1">
-						<span class="text-zinc-400">P&L</span>
+						<span class="text-muted-foreground font-medium">P&L</span>
 						<span class={legendSpread >= 0 ? 'text-emerald-400' : 'text-red-400'}>
 							{formatSpread(legendSpread)}
 						</span>
