@@ -1,8 +1,8 @@
-export type View = 'dashboard' | 'ledger' | 'simulator' | 'settings';
+export type View = "dashboard" | "trades" | "simulator" | "settings";
 
 export const viewTitles: Record<View, string> = {
-	dashboard: 'Dashboard',
-	ledger: 'Ledger',
-	simulator: 'Simulator',
-	settings: 'Settings',
+  dashboard: "Dashboard",
+  trades: "Trades",
+  simulator: "Simulator",
+  settings: "Settings",
 };

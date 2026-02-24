@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ChartLine, ScrollText, FlaskConical, Settings } from '@lucide/svelte';
+	import { ChartLineIcon, FlaskConicalIcon, SettingsIcon, ArrowLeftRightIcon } from '@lucide/svelte';
 	import * as Tooltip from '$lib/components/ui/tooltip';
 	import { Separator } from '$lib/components/ui/separator';
 	import type { View } from '$lib/types';
@@ -11,14 +11,14 @@
 
 	let { active, onnavigate }: Props = $props();
 
-	const navItems: { view: View; icon: typeof ChartLine; label: string }[] = [
-		{ view: 'dashboard', icon: ChartLine, label: 'Dashboard' },
-		{ view: 'ledger', icon: ScrollText, label: 'Ledger' },
-		{ view: 'simulator', icon: FlaskConical, label: 'Simulator' },
+	const navItems: { view: View; icon: typeof ChartLineIcon; label: string }[] = [
+		{ view: 'dashboard', icon: ChartLineIcon, label: 'Dashboard' },
+		{ view: 'trades', icon: ArrowLeftRightIcon, label: 'Trades' },
+		{ view: 'simulator', icon: FlaskConicalIcon, label: 'Simulator' },
 	];
 </script>
 
-{#snippet navItem(view: View, Icon: typeof ChartLine, label: string)}
+{#snippet navItem(view: View, Icon: typeof ChartLineIcon, label: string)}
 	<Tooltip.Root>
 		<Tooltip.Trigger>
 			<button
@@ -48,6 +48,6 @@
 
 		<Separator class="mx-3 my-2 w-8" />
 
-		{@render navItem('settings', Settings, 'Settings')}
+		{@render navItem('settings', SettingsIcon, 'Settings')}
 	</nav>
 </Tooltip.Provider>
