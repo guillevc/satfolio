@@ -5,6 +5,7 @@
 	import { Switch } from '$lib/components/ui/switch';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import type { BepSnapshot, Candle } from '$lib/types/bindings';
+  import { Label } from '$lib/components/ui/label';
 
 	let {
 		bepSnaps,
@@ -268,19 +269,19 @@
 
 <div class="glass-panel flex min-h-0 flex-1 flex-col gap-4 p-5">
 	<div class="flex items-center justify-between">
-		<h3 class="text-sm font-semibold">Performance vs BEP</h3>
-		<div class="flex items-center gap-2">
-		<label class="flex items-center gap-1.5 text-xs text-muted-foreground">
+		<h3 class="text-sm font-semibold">Performance vs. BEP</h3>
+		<div class="flex items-center gap-6">
+		<div class="flex items-center gap-2 text-xs">
 			<Switch
+        id="show-trades-switch"
 				checked={showTrades}
-				onCheckedChange={(v) => {
+				onCheckedChange=  {(v) => {
 					showTrades = v;
 					applyShowTrades(v);
 				}}
-				class="scale-75"
 			/>
-			Trades
-		</label>
+      <Label class="text-xs" for="show-trades-switch">Show buys/sells</Label>
+		</div>
 		<ToggleGroup.Root
 			type="single"
       variant="outline"
@@ -294,7 +295,7 @@
 			}}
 		>
 			{#each ranges as r (r)}
-				<ToggleGroup.Item value={r} class="h-7 px-2 text-xs" size="sm">
+				<ToggleGroup.Item value={r} class="text-xs font-mono">
 					{r}
 				</ToggleGroup.Item>
 			{/each}
