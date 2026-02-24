@@ -2,6 +2,7 @@
 	import { onMount } from 'svelte';
 	import { createChart, LineSeries, HistogramSeries, ColorType } from 'lightweight-charts';
 	import type { IChartApi, Time } from 'lightweight-charts';
+	import { Switch } from '$lib/components/ui/switch';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import type { BepSnapshot, Candle } from '$lib/types/bindings';
 
@@ -12,6 +13,8 @@
 		bepSnaps: Record<string, BepSnapshot>;
 		candles: Candle[];
 	} = $props();
+
+	let showTrades = $state(true);
 
 	type Range = '1M' | '3M' | '1Y' | '3Y' | '5Y' | 'ALL';
 	let range: Range = $state('1Y');
@@ -125,9 +128,9 @@
 		bepSeries?.setData(bepPrices);
 	});
 
-	$effect(() => {
-		bandsSeries?.setData(tradeBands);
-	});
+	function applyShowTrades(show: boolean) {
+		bandsSeries?.setData(show ? tradeBands : []);
+	}
 
 	function applyRange(r: Range) {
 		if (!chart) return;
@@ -266,8 +269,22 @@
 <div class="glass-panel flex min-h-0 flex-1 flex-col gap-4 p-5">
 	<div class="flex items-center justify-between">
 		<h3 class="text-sm font-semibold">Performance vs BEP</h3>
+		<div class="flex items-center gap-2">
+		<label class="flex items-center gap-1.5 text-xs text-muted-foreground">
+			<Switch
+				checked={showTrades}
+				onCheckedChange={(v) => {
+					showTrades = v;
+					applyShowTrades(v);
+				}}
+				class="scale-75"
+			/>
+			Trades
+		</label>
 		<ToggleGroup.Root
 			type="single"
+      variant="outline"
+      size="sm"
 			value={range}
 			onValueChange={(v) => {
 				if (v) {
@@ -277,11 +294,12 @@
 			}}
 		>
 			{#each ranges as r (r)}
-				<ToggleGroup.Item value={r} class="h-7 px-2 text-xs">
+				<ToggleGroup.Item value={r} class="h-7 px-2 text-xs" size="sm">
 					{r}
 				</ToggleGroup.Item>
 			{/each}
 		</ToggleGroup.Root>
+		</div>
 	</div>
 
 	<div class="relative min-h-0 flex-1">
