@@ -15,7 +15,7 @@
 		candles: Candle[];
 	} = $props();
 
-	let showTrades = $state(true);
+	let showTrades = $state(false);
 
 	type Range = '1M' | '3M' | '1Y' | '3Y' | '5Y' | 'ALL';
 	let range: Range = $state('1Y');
@@ -148,7 +148,7 @@
 	onMount(() => {
 		chart = createChart(container, {
 			layout: {
-				background: { type: ColorType.Solid, color: '#171717' },
+				background: { type: ColorType.Solid, color: 'transparent' },
 				textColor: '#a1a1aa',
 				fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
 			},
@@ -205,8 +205,6 @@
 		});
 
 		// Initial data load
-    // Initially disabled
-		//bandsSeries.setData(tradeBands);
 		priceSeries.setData(marketPrices);
 		bepSeries.setData(bepPrices);
 
