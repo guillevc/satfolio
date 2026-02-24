@@ -21,6 +21,7 @@
     "@types/node": "^24.10.1",
     "bits-ui": "^2.16.2",
     "clsx": "^2.1.1",
+    "lightweight-charts": "^5.1.0",
     "svelte": "^5.45.2",
     "svelte-check": "^4.3.4",
     "tailwind-merge": "^3.4.0",

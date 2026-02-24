@@ -1,4 +1,7 @@
 <script lang="ts">
+	import { onMount } from 'svelte';
+	import { createChart, LineSeries, createSeriesMarkers, ColorType } from 'lightweight-charts';
+	import type { IChartApi, Time } from 'lightweight-charts';
 	import * as ToggleGroup from '$lib/components/ui/toggle-group';
 	import type { BepSnapshot, Candle } from '$lib/types/bindings';
 
@@ -10,132 +13,268 @@
 		candles: Candle[];
 	} = $props();
 
-	type Range = '1W' | '1M' | '3M' | '1Y' | 'ALL';
-
+	type Range = '1M' | '3M' | '1Y' | '3Y' | '5Y' | 'ALL';
 	let range: Range = $state('ALL');
+	const ranges: Range[] = ['1M', '3M', '1Y', '3Y', '5Y', 'ALL'];
 
-	const ranges: Range[] = ['1W', '1M', '3M', '1Y', 'ALL'];
+	let container: HTMLDivElement;
+	let chart: IChartApi | undefined;
+	let priceSeries: ReturnType<IChartApi['addSeries']> | undefined;
+	let bepSeries: ReturnType<IChartApi['addSeries']> | undefined;
+	let markersHandle: { setMarkers: (m: typeof tradeMarkers) => void } | undefined;
 
-	const VIEWBOX_W = 300;
-	const VIEWBOX_H = 200;
-	const PAD = 10;
+	// Crosshair state — null means "show latest values"
+	let crosshairData = $state<{ date: string; price: number | null; bep: number | null } | null>(
+		null,
+	);
 
-	let filteredCandles = $derived.by(() => {
-		if (range === 'ALL') return candles;
-		const now = new Date();
-		const cutoff = new Date(now);
-		if (range === '1W') cutoff.setDate(now.getDate() - 7);
-		else if (range === '1M') cutoff.setMonth(now.getMonth() - 1);
-		else if (range === '3M') cutoff.setMonth(now.getMonth() - 3);
-		else if (range === '1Y') cutoff.setFullYear(now.getFullYear() - 1);
-		const cutoffStr = cutoff.toISOString().slice(0, 10);
-		return candles.filter((c) => c.date >= cutoffStr);
-	});
+	// --- Data transformations ---
+	// parseFloat() precision: intentional — canvas pixels don't need 18 decimal places (display-only)
+	let marketPrices = $derived(
+		candles.map((c) => ({ time: c.date as Time, value: parseFloat(c.close) })),
+	);
 
-	/** Merge candle close prices with BEP snapshots, aligned by date */
-	let chartData = $derived.by(() => {
-		const fc = filteredCandles;
-		if (fc.length === 0) return [];
-
-		// Build a sorted list of BEP values — carry forward last known BEP
+	let bepPrices = $derived.by(() => {
 		const snapDates = Object.keys(bepSnaps).sort();
-		let lastBep: number | null = null;
+		if (snapDates.length === 0) return [];
 
-		return fc.map((c) => {
-			const date = c.date;
-			// Find the most recent BEP snapshot at or before this date
+		let lastBep: number | null = null;
+		const points: { time: Time; value: number }[] = [];
+
+		for (const c of candles) {
 			for (let i = snapDates.length - 1; i >= 0; i--) {
-				if (snapDates[i] <= date) {
+				if (snapDates[i] <= c.date) {
 					const snap = bepSnaps[snapDates[i]];
-					lastBep = snap.bep ? parseFloat(snap.bep) : null;
+					lastBep = snap.bep ? parseFloat(snap.bep) : lastBep;
 					break;
 				}
 			}
-			return {
-				date,
-				price: parseFloat(c.close),
-				bep: lastBep,
+			// Only emit points after first trade (when BEP is known)
+			if (lastBep !== null) {
+				points.push({ time: c.date as Time, value: lastBep });
+			}
+		}
+		return points;
+	});
+
+	// Trade markers: dots on the BTC price line at each trade date
+	let tradeMarkers = $derived.by(() => {
+		const snapDates = Object.keys(bepSnaps).sort();
+		const markers: Array<{
+			time: Time;
+			position: 'inBar';
+			color: string;
+			shape: 'circle';
+			size: number;
+		}> = [];
+
+		// First trade
+		if (snapDates.length > 0 && bepSnaps[snapDates[0]].bep) {
+			markers.push({
+				time: snapDates[0] as Time,
+				position: 'inBar',
+				color: '#fbbf24',
+				shape: 'circle',
+				size: 1,
+			});
+		}
+
+		// Subsequent trades: detect BEP changes
+		for (let i = 1; i < snapDates.length; i++) {
+			const prev = bepSnaps[snapDates[i - 1]];
+			const curr = bepSnaps[snapDates[i]];
+			if (!curr.bep || curr.bep === prev.bep) continue;
+
+			const isBuy = parseFloat(curr.bep) > parseFloat(prev.bep ?? '0');
+			markers.push({
+				time: snapDates[i] as Time,
+				position: 'inBar',
+				color: isBuy ? '#fbbf24' : '#10b981',
+				shape: 'circle',
+				size: 1,
+			});
+		}
+
+		return markers;
+	});
+
+	// Legend: crosshair values or latest from series
+	let legend = $derived.by(() => {
+		if (crosshairData) return crosshairData;
+		const mp = marketPrices;
+		const bp = bepPrices;
+		if (mp.length === 0)
+			return { date: '', price: null as number | null, bep: null as number | null };
+		return {
+			date: mp[mp.length - 1].time as string,
+			price: mp[mp.length - 1].value,
+			bep: bp.length > 0 ? bp[bp.length - 1].value : null,
+		};
+	});
+
+	let legendSpread = $derived(
+		legend.price !== null && legend.bep !== null ? legend.price - legend.bep : null,
+	);
+
+	// --- Range → logical range ---
+	const rangeDays: Record<Range, number | null> = {
+		'1M': 30,
+		'3M': 90,
+		'1Y': 365,
+		'3Y': 1095,
+		'5Y': 1825,
+		ALL: null,
+	};
+
+	// Data sync effects (declared before range effect so data is set first)
+	$effect(() => {
+		priceSeries?.setData(marketPrices);
+	});
+
+	$effect(() => {
+		bepSeries?.setData(bepPrices);
+	});
+
+	$effect(() => {
+		markersHandle?.setMarkers(tradeMarkers);
+	});
+
+	function applyRange(r: Range) {
+		if (!chart) return;
+		const total = marketPrices.length;
+		if (total === 0) return;
+		const days = rangeDays[r];
+		chart.timeScale().setVisibleLogicalRange({
+			from: days === null ? -0.5 : Math.max(total - days, 0) - 0.5,
+			to: total - 0.5,
+		});
+	}
+
+	// --- Chart lifecycle ---
+	onMount(() => {
+		chart = createChart(container, {
+			layout: {
+				background: { type: ColorType.Solid, color: '#171717' },
+				textColor: '#a1a1aa',
+				fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+			},
+			grid: {
+				vertLines: { visible: false },
+				horzLines: { color: '#27272a' },
+			},
+			crosshair: {
+				vertLine: { color: '#71717a', style: 3 },
+				horzLine: { color: '#71717a', style: 3 },
+			},
+			rightPriceScale: {
+				borderVisible: false,
+				scaleMargins: { top: 0.05, bottom: 0 },
+			},
+			timeScale: {
+				borderVisible: false,
+				minBarSpacing: 0.1,
+				fixRightEdge: true,
+				shiftVisibleRangeOnNewBar: true,
+			},
+		});
+
+		// BTC price — neutral zinc reference line
+		priceSeries = chart.addSeries(LineSeries, {
+			color: '#d4d4d8',
+			lineWidth: 2,
+			lastValueVisible: true,
+			priceLineVisible: false,
+			crosshairMarkerVisible: true,
+			crosshairMarkerRadius: 4,
+		});
+
+		// BEP — the hero line, amber dashed
+		bepSeries = chart.addSeries(LineSeries, {
+			color: '#fbbf24',
+			lineWidth: 2,
+			lineStyle: 2,
+			lastValueVisible: true,
+			priceLineVisible: false,
+			crosshairMarkerVisible: true,
+			crosshairMarkerRadius: 4,
+		});
+
+		// Initial data load
+		priceSeries.setData(marketPrices);
+		bepSeries.setData(bepPrices);
+		markersHandle = createSeriesMarkers(priceSeries, tradeMarkers);
+
+		// Crosshair → legend
+		chart.subscribeCrosshairMove((param) => {
+			if (!param.point || !param.time) {
+				crosshairData = null;
+				return;
+			}
+			const pd = param.seriesData.get(priceSeries!) as { value?: number } | undefined;
+			const bd = param.seriesData.get(bepSeries!) as { value?: number } | undefined;
+			crosshairData = {
+				date: param.time as string,
+				price: pd?.value ?? null,
+				bep: bd?.value ?? null,
 			};
 		});
-	});
 
-	/** Dates where BEP changed (i.e. a trade happened) */
-	let tradeDots = $derived.by(() => {
-		const data = chartData;
-		const dots: { idx: number; type: 'buy' | 'sell' }[] = [];
-		for (let i = 1; i < data.length; i++) {
-			if (data[i].bep !== data[i - 1].bep && data[i].bep !== null) {
-				// BEP went up → likely a buy at higher price; went down → sell
-				const type = (data[i].bep ?? 0) > (data[i - 1].bep ?? 0) ? 'buy' : 'sell';
-				dots.push({ idx: i, type });
+		applyRange(range);
+
+		// Auto-resize canvas to container
+		const observer = new ResizeObserver((entries) => {
+			for (const entry of entries) {
+				const { width, height } = entry.contentRect;
+				chart?.resize(width, height);
 			}
-		}
-		// Also mark the first point if BEP exists (first trade)
-		if (data.length > 0 && data[0].bep !== null) {
-			dots.unshift({ idx: 0, type: 'buy' });
-		}
-		return dots;
+		});
+		observer.observe(container);
+
+		return () => {
+			observer.disconnect();
+			chart?.remove();
+			chart = undefined;
+		};
 	});
 
-	/** Scale helpers */
-	let scaleInfo = $derived.by(() => {
-		const data = chartData;
-		if (data.length === 0) return { minY: 0, maxY: 1, scaleX: (_i: number) => 0, scaleY: (_v: number) => 0 };
+	function formatPrice(v: number | null): string {
+		if (v === null) return '—';
+		return v.toLocaleString('en-US', {
+			style: 'currency',
+			currency: 'USD',
+			minimumFractionDigits: 0,
+			maximumFractionDigits: 0,
+		});
+	}
 
-		const allValues = data.flatMap((d) => (d.bep !== null ? [d.price, d.bep] : [d.price]));
-		const minY = Math.min(...allValues) * 0.95;
-		const maxY = Math.max(...allValues) * 1.05;
-		const rangeY = maxY - minY || 1;
-
-		const scaleX = (i: number) => (data.length > 1 ? (i / (data.length - 1)) * VIEWBOX_W : VIEWBOX_W / 2);
-		const scaleY = (v: number) => VIEWBOX_H - PAD - ((v - minY) / rangeY) * (VIEWBOX_H - PAD * 2);
-
-		return { minY, maxY, scaleX, scaleY };
-	});
-
-	let pricePath = $derived.by(() => {
-		const data = chartData;
-		const { scaleX, scaleY } = scaleInfo;
-		if (data.length === 0) return '';
-		return 'M ' + data.map((d, i) => `${scaleX(i)},${scaleY(d.price)}`).join(' L ');
-	});
-
-	let bepPath = $derived.by(() => {
-		const data = chartData;
-		const { scaleX, scaleY } = scaleInfo;
-		if (data.length === 0) return '';
-		// Only draw segments where BEP is known
-		const segments: string[] = [];
-		let inSegment = false;
-		for (let i = 0; i < data.length; i++) {
-			if (data[i].bep !== null) {
-				segments.push(`${inSegment ? 'L' : 'M'} ${scaleX(i)},${scaleY(data[i].bep!)}`);
-				inSegment = true;
-			} else {
-				inSegment = false;
-			}
-		}
-		return segments.join(' ');
-	});
+	function formatSpread(v: number | null): string {
+		if (v === null) return '—';
+		const sign = v >= 0 ? '+' : '';
+		return (
+			sign +
+			v.toLocaleString('en-US', {
+				style: 'currency',
+				currency: 'USD',
+				minimumFractionDigits: 0,
+				maximumFractionDigits: 0,
+			})
+		);
+	}
 </script>
-
-{#snippet legendPill(color: string, label: string)}
-	<div class="flex items-center gap-1.5">
-		<span class="size-2 rounded-full" style="background-color: {color}"></span>
-		<span class="text-xs text-muted-foreground">{label}</span>
-	</div>
-{/snippet}
 
 <div class="glass-panel flex min-h-0 flex-1 flex-col gap-4 p-5">
 	<div class="flex items-center justify-between">
-		<div class="flex items-center gap-4">
-			<h3 class="text-sm font-semibold">Performance vs BEP</h3>
-			<div class="flex items-center gap-3">
-				{@render legendPill('var(--primary)', 'BEP')}
-				{@render legendPill('var(--success)', 'BTC Price')}
-			</div>
-		</div>
-		<ToggleGroup.Root type="single" value={range} onValueChange={(v) => { if (v) range = v as Range; }}>
+		<h3 class="text-sm font-semibold">Performance vs BEP</h3>
+		<ToggleGroup.Root
+			type="single"
+			value={range}
+			onValueChange={(v) => {
+				if (v) {
+					range = v as Range;
+					applyRange(v as Range);
+				}
+			}}
+		>
 			{#each ranges as r (r)}
 				<ToggleGroup.Item value={r} class="h-7 px-2 text-xs">
 					{r}
@@ -145,56 +284,38 @@
 	</div>
 
 	<div class="relative min-h-0 flex-1">
-		{#if chartData.length > 0}
-			<svg viewBox="0 0 {VIEWBOX_W} {VIEWBOX_H}" class="h-full w-full" preserveAspectRatio="none">
-				<defs>
-					<linearGradient id="priceGrad" x1="0" y1="0" x2="0" y2="1">
-						<stop offset="0%" stop-color="var(--success)" stop-opacity="0.3" />
-						<stop offset="100%" stop-color="var(--success)" stop-opacity="0" />
-					</linearGradient>
-				</defs>
-
-				<!-- Price area fill -->
-				<path
-					d="{pricePath} L {VIEWBOX_W},{VIEWBOX_H} L 0,{VIEWBOX_H} Z"
-					fill="url(#priceGrad)"
-				/>
-
-				<!-- BEP step line -->
-				{#if bepPath}
-					<path
-						d={bepPath}
-						fill="none"
-						stroke="var(--primary)"
-						stroke-width="2"
-						stroke-dasharray="4 4"
-						vector-effect="non-scaling-stroke"
-					/>
+		{#if candles.length > 0}
+			<div
+				class="pointer-events-none absolute left-3 top-2 z-10 flex items-center gap-4 text-xs tabular-nums"
+			>
+				<span class="text-zinc-500">{legend.date}</span>
+				<span class="flex items-center gap-1">
+					<span class="size-2 rounded-full bg-zinc-300"></span>
+					<span class="text-zinc-400">BTC</span>
+					<span class="text-zinc-200">{formatPrice(legend.price)}</span>
+				</span>
+				{#if legend.bep !== null}
+				<span class="flex items-center gap-1">
+					<span class="size-2 rounded-full bg-amber-400"></span>
+					<span class="text-zinc-400">BEP</span>
+					<span class="text-amber-400">{formatPrice(legend.bep)}</span>
+				</span>
 				{/if}
+				{#if legendSpread !== null}
+					<span class="flex items-center gap-1">
+						<span class="text-zinc-400">P&L</span>
+						<span class={legendSpread >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+							{formatSpread(legendSpread)}
+						</span>
+					</span>
+				{/if}
+			</div>
+		{/if}
 
-				<!-- Price line -->
-				<path
-					d={pricePath}
-					fill="none"
-					stroke="var(--success)"
-					stroke-width="2"
-					vector-effect="non-scaling-stroke"
-				/>
+		<div bind:this={container} class="h-full w-full"></div>
 
-				<!-- Trade dots -->
-				{#each tradeDots as dot (dot.idx)}
-					{@const d = chartData[dot.idx]}
-					<circle
-						cx={scaleInfo.scaleX(dot.idx)}
-						cy={scaleInfo.scaleY(d.price)}
-						r="4"
-						fill={dot.type === 'buy' ? 'var(--success)' : 'var(--destructive)'}
-						vector-effect="non-scaling-stroke"
-					/>
-				{/each}
-			</svg>
-		{:else}
-			<div class="flex h-full items-center justify-center">
+		{#if candles.length === 0}
+			<div class="absolute inset-0 flex items-center justify-center">
 				<span class="text-muted-foreground text-sm">No price data available</span>
 			</div>
 		{/if}
