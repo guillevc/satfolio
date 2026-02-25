@@ -7,7 +7,7 @@ alias dw := dev-web
 alias l  := lint
 alias f  := fmt
 alias t  := test
-alias c  := check
+alias c  := typecheck
 
 # Dev
 [group('dev')]
@@ -31,20 +31,25 @@ build:
 build-web:
     pnpm build
 
-# Check
-[group('check')]
-[doc("Check all (cargo + typecheck)")]
-check: check-rust check-web
+# Typecheck
+[group('typecheck')]
+[doc("Typecheck all (cargo + svelte)")]
+typecheck: typecheck-rust typecheck-web
 
-[group('check')]
+[group('typecheck')]
 [private]
-check-rust:
+typecheck-rust:
     cargo check
 
-[group('check')]
+[group('typecheck')]
 [private]
-check-web:
-    pnpm check
+typecheck-web:
+    pnpm svelte-check
+
+# Check
+[group('ci')]
+[doc("Full check: typecheck + lint + format")]
+check: typecheck lint fmt-check
 
 # Lint
 [group('lint')]
@@ -59,7 +64,21 @@ lint-rust:
 [group('lint')]
 [private]
 lint-web:
-    @echo "lint-web: not configured yet"
+    pnpm lint
+
+[group('lint')]
+[doc("Lint & fix all")]
+lint-fix: lint-fix-rust lint-fix-web
+
+[group('lint')]
+[private]
+lint-fix-rust:
+    cargo clippy --workspace --fix --allow-dirty
+
+[group('lint')]
+[private]
+lint-fix-web:
+    pnpm lint:fix
 
 # Format
 [group('format')]
@@ -74,7 +93,21 @@ fmt-rust:
 [group('format')]
 [private]
 fmt-web:
-    @echo "fmt-web: not configured yet"
+    pnpm format
+
+[group('format')]
+[doc("Check formatting (no write)")]
+fmt-check: fmt-check-rust fmt-check-web
+
+[group('format')]
+[private]
+fmt-check-rust:
+    cargo fmt --all -- --check
+
+[group('format')]
+[private]
+fmt-check-web:
+    pnpm format:check
 
 # Test
 [group('test')]

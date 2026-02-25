@@ -21,33 +21,40 @@ Use `just`
 ```
 Available recipes:
     default
+    shadcn *args # Tools
 
     [build]
     build        # Build native desktop bundle
     build-web    # Build frontend only (tsc + vite)
 
-    [check]
-    check        # Check all (cargo + typecheck) [alias: c]
+    [ci]
+    check        # Full check: typecheck + lint + format
 
     [dev]
     dev          # Run full Tauri desktop app [alias: d]
-    dev-web      # Run Vite dev server only (:5173)
+    dev-web      # Run Vite dev server only (:5173) [alias: dw]
 
     [examples]
     example name # Run a core example by name (e.g. just example parse_csv)
 
     [format]
     fmt          # Format all [alias: f]
+    fmt-check    # Check formatting (no write)
+
+    [gen]
+    gen-types    # Generate TS types from Rust models
 
     [lint]
     lint         # Lint all [alias: l]
+    lint-fix     # Lint & fix all
 
     [test]
     test         # Run all tests [alias: t]
     test-core    # Run app-core tests only
-```
 
-No test runner or linter configured.
+    [typecheck]
+    typecheck    # Typecheck all (cargo + svelte) [alias: c]
+```
 
 ## Conventions
 
@@ -93,6 +100,20 @@ This project uses **Svelte 5 runes, NOT SvelteKit**. Use the Svelte MCP server:
 1. Call **list-sections** first to discover available docs, then **get-documentation** for relevant sections.
 2. **MUST** run **svelte-autofixer** on all Svelte code before presenting to user. Repeat until no issues remain.
 3. Only use **playground-link** when user explicitly asks — never for code written to project files.
+
+#### MCP Tools
+
+##### 1. list-sections
+Use this FIRST to discover all available documentation sections. Returns a structured list with titles, use_cases, and paths. When asked about Svelte topics, ALWAYS call this at the start to find relevant sections.
+
+##### 2. get-documentation
+Retrieves full documentation content for specific sections. Accepts single or multiple sections. After calling list-sections, analyze the returned sections (especially use_cases) and fetch ALL relevant sections for the user's task.
+
+##### 3. svelte-autofixer
+Analyzes Svelte code and returns issues and suggestions. **MUST** use this whenever writing Svelte code before presenting to user. Keep calling until no issues or suggestions remain.
+
+##### 4. playground-link
+Generates a Svelte Playground link with the provided code. Only use when user explicitly asks — **never** for code written to project files.
 
 Commonly needed section paths (pass to get-documentation):
 `svelte/$state`, `svelte/$derived`, `svelte/$effect`, `svelte/$props`, `svelte/$bindable`, `svelte/$inspect`, `svelte/what-are-runes`, `svelte/svelte-files`, `svelte/svelte-js-files`, `svelte/basic-markup`, `svelte/if`, `svelte/each`, `svelte/await`, `svelte/snippet`, `svelte/@render`, `svelte/@html`, `svelte/@attach`, `svelte/bind`, `svelte/use`, `svelte/transition`, `svelte/scoped-styles`, `svelte/context`, `svelte/lifecycle-hooks`, `svelte/stores`, `svelte/typescript`, `svelte/svelte-window`, `svelte/svelte-boundary`, `svelte/svelte-reactivity`, `svelte/svelte-motion`, `svelte/testing`

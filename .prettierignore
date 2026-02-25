@@ -1,0 +1,16 @@
+# Build outputs
+/build/
+/dist/
+/target/
+/.agents/
+/.claude/
+/.vscode/
+
+# Generated
+node_modules
+.svelte-kit
+pnpm-lock.yaml
+skills-lock.json
+
+# Data files
+*.csv
