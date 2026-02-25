@@ -6,14 +6,14 @@ A privacy-first desktop app that imports your Bitcoin transaction history from a
 
 ## Tech Stack
 
-| Layer | Choice | Rationale |
-|-------|--------|-----------|
-| App framework | Tauri v2 (desktop-only) | Native OS webview, ~3MB binary, <500ms startup. Mobile path available later if needed. |
-| Backend | Rust | Handles all business logic: parsing, computation, price fetching, storage. |
-| Frontend | Svelte 5 + Vite + TypeScript | Plain Vite, no SvelteKit — no routing or SSR needed for a single-view desktop app. |
-| Charting | lightweight-charts v5 (TradingView OSS) | Used directly without wrapper. Financial-grade, canvas-rendered, tiny footprint. |
-| UI components | shadcn-svelte + Tailwind CSS | Copies into project (not a dependency). Dark theme only. |
-| Storage | SQLite via rusqlite | Local single-file DB for trades and computed snapshots. |
+| Layer         | Choice                                  | Rationale                                                                              |
+| ------------- | --------------------------------------- | -------------------------------------------------------------------------------------- |
+| App framework | Tauri v2 (desktop-only)                 | Native OS webview, ~3MB binary, <500ms startup. Mobile path available later if needed. |
+| Backend       | Rust                                    | Handles all business logic: parsing, computation, price fetching, storage.             |
+| Frontend      | Svelte 5 + Vite + TypeScript            | Plain Vite, no SvelteKit — no routing or SSR needed for a single-view desktop app.     |
+| Charting      | lightweight-charts v5 (TradingView OSS) | Used directly without wrapper. Financial-grade, canvas-rendered, tiny footprint.       |
+| UI components | shadcn-svelte + Tailwind CSS            | Copies into project (not a dependency). Dark theme only.                               |
+| Storage       | SQLite via rusqlite                     | Local single-file DB for trades and computed snapshots.                                |
 
 ## Architecture: Rust Computes, Frontend Renders
 
@@ -272,8 +272,8 @@ app.emit("price_tick", PriceTick { price, quote });   // Tauri emits the event
 ```typescript
 // Frontend listens
 listen("price_tick", (event) => {
-    currentPrice = event.payload.price;
-    unrealizedPnl = (currentPrice - stats.current_bep) * stats.btc_held;
+  currentPrice = event.payload.price;
+  unrealizedPnl = (currentPrice - stats.current_bep) * stats.btc_held;
 });
 ```
 
@@ -359,10 +359,10 @@ The user selects their base currency and cost basis method on first launch (chan
 
 **Supported cost basis methods**:
 
-| Method | Used by | How it works |
-|--------|---------|--------------|
+| Method           | Used by                                      | How it works                                                                     |
+| ---------------- | -------------------------------------------- | -------------------------------------------------------------------------------- |
 | Weighted Average | Spain, France, Netherlands, UK (Section 104) | All holdings share one average cost = total spent / total held. Matches the BEP. |
-| FIFO | US (default), Germany, Italy | Sells consume the oldest unsold lots first. |
+| FIFO             | US (default), Germany, Italy                 | Sells consume the oldest unsold lots first.                                      |
 
 The trade data is the same regardless of method — only the tax view changes.
 
@@ -484,22 +484,22 @@ Dark mode only. No toggle — financial apps live in dark mode, and a single the
 
 **Color palette**:
 
-| Role | Color | Value | Usage |
-|------|-------|-------|-------|
-| Background | Zinc 950 | `#09090b` | App background, cards |
-| Surface | Zinc 900 | `#18181b` | Elevated panels, nav bar, status bar |
-| Border | Zinc 800 | `#27272a` | Card borders, dividers, subtle separators |
-| Muted text | Zinc 400 | `#a1a1aa` | Secondary labels, timestamps, captions |
-| Primary text | Zinc 50 | `#fafafa` | Headings, values, primary content |
-| Accent | Amber 500 | `#f59e0b` | Active nav item, selected state, primary buttons. Subtle Bitcoin nod without being on-the-nose orange. |
-| Gain | Emerald 400 | `#34d399` | Positive P&L, green DCA zones, "above BEP" |
-| Loss | Red 400 | `#f87171` | Negative P&L, red DCA zones, "below BEP" |
-| BTC price line | Zinc 300 | `#d4d4d8` | Chart: BTC price series. Neutral, it's the reference. |
-| BEP line | Amber 400 | `#fbbf24` | Chart: your break-even price. The hero — warm, distinct, immediately identifiable. |
-| Buy marker | Emerald 500 | `#10b981` | Chart: buy event dots |
-| Sell marker | Red 500 | `#ef4444` | Chart: sell event dots |
+| Role           | Color       | Value     | Usage                                                                                                  |
+| -------------- | ----------- | --------- | ------------------------------------------------------------------------------------------------------ |
+| Background     | Zinc 950    | `#09090b` | App background, cards                                                                                  |
+| Surface        | Zinc 900    | `#18181b` | Elevated panels, nav bar, status bar                                                                   |
+| Border         | Zinc 800    | `#27272a` | Card borders, dividers, subtle separators                                                              |
+| Muted text     | Zinc 400    | `#a1a1aa` | Secondary labels, timestamps, captions                                                                 |
+| Primary text   | Zinc 50     | `#fafafa` | Headings, values, primary content                                                                      |
+| Accent         | Amber 500   | `#f59e0b` | Active nav item, selected state, primary buttons. Subtle Bitcoin nod without being on-the-nose orange. |
+| Gain           | Emerald 400 | `#34d399` | Positive P&L, green DCA zones, "above BEP"                                                             |
+| Loss           | Red 400     | `#f87171` | Negative P&L, red DCA zones, "below BEP"                                                               |
+| BTC price line | Zinc 300    | `#d4d4d8` | Chart: BTC price series. Neutral, it's the reference.                                                  |
+| BEP line       | Amber 400   | `#fbbf24` | Chart: your break-even price. The hero — warm, distinct, immediately identifiable.                     |
+| Buy marker     | Emerald 500 | `#10b981` | Chart: buy event dots                                                                                  |
+| Sell marker    | Red 500     | `#ef4444` | Chart: sell event dots                                                                                 |
 
-The accent is amber, not Bitcoin orange (`#F7931A`). Close enough to evoke BTC, different enough to not look like a Bitcoin.org clone. The BEP line uses the same amber family — it's *your* line, the most important thing on screen.
+The accent is amber, not Bitcoin orange (`#F7931A`). Close enough to evoke BTC, different enough to not look like a Bitcoin.org clone. The BEP line uses the same amber family — it's _your_ line, the most important thing on screen.
 
 **Typography**:
 

@@ -1,18 +1,18 @@
-import { invoke } from '@tauri-apps/api/core';
-import type { BepSnapshot, Candle, PositionSummary } from './types/bindings';
+import { invoke } from "@tauri-apps/api/core";
+import type { BepSnapshot, Candle, PositionSummary } from "./types/bindings";
 
 export async function loadSample(): Promise<void> {
-	await invoke('load_sample');
+  await invoke("load_sample");
 }
 
 export async function getPositionSummary(): Promise<PositionSummary> {
-	return invoke('position_summary');
+  return invoke("position_summary");
 }
 
 export async function getBepSnaps(): Promise<Record<string, BepSnapshot>> {
-	return invoke('bep_snaps');
+  return invoke("bep_snaps");
 }
 
 export async function getCandles(): Promise<Candle[]> {
-	return invoke('candles');
+  return invoke("candles");
 }
