@@ -9,6 +9,7 @@
 # Generated
 node_modules
 .svelte-kit
+src/lib/components/ui
 pnpm-lock.yaml
 skills-lock.json
 
