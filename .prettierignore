@@ -10,6 +10,7 @@
 node_modules
 .svelte-kit
 src/lib/components/ui
+src/lib/types/bindings
 pnpm-lock.yaml
 skills-lock.json
 

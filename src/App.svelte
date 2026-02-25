@@ -3,6 +3,7 @@
   import TitleBar from "$lib/components/title-bar.svelte";
   import AppSidebar from "$lib/components/app-sidebar.svelte";
   import { Dashboard } from "$lib/components/dashboard";
+  import { Trades } from "$lib/components/trades";
   import { type View, viewTitles } from "$lib/types";
 
   let view: View = $state("dashboard");
@@ -26,6 +27,8 @@
     >
       {#if view === "dashboard"}
         <Dashboard />
+      {:else if view === "trades"}
+        <Trades />
       {:else}
         <div class="flex h-full items-center justify-center">
           <p class="text-muted-foreground">Coming soon</p>

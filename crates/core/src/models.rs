@@ -11,7 +11,7 @@ use crate::errors::AssetMismatch;
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(test, derive(TS))]
 #[cfg_attr(test, ts(export, type = "string"))]
-#[serde(from = "String")]
+#[serde(from = "String", into = "String")]
 pub enum Asset {
     Btc,
     Eur,
@@ -29,6 +29,12 @@ impl From<String> for Asset {
             "USD" | "ZUSD" => Self::Usd,
             _ => Self::Other(s),
         }
+    }
+}
+
+impl From<Asset> for String {
+    fn from(a: Asset) -> Self {
+        a.as_str().to_string()
     }
 }
 
@@ -110,21 +116,21 @@ impl AssetAmount {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
-pub enum TradeSide {
+pub(crate) enum TradeSide {
     Buy,
     Sell,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
-pub struct Trade {
-    pub date: DateTime<Utc>,
-    pub spent: AssetAmount,
-    pub received: AssetAmount,
-    pub fee: AssetAmount,
+pub(crate) struct Trade {
+    pub(crate) date: DateTime<Utc>,
+    pub(crate) spent: AssetAmount,
+    pub(crate) received: AssetAmount,
+    pub(crate) fee: AssetAmount,
 }
 
 impl Trade {
-    pub fn side_for(&self, pair: &AssetPair) -> Option<TradeSide> {
+    pub(crate) fn side_for(&self, pair: &AssetPair) -> Option<TradeSide> {
         let trade_pair = (self.spent.asset(), self.received.asset());
         if trade_pair == (&pair.quote, &pair.base) {
             Some(TradeSide::Buy)
@@ -134,6 +140,21 @@ impl Trade {
             None
         }
     }
+}
+
+/// Trade enriched with computed analytics for display.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(TS))]
+#[cfg_attr(test, ts(export))]
+pub struct EnrichedTrade {
+    pub date: DateTime<Utc>,
+    pub spent: AssetAmount,
+    pub received: AssetAmount,
+    pub fee: AssetAmount,
+    /// Break-even price in quote currency. None if position is fully closed.
+    pub bep: Option<AssetAmount>,
+    /// Realized P&L in quote currency. None for buys.
+    pub pnl: Option<AssetAmount>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]

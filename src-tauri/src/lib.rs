@@ -4,7 +4,7 @@ use std::sync::Mutex;
 
 use app_core::context::Context;
 use app_core::errors::CoreError;
-use app_core::models::{Asset, BepSnapshot, Candle, PositionSummary, Trade, TradesSummary};
+use app_core::models::{Asset, BepSnapshot, Candle, EnrichedTrade, PositionSummary, TradesSummary};
 use chrono::NaiveDate;
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -66,7 +66,7 @@ fn bep_snaps(state: State<AppState>) -> Result<BTreeMap<NaiveDate, BepSnapshot>,
 }
 
 #[tauri::command]
-fn trades(state: State<AppState>) -> Result<Vec<Trade>, AppError> {
+fn trades(state: State<AppState>) -> Result<Vec<EnrichedTrade>, AppError> {
     let ctx = state.ctx.lock().unwrap_or_else(|e| e.into_inner());
     Ok(app_core::api::trades(&ctx)?)
 }

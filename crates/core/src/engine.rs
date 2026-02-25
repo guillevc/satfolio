@@ -5,7 +5,8 @@ use rust_decimal::Decimal;
 
 use crate::errors::EngineResult;
 use crate::models::{
-    AssetAmount, AssetPair, BepSnapshot, PositionSummary, Trade, TradeSide, TradesSummary,
+    AssetAmount, AssetPair, BepSnapshot, EnrichedTrade, PositionSummary, Trade, TradeSide,
+    TradesSummary,
 };
 
 struct Accumulator {
@@ -149,6 +150,123 @@ pub(crate) fn trades_summary(pair: &AssetPair, trades: &[Trade]) -> EngineResult
         received,
         fees,
     })
+}
+
+/// Normalize fee to quote currency for accurate P&L.
+fn normalize_fee_to_quote(trade: &Trade, pair: &AssetPair, price_per_unit: Decimal) -> Decimal {
+    if trade.fee.asset() == &pair.quote {
+        trade.fee.amount()
+    } else if trade.fee.asset() == &pair.base {
+        trade.fee.amount() * price_per_unit
+    } else {
+        Decimal::ZERO
+    }
+}
+
+/// Enrich trades with running BEP and realized P&L.
+pub(crate) fn enrich_trades(
+    pair: &AssetPair,
+    trades: Vec<Trade>,
+) -> EngineResult<Vec<EnrichedTrade>> {
+    let mut held = Decimal::ZERO;
+    let mut invested = Decimal::ZERO;
+    let mut proceeds = Decimal::ZERO;
+    let mut fees_fiat = Decimal::ZERO;
+
+    let mut enriched = Vec::with_capacity(trades.len());
+
+    for trade in trades {
+        let side = match trade.side_for(pair) {
+            Some(s) => s,
+            None => {
+                enriched.push(EnrichedTrade {
+                    date: trade.date,
+                    spent: trade.spent,
+                    received: trade.received,
+                    fee: trade.fee,
+                    bep: None,
+                    pnl: None,
+                });
+                continue;
+            }
+        };
+
+        // Capture BEP *before* applying this trade
+        let bep_before = if held.is_zero() {
+            None
+        } else {
+            (invested - proceeds + fees_fiat).checked_div(held)
+        };
+
+        let (bep, pnl) = match side {
+            TradeSide::Buy => {
+                let units = trade.received.amount();
+                let price_per_unit = trade
+                    .spent
+                    .amount()
+                    .checked_div(units)
+                    .unwrap_or(Decimal::ZERO);
+
+                let fee_fiat = normalize_fee_to_quote(&trade, pair, price_per_unit);
+
+                held += units;
+                invested += trade.spent.amount();
+                fees_fiat += fee_fiat;
+
+                let running_bep = if held.is_zero() {
+                    None
+                } else {
+                    (invested - proceeds + fees_fiat).checked_div(held)
+                };
+
+                (
+                    running_bep.map(|v| AssetAmount::new(v, pair.quote.clone())),
+                    None,
+                )
+            }
+            TradeSide::Sell => {
+                let units = trade.spent.amount();
+                let price_per_unit = trade
+                    .received
+                    .amount()
+                    .checked_div(units)
+                    .unwrap_or(Decimal::ZERO);
+
+                let fee_fiat = normalize_fee_to_quote(&trade, pair, price_per_unit);
+
+                held -= units;
+                proceeds += trade.received.amount();
+                fees_fiat += fee_fiat;
+
+                let running_bep = if held.is_zero() {
+                    None
+                } else {
+                    (invested - proceeds + fees_fiat).checked_div(held)
+                };
+
+                (
+                    running_bep.map(|v| AssetAmount::new(v, pair.quote.clone())),
+                    bep_before.map(|bep| {
+                        AssetAmount::new(
+                            trade.received.amount() - fee_fiat - bep * units,
+                            pair.quote.clone(),
+                        )
+                    }),
+                )
+            }
+        };
+
+        enriched.push(EnrichedTrade {
+            date: trade.date,
+            spent: trade.spent,
+            received: trade.received,
+            fee: trade.fee,
+            bep,
+            pnl,
+        });
+    }
+
+    Ok(enriched)
 }
 
 #[cfg(test)]
@@ -348,5 +466,75 @@ mod tests {
         assert_eq!(summary.spent.amount(), dec!(300));
         assert_eq!(summary.received.amount(), dec!(0.005));
         assert_eq!(summary.fees.amount(), dec!(1.2));
+    }
+
+    // ── Enrich trades ─────────────────────────────────────────
+
+    #[test]
+    fn enrich_buy_only() {
+        let trades = vec![
+            make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
+            make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
+        ];
+        let enriched = enrich_trades(&btc_eur(), trades).unwrap();
+        assert_eq!(enriched.len(), 2);
+
+        // First buy: BEP = (100+0.50)/0.001 = 100_500
+        assert_eq!(
+            enriched[0].bep,
+            Some(AssetAmount::new(dec!(100500), Asset::Eur))
+        );
+        assert_eq!(enriched[0].pnl, None);
+
+        // Second buy: BEP = (100+200+0.50+1.00)/0.004 = 75_375
+        assert_eq!(
+            enriched[1].bep,
+            Some(AssetAmount::new(dec!(75375), Asset::Eur))
+        );
+        assert_eq!(enriched[1].pnl, None);
+    }
+
+    #[test]
+    fn enrich_buy_sell_fiat_fee() {
+        let trades = vec![
+            make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
+            make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
+            make_sell(2025, 3, 1, dec!(0.001), dec!(120), dec!(0.60)),
+        ];
+        let enriched = enrich_trades(&btc_eur(), trades).unwrap();
+        assert_eq!(enriched.len(), 3);
+
+        let sell = &enriched[2];
+        // BEP before sell was 75_375
+        // P&L = 120 - 0.60 - 75_375 * 0.001 = 120 - 0.60 - 75.375 = 44.025
+        assert_eq!(sell.pnl, Some(AssetAmount::new(dec!(44.025), Asset::Eur)));
+        // Remaining: held=0.003, invested=300, proceeds=120, fees=2.10
+        // BEP = (300-120+2.10)/0.003 = 182.10/0.003 = 60_700
+        assert_eq!(sell.bep, Some(AssetAmount::new(dec!(60700), Asset::Eur)));
+    }
+
+    #[test]
+    fn enrich_sell_with_btc_fee() {
+        // Sell with fee denominated in BTC (Kraken edge case)
+        let trades = vec![
+            make_buy(2025, 1, 1, dec!(1000), dec!(0.01), dec!(5.00)),
+            Trade {
+                date: Utc.with_ymd_and_hms(2025, 2, 1, 12, 0, 0).unwrap(),
+                spent: AssetAmount::new(dec!(0.005), Asset::Btc),
+                received: AssetAmount::new(dec!(600), Asset::Eur),
+                fee: AssetAmount::new(dec!(0.00005), Asset::Btc), // BTC fee!
+            },
+        ];
+        let enriched = enrich_trades(&btc_eur(), trades).unwrap();
+        assert_eq!(enriched.len(), 2);
+
+        let sell = &enriched[1];
+        // fee_fiat = 0.00005 * 120_000 = 6.0
+        // BEP before sell = (1000+5)/0.01 = 100_500
+        // P&L = 600 - 6.0 - 100_500 * 0.005 = 600 - 6 - 502.5 = 91.5
+        assert_eq!(sell.pnl, Some(AssetAmount::new(dec!(91.5), Asset::Eur)));
+        // After sell: held=0.005, invested=1000, proceeds=600, fees=5+6=11
+        // BEP = (1000-600+11)/0.005 = 411/0.005 = 82_200
+        assert_eq!(sell.bep, Some(AssetAmount::new(dec!(82200), Asset::Eur)));
     }
 }

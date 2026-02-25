@@ -4,7 +4,9 @@ use std::path::Path;
 use chrono::{NaiveDate, Utc};
 
 use crate::errors::CoreResult;
-use crate::models::{Asset, AssetPair, BepSnapshot, Candle, PositionSummary, Trade, TradesSummary};
+use crate::models::{
+    Asset, AssetPair, BepSnapshot, Candle, EnrichedTrade, PositionSummary, TradesSummary,
+};
 use crate::{context::Context, db, engine, parser, price};
 
 fn btc_pair(quote: &Asset) -> AssetPair {
@@ -43,9 +45,10 @@ pub fn bep_snaps(ctx: &Context) -> CoreResult<BTreeMap<NaiveDate, BepSnapshot>> 
     Ok(series)
 }
 
-pub fn trades(ctx: &Context) -> CoreResult<Vec<Trade>> {
+pub fn trades(ctx: &Context) -> CoreResult<Vec<EnrichedTrade>> {
+    let pair = btc_pair(ctx.quote());
     let trades = db::load_trades(&ctx.conn)?;
-    Ok(trades)
+    Ok(engine::enrich_trades(&pair, trades)?)
 }
 
 pub fn candles(ctx: &Context, prices_dir: &Path) -> CoreResult<Vec<Candle>> {

@@ -22,6 +22,14 @@ export default defineConfig(
     },
   },
   {
-    ignores: ["build/", "dist/", "target/", "src-tauri/", "node_modules/"],
+    ignores: [
+      "build/",
+      "dist/",
+      "target/",
+      "src-tauri/",
+      "src/lib/components",
+      "src/lib/types/bindings",
+      "node_modules/",
+    ],
   },
 );
