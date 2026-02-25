@@ -89,7 +89,9 @@ impl fmt::Display for LedgerEntry {
 
 fn parse_csv_entries(path: &Path) -> ParseResult<Vec<LedgerEntry>> {
     let mut reader = csv::Reader::from_path(path)?;
-    Ok(reader.deserialize().collect::<Result<Vec<_>, csv::Error>>()?)
+    Ok(reader
+        .deserialize()
+        .collect::<Result<Vec<_>, csv::Error>>()?)
 }
 
 fn find_trades(entries: &[LedgerEntry]) -> Vec<Trade> {

@@ -20,19 +20,43 @@ fn main() {
         summary.total_trades, summary.buys, summary.sells, summary.unknown
     );
     if let Some((earliest, latest)) = summary.date_range {
-        println!("Date range: {} → {}", earliest.date_naive(), latest.date_naive());
+        println!(
+            "Date range: {} → {}",
+            earliest.date_naive(),
+            latest.date_naive()
+        );
     }
-    println!("Spent:    {} {}", summary.spent.amount(), summary.spent.asset());
-    println!("Received: {} {}", summary.received.amount(), summary.received.asset());
-    println!("Fees:     {} {}", summary.fees.amount(), summary.fees.asset());
+    println!(
+        "Spent:    {} {}",
+        summary.spent.amount(),
+        summary.spent.asset()
+    );
+    println!(
+        "Received: {} {}",
+        summary.received.amount(),
+        summary.received.asset()
+    );
+    println!(
+        "Fees:     {} {}",
+        summary.fees.amount(),
+        summary.fees.asset()
+    );
     api::confirm_import(&ctx, path).unwrap();
 
     // ── position_summary ───────────────────────────────────
     let pos = api::position_summary(&ctx).unwrap();
     println!("\n=== Position Summary ===");
     println!("Held: {} {}", pos.held.amount(), pos.held.asset());
-    println!("Invested: {} {}", pos.invested.amount(), pos.invested.asset());
-    println!("Proceeds: {} {}", pos.proceeds.amount(), pos.proceeds.asset());
+    println!(
+        "Invested: {} {}",
+        pos.invested.amount(),
+        pos.invested.asset()
+    );
+    println!(
+        "Proceeds: {} {}",
+        pos.proceeds.amount(),
+        pos.proceeds.asset()
+    );
     println!("Fees:     {} {}", pos.fees.amount(), pos.fees.asset());
     println!("Buys: {}, Sells: {}", pos.buys, pos.sells);
     if let Some(bep) = pos.bep {

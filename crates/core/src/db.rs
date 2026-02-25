@@ -219,10 +219,7 @@ mod tests {
     #[test]
     fn save_and_load_roundtrip() {
         let conn = test_conn();
-        let trades = vec![
-            sample_trade(2024, 1, 15),
-            sample_trade(2024, 3, 20),
-        ];
+        let trades = vec![sample_trade(2024, 1, 15), sample_trade(2024, 3, 20)];
         save_trades(&conn, &trades).unwrap();
         let loaded = load_trades(&conn).unwrap();
         assert_eq!(loaded, trades);
@@ -272,8 +269,18 @@ mod tests {
     #[test]
     fn candles_filtered_by_quote() {
         let conn = test_conn();
-        save_candles(&conn, &Asset::Eur, &[sample_candle(2024, 1, 1, dec!(42000))]).unwrap();
-        save_candles(&conn, &Asset::Usd, &[sample_candle(2024, 1, 1, dec!(45000))]).unwrap();
+        save_candles(
+            &conn,
+            &Asset::Eur,
+            &[sample_candle(2024, 1, 1, dec!(42000))],
+        )
+        .unwrap();
+        save_candles(
+            &conn,
+            &Asset::Usd,
+            &[sample_candle(2024, 1, 1, dec!(45000))],
+        )
+        .unwrap();
         let eur = load_candles(&conn, &Asset::Eur).unwrap();
         let usd = load_candles(&conn, &Asset::Usd).unwrap();
         assert_eq!(eur.len(), 1);
@@ -285,8 +292,18 @@ mod tests {
     #[test]
     fn candles_upsert_on_duplicate() {
         let conn = test_conn();
-        save_candles(&conn, &Asset::Eur, &[sample_candle(2024, 1, 1, dec!(42000))]).unwrap();
-        save_candles(&conn, &Asset::Eur, &[sample_candle(2024, 1, 1, dec!(43000))]).unwrap();
+        save_candles(
+            &conn,
+            &Asset::Eur,
+            &[sample_candle(2024, 1, 1, dec!(42000))],
+        )
+        .unwrap();
+        save_candles(
+            &conn,
+            &Asset::Eur,
+            &[sample_candle(2024, 1, 1, dec!(43000))],
+        )
+        .unwrap();
         let loaded = load_candles(&conn, &Asset::Eur).unwrap();
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].close, dec!(43000));
@@ -311,8 +328,17 @@ mod tests {
         ];
         save_trades(&conn, &trades).unwrap();
         let loaded = load_trades(&conn).unwrap();
-        assert_eq!(loaded[0].date, Utc.with_ymd_and_hms(2024, 1, 1, 12, 0, 0).unwrap());
-        assert_eq!(loaded[1].date, Utc.with_ymd_and_hms(2024, 6, 15, 12, 0, 0).unwrap());
-        assert_eq!(loaded[2].date, Utc.with_ymd_and_hms(2024, 12, 1, 12, 0, 0).unwrap());
+        assert_eq!(
+            loaded[0].date,
+            Utc.with_ymd_and_hms(2024, 1, 1, 12, 0, 0).unwrap()
+        );
+        assert_eq!(
+            loaded[1].date,
+            Utc.with_ymd_and_hms(2024, 6, 15, 12, 0, 0).unwrap()
+        );
+        assert_eq!(
+            loaded[2].date,
+            Utc.with_ymd_and_hms(2024, 12, 1, 12, 0, 0).unwrap()
+        );
     }
 }

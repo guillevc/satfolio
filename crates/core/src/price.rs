@@ -144,10 +144,7 @@ pub(crate) fn parse_ohlc_json(body: &[u8]) -> PriceResult<Vec<Candle>> {
             close: parse_decimal_field(entry, 4)?,
             // index 5 = vwap (skipped)
             volume: parse_decimal_field(entry, 6)?,
-            count: entry
-                .get(7)
-                .and_then(|v| v.as_u64())
-                .unwrap_or(0) as u32,
+            count: entry.get(7).and_then(|v| v.as_u64()).unwrap_or(0) as u32,
         });
     }
 
@@ -157,9 +154,7 @@ pub(crate) fn parse_ohlc_json(body: &[u8]) -> PriceResult<Vec<Candle>> {
 pub(crate) fn fetch_ohlc(quote: &Asset, since: NaiveDate) -> PriceResult<Vec<Candle>> {
     let pair = asset_to_kraken_pair(quote)?;
     let ts = since.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
-    let url = format!(
-        "https://api.kraken.com/0/public/OHLC?pair={pair}&interval=1440&since={ts}"
-    );
+    let url = format!("https://api.kraken.com/0/public/OHLC?pair={pair}&interval=1440&since={ts}");
     let body = reqwest::blocking::get(&url)?.bytes()?;
     parse_ohlc_json(&body)
 }
@@ -222,7 +217,10 @@ mod tests {
     fn load_bundled_eur() {
         let candles = load_bundled_prices(&fixtures_dir(), &Asset::Eur).unwrap();
         assert_eq!(candles.len(), 5);
-        assert_eq!(candles[0].date, NaiveDate::from_ymd_opt(2013, 9, 10).unwrap());
+        assert_eq!(
+            candles[0].date,
+            NaiveDate::from_ymd_opt(2013, 9, 10).unwrap()
+        );
         assert_eq!(candles[0].close, dec!(97.0));
         assert_eq!(candles[4].close, dec!(74500.1));
         for w in candles.windows(2) {
@@ -234,7 +232,10 @@ mod tests {
     fn load_bundled_gbp() {
         let candles = load_bundled_prices(&fixtures_dir(), &Asset::Gbp).unwrap();
         assert_eq!(candles.len(), 5);
-        assert_eq!(candles[0].date, NaiveDate::from_ymd_opt(2014, 11, 6).unwrap());
+        assert_eq!(
+            candles[0].date,
+            NaiveDate::from_ymd_opt(2014, 11, 6).unwrap()
+        );
         assert_eq!(candles[0].close, dec!(213.0));
         assert_eq!(candles[4].close, dec!(64933.2));
         for w in candles.windows(2) {
@@ -246,7 +247,10 @@ mod tests {
     fn load_bundled_usd() {
         let candles = load_bundled_prices(&fixtures_dir(), &Asset::Usd).unwrap();
         assert_eq!(candles.len(), 5);
-        assert_eq!(candles[0].date, NaiveDate::from_ymd_opt(2013, 10, 6).unwrap());
+        assert_eq!(
+            candles[0].date,
+            NaiveDate::from_ymd_opt(2013, 10, 6).unwrap()
+        );
         assert_eq!(candles[0].close, dec!(122.0));
         assert_eq!(candles[4].close, dec!(87500.1));
         for w in candles.windows(2) {
@@ -280,7 +284,10 @@ mod tests {
         }"#;
         let candles = parse_ohlc_json(json).unwrap();
         assert_eq!(candles.len(), 2); // last candle dropped
-        assert_eq!(candles[0].date, NaiveDate::from_ymd_opt(2021, 1, 1).unwrap());
+        assert_eq!(
+            candles[0].date,
+            NaiveDate::from_ymd_opt(2021, 1, 1).unwrap()
+        );
         assert_eq!(candles[0].open, dec!(28900.0));
         assert_eq!(candles[0].close, dec!(28950.0));
         assert_eq!(candles[0].volume, dec!(100.5));
