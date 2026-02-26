@@ -1,10 +1,10 @@
 use std::collections::BTreeMap;
 use std::path::PathBuf;
-use std::sync::Mutex;
 
-use app_core::context::Context;
 use app_core::errors::CoreError;
-use app_core::models::{Asset, BepSnapshot, Candle, EnrichedTrade, PositionSummary, TradesSummary};
+use app_core::models::{
+    AppConfig, Asset, BepSnapshot, Candle, EnrichedTrade, PositionSummary, TradesSummary,
+};
 use chrono::NaiveDate;
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -35,59 +35,72 @@ impl From<CoreError> for AppError {
 // -- State ---------------------------------------------------------------
 
 struct AppState {
-    ctx: Mutex<Context>,
+    cfg: AppConfig,
     prices_dir: PathBuf,
 }
 
 // -- Commands ------------------------------------------------------------
 
 #[tauri::command]
-fn preview_import(state: State<AppState>, path: PathBuf) -> Result<TradesSummary, AppError> {
-    let ctx = state.ctx.lock().unwrap_or_else(|e| e.into_inner());
-    Ok(app_core::api::preview_import(ctx.quote(), &path)?)
+#[allow(clippy::unused_async)]
+async fn preview_import(
+    state: State<'_, AppState>,
+    path: PathBuf,
+) -> Result<TradesSummary, AppError> {
+    Ok(app_core::api::preview_import(&state.cfg.quote, &path)?)
 }
 
 #[tauri::command]
-fn confirm_import(state: State<AppState>, path: PathBuf) -> Result<TradesSummary, AppError> {
-    let ctx = state.ctx.lock().unwrap_or_else(|e| e.into_inner());
-    Ok(app_core::api::confirm_import(&ctx, &path)?)
+#[allow(clippy::unused_async)]
+async fn confirm_import(
+    state: State<'_, AppState>,
+    path: PathBuf,
+) -> Result<TradesSummary, AppError> {
+    Ok(app_core::api::confirm_import(&state.cfg, &path)?)
 }
 
 #[tauri::command]
-fn position_summary(state: State<AppState>) -> Result<PositionSummary, AppError> {
-    let ctx = state.ctx.lock().unwrap_or_else(|e| e.into_inner());
-    Ok(app_core::api::position_summary(&ctx)?)
+#[allow(clippy::unused_async)]
+async fn position_summary(state: State<'_, AppState>) -> Result<PositionSummary, AppError> {
+    Ok(app_core::api::position_summary(&state.cfg)?)
 }
 
 #[tauri::command]
-fn bep_snaps(state: State<AppState>) -> Result<BTreeMap<NaiveDate, BepSnapshot>, AppError> {
-    let ctx = state.ctx.lock().unwrap_or_else(|e| e.into_inner());
-    Ok(app_core::api::bep_snaps(&ctx)?)
+#[allow(clippy::unused_async)]
+async fn bep_snaps(
+    state: State<'_, AppState>,
+) -> Result<BTreeMap<NaiveDate, BepSnapshot>, AppError> {
+    Ok(app_core::api::bep_snaps(&state.cfg)?)
 }
 
 #[tauri::command]
-fn trades(state: State<AppState>) -> Result<Vec<EnrichedTrade>, AppError> {
-    let ctx = state.ctx.lock().unwrap_or_else(|e| e.into_inner());
-    Ok(app_core::api::trades(&ctx)?)
+#[allow(clippy::unused_async)]
+async fn trades(state: State<'_, AppState>) -> Result<Vec<EnrichedTrade>, AppError> {
+    Ok(app_core::api::trades(&state.cfg)?)
 }
 
 #[tauri::command]
-fn candles(state: State<AppState>) -> Result<Vec<Candle>, AppError> {
-    let ctx = state.ctx.lock().unwrap_or_else(|e| e.into_inner());
-    Ok(app_core::api::candles(&ctx, &state.prices_dir)?)
+#[allow(clippy::unused_async)]
+async fn candles(state: State<'_, AppState>) -> Result<Vec<Candle>, AppError> {
+    Ok(app_core::api::candles(&state.cfg, &state.prices_dir)?)
 }
 
 #[tauri::command]
-fn load_sample(state: State<AppState>) -> Result<(), AppError> {
+async fn sync_candles(state: State<'_, AppState>) -> Result<(), AppError> {
+    Ok(app_core::api::sync_candles(&state.cfg).await?)
+}
+
+#[tauri::command]
+#[allow(clippy::unused_async)]
+async fn load_sample(state: State<'_, AppState>) -> Result<(), AppError> {
     if cfg!(debug_assertions) {
-        let ctx = state.ctx.lock().unwrap_or_else(|e| e.into_inner());
-        let trades = app_core::api::trades(&ctx)?;
+        let trades = app_core::api::trades(&state.cfg)?;
         if trades.is_empty() {
             let fixture = std::path::PathBuf::from(concat!(
                 env!("CARGO_MANIFEST_DIR"),
                 "/../crates/core/fixtures/sample.csv"
             ));
-            app_core::api::confirm_import(&ctx, &fixture)?;
+            app_core::api::confirm_import(&state.cfg, &fixture)?;
         }
     }
     Ok(())
@@ -109,15 +122,18 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
 
-            let ctx =
-                Context::open(&data_dir.join("betc.db"), Asset::Eur).map_err(|e| e.to_string())?;
+            let db_path = data_dir.join("betc.db");
+            app_core::api::init_db(&db_path).map_err(|e| e.to_string())?;
 
             let prices_dir = app
                 .path()
                 .resolve("resources/prices", tauri::path::BaseDirectory::Resource)?;
 
             app.manage(AppState {
-                ctx: Mutex::new(ctx),
+                cfg: AppConfig {
+                    db_path,
+                    quote: Asset::Eur,
+                },
                 prices_dir,
             });
 
@@ -130,6 +146,7 @@ pub fn run() {
             bep_snaps,
             trades,
             candles,
+            sync_candles,
             load_sample,
         ])
         .run(tauri::generate_context!())

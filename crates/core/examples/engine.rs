@@ -1,6 +1,9 @@
 use std::path::Path;
 
-use app_core::{api, context::Context, models::Asset};
+use app_core::{
+    api,
+    models::{AppConfig, Asset},
+};
 
 const SAMPLE_CSV: &str = "crates/core/fixtures/sample.csv";
 
@@ -9,11 +12,13 @@ fn main() {
     let path = Path::new(&path);
 
     // ── persist to DB, then query ──────────────────────────
-    let db_path = std::env::temp_dir().join("betc_engine_example.db");
-    let ctx = Context::open(&db_path, Asset::Eur).unwrap();
+    let cfg = AppConfig {
+        db_path: std::env::temp_dir().join("betc_engine_example.db"),
+        quote: Asset::Eur,
+    };
 
     // ── trades_summary (via preview_import) ────────────────
-    let summary = api::preview_import(ctx.quote(), path).unwrap();
+    let summary = api::preview_import(&cfg.quote, path).unwrap();
     println!("=== Trades Summary ===");
     println!(
         "{} trades ({} buys, {} sells, {} unknown)",
@@ -41,10 +46,10 @@ fn main() {
         summary.fees.amount(),
         summary.fees.asset()
     );
-    api::confirm_import(&ctx, path).unwrap();
+    api::confirm_import(&cfg, path).unwrap();
 
     // ── position_summary ───────────────────────────────────
-    let pos = api::position_summary(&ctx).unwrap();
+    let pos = api::position_summary(&cfg).unwrap();
     println!("\n=== Position Summary ===");
     println!("Held: {} {}", pos.held.amount(), pos.held.asset());
     println!(
@@ -66,7 +71,7 @@ fn main() {
     }
 
     // ── bep_snaps ──────────────────────────────────────────
-    let snaps = api::bep_snaps(&ctx).unwrap();
+    let snaps = api::bep_snaps(&cfg).unwrap();
     println!("\n=== BEP Timeline ({} snapshots) ===", snaps.len());
     for (date, snap) in &snaps {
         let bep_str = snap.bep.map_or("N/A".to_string(), |b| format!("{}", b));
@@ -79,7 +84,7 @@ fn main() {
     }
 
     // ── trades list ────────────────────────────────────────
-    let trades = api::trades(&ctx).unwrap();
+    let trades = api::trades(&cfg).unwrap();
     println!("\n=== All Trades ({}) ===", trades.len());
     for trade in &trades {
         println!(
@@ -95,5 +100,5 @@ fn main() {
     }
 
     // cleanup
-    let _ = std::fs::remove_file(&db_path);
+    let _ = std::fs::remove_file(&cfg.db_path);
 }

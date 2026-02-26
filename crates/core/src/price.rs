@@ -151,11 +151,11 @@ pub(crate) fn parse_ohlc_json(body: &[u8]) -> PriceResult<Vec<Candle>> {
     Ok(candles)
 }
 
-pub(crate) fn fetch_ohlc(quote: &Asset, since: NaiveDate) -> PriceResult<Vec<Candle>> {
+pub(crate) async fn fetch_ohlc(quote: &Asset, since: NaiveDate) -> PriceResult<Vec<Candle>> {
     let pair = asset_to_kraken_pair(quote)?;
     let ts = since.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
     let url = format!("https://api.kraken.com/0/public/OHLC?pair={pair}&interval=1440&since={ts}");
-    let body = reqwest::blocking::get(&url)?.bytes()?;
+    let body = reqwest::get(&url).await?.bytes().await?;
     parse_ohlc_json(&body)
 }
 

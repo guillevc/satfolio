@@ -45,22 +45,21 @@
     candles.map((c) => ({ time: c.date as Time, value: parseFloat(c.close) })),
   );
 
+  let snapDates = $derived(Object.keys(bepSnaps).sort());
+
   let bepPrices = $derived.by(() => {
-    const snapDates = Object.keys(bepSnaps).sort();
     if (snapDates.length === 0) return [];
 
     let lastBep: number | null = null;
+    let si = 0;
     const points: { time: Time; value: number }[] = [];
 
     for (const c of candles) {
-      for (let i = snapDates.length - 1; i >= 0; i--) {
-        if (snapDates[i] <= c.date) {
-          const snap = bepSnaps[snapDates[i]];
-          lastBep = snap.bep ? parseFloat(snap.bep) : lastBep;
-          break;
-        }
+      while (si < snapDates.length && snapDates[si] <= c.date) {
+        const snap = bepSnaps[snapDates[si]];
+        if (snap.bep) lastBep = parseFloat(snap.bep);
+        si++;
       }
-      // Only emit points after first trade (when BEP is known)
       if (lastBep !== null) {
         points.push({ time: c.date as Time, value: lastBep });
       }
@@ -70,7 +69,6 @@
 
   // Trade bands: full-height vertical lines at each trade date
   let tradeBands = $derived.by(() => {
-    const snapDates = Object.keys(bepSnaps).sort();
     const bands: Array<{ time: Time; value: number; color: string }> = [];
 
     // First trade

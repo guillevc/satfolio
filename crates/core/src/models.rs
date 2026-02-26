@@ -1,4 +1,5 @@
 use std::fmt;
+use std::path::PathBuf;
 
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
@@ -7,6 +8,11 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::errors::AssetMismatch;
+
+pub struct AppConfig {
+    pub db_path: PathBuf,
+    pub quote: Asset,
+}
 
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(test, derive(TS))]
@@ -56,7 +62,7 @@ impl fmt::Display for Asset {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AssetPair {
     pub base: Asset,
     pub quote: Asset,
@@ -115,13 +121,13 @@ impl AssetAmount {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) enum TradeSide {
     Buy,
     Sell,
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct Trade {
     pub(crate) date: DateTime<Utc>,
     pub(crate) spent: AssetAmount,

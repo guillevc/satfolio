@@ -3,8 +3,10 @@ import {
   getPositionSummary,
   getBepSnaps,
   getCandles,
+  syncCandles,
 } from "$lib/api";
 import type { BepSnapshot, Candle, PositionSummary } from "$lib/types/bindings";
+import { tick } from "svelte";
 
 export const dashboard = $state({
   summary: null as PositionSummary | null,
@@ -17,9 +19,10 @@ export const dashboard = $state({
 export async function loadDashboard(): Promise<void> {
   dashboard.loading = true;
   dashboard.error = null;
+  await tick();
   try {
-    await loadSample();
-    const [summary, bepSnaps, candles] = await Promise.all([
+    const [, summary, bepSnaps, candles] = await Promise.all([
+      loadSample(),
       getPositionSummary(),
       getBepSnaps(),
       getCandles(),
@@ -27,6 +30,9 @@ export async function loadDashboard(): Promise<void> {
     dashboard.summary = summary;
     dashboard.bepSnaps = bepSnaps;
     dashboard.candles = candles;
+
+    // Gap-fill candles from Kraken in background (fire-and-forget)
+    syncCandles().catch(() => {});
   } catch (e) {
     dashboard.error = String(e);
   } finally {

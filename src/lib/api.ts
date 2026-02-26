@@ -25,3 +25,7 @@ export async function getTrades(): Promise<EnrichedTrade[]> {
 export async function getCandles(): Promise<Candle[]> {
   return invoke("candles");
 }
+
+export async function syncCandles(): Promise<void> {
+  await invoke("sync_candles");
+}
