@@ -1,91 +1,40 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { Search, ArrowDownLeft, ArrowUpRight } from "@lucide/svelte";
+  import { Search } from "@lucide/svelte";
+  import type { SortingState, PaginationState } from "@tanstack/table-core";
+  import {
+    getCoreRowModel,
+    getSortedRowModel,
+    getPaginationRowModel,
+  } from "@tanstack/table-core";
+  import { createSvelteTable, FlexRender } from "$lib/components/ui/data-table";
   import * as Table from "$lib/components/ui/table";
+  import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { Input } from "$lib/components/ui/input";
-  import * as Pagination from "$lib/components/ui/pagination";
+  import { Button } from "$lib/components/ui/button";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import { trades, loadTrades } from "$lib/stores/trades.svelte";
-  import type { EnrichedTrade } from "$lib/types/bindings";
-
-  const PAGE_SIZE = 25;
-  const QUOTE_ASSET = "EUR";
-
-  let searchQuery: string = $state("");
-  let activeFilter: "all" | "buy" | "sell" = $state("all");
-  let currentPage: number = $state(1);
+  import {
+    columns,
+    isBuy,
+    baseAmount,
+    pricePerUnit,
+    formatDate,
+  } from "./columns";
 
   onMount(loadTrades);
 
-  // ── Trade helpers ───────────────────────────────────────
+  // ── Filter state ──────────────────────────────────────────
 
-  function isBuy(t: EnrichedTrade): boolean {
-    return t.spent.asset === QUOTE_ASSET;
-  }
+  let searchQuery = $state("");
+  let activeFilter: "all" | "buy" | "sell" = $state("all");
 
-  function baseAmount(t: EnrichedTrade): string {
-    return isBuy(t) ? t.received.amount : t.spent.amount;
-  }
-
-  function quoteAmount(t: EnrichedTrade): string {
-    return isBuy(t) ? t.spent.amount : t.received.amount;
-  }
-
-  function pricePerUnit(t: EnrichedTrade): number {
-    const units = parseFloat(baseAmount(t));
-    if (units === 0) return 0;
-    return parseFloat(quoteAmount(t)) / units;
-  }
-
-  // ── Formatters ─────────────────────────────────────────
-
-  const fiatFmt = new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency: "USD",
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  });
-
-  function formatDate(iso: string): { date: string; time: string } {
-    const d = new Date(iso);
-    const date = d.toLocaleDateString("en-CA"); // YYYY-MM-DD
-    const time = d.toLocaleTimeString("en-GB", {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-    return { date, time };
-  }
-
-  function formatBtc(t: EnrichedTrade): string {
-    const n = parseFloat(baseAmount(t));
-    const prefix = isBuy(t) ? "+" : "-";
-    const formatted = n.toFixed(6).replace(/0+$/, "").replace(/\.$/, "");
-    return `${prefix}${formatted}`;
-  }
-
-  function formatFiat(value: string | number): string {
-    return fiatFmt.format(
-      typeof value === "number" ? value : parseFloat(value),
-    );
-  }
-
-  function formatPnl(value: string): string {
-    const n = parseFloat(value);
-    const formatted = fiatFmt.format(Math.abs(n));
-    return n >= 0 ? `+${formatted}` : `-${formatted}`;
-  }
-
-  // ── Derived state ──────────────────────────────────────
-
-  let filteredRows = $derived.by(() => {
+  let filteredData = $derived.by(() => {
     if (!trades.rows) return [];
     let rows = trades.rows;
 
-    if (activeFilter === "buy") {
-      rows = rows.filter((r) => isBuy(r));
-    } else if (activeFilter === "sell") {
-      rows = rows.filter((r) => !isBuy(r));
-    }
+    if (activeFilter === "buy") rows = rows.filter((r) => isBuy(r));
+    else if (activeFilter === "sell") rows = rows.filter((r) => !isBuy(r));
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -103,13 +52,37 @@
     return rows;
   });
 
-  let totalPages = $derived(
-    Math.max(1, Math.ceil(filteredRows.length / PAGE_SIZE)),
-  );
+  // ── Table state ───────────────────────────────────────────
 
-  let paginatedRows = $derived(
-    filteredRows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE),
-  );
+  let sorting = $state<SortingState>([{ id: "date", desc: true }]);
+  let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 15 });
+
+  const table = createSvelteTable({
+    get data() {
+      return filteredData;
+    },
+    columns,
+    state: {
+      get sorting() {
+        return sorting;
+      },
+      get pagination() {
+        return pagination;
+      },
+    },
+    getCoreRowModel: getCoreRowModel(),
+    getSortedRowModel: getSortedRowModel(),
+    getPaginationRowModel: getPaginationRowModel(),
+    onSortingChange: (updater) => {
+      sorting = typeof updater === "function" ? updater(sorting) : updater;
+    },
+    onPaginationChange: (updater) => {
+      pagination =
+        typeof updater === "function" ? updater(pagination) : updater;
+    },
+  });
+
+  // ── Summary stats (from raw data, not filtered) ──────────
 
   let summaryStats = $derived.by(() => {
     const rows = trades.rows;
@@ -121,12 +94,21 @@
     return { total: rows.length, buys, sells, firstDate, lastDate };
   });
 
-  // ── Handlers (reset page on filter/search change) ──────
+  // ── Pagination derived values ─────────────────────────────
+
+  let total = $derived(filteredData.length);
+  let start = $derived(
+    total > 0 ? pagination.pageIndex * pagination.pageSize + 1 : 0,
+  );
+  let end = $derived(
+    Math.min((pagination.pageIndex + 1) * pagination.pageSize, total),
+  );
+
+  // ── Handlers ──────────────────────────────────────────────
 
   function handleFilterChange(value: string | undefined) {
     if (value) {
       activeFilter = value as "all" | "buy" | "sell";
-      currentPage = 1;
     }
   }
 </script>
@@ -143,7 +125,7 @@
   {:else if trades.rows}
     <!-- Header -->
     <div class="mb-4 flex items-center justify-between gap-4">
-      <h2 class="text-lg font-semibold">Transactions</h2>
+      <h2 class="text-lg font-semibold">Trades</h2>
 
       <div class="flex items-center gap-3">
         <div class="relative">
@@ -154,7 +136,6 @@
             type="text"
             placeholder="Search trades…"
             bind:value={searchQuery}
-            oninput={() => (currentPage = 1)}
             class="h-8 w-56 pl-8 text-sm"
           />
         </div>
@@ -184,148 +165,95 @@
     {/if}
 
     <!-- Table -->
-    <div class="glass-panel flex-1 overflow-y-auto">
-      <Table.Root>
+    <div
+      class="glass-panel flex min-h-0 flex-1 flex-col **:data-[slot=table-container]:overflow-visible"
+    >
+      {#snippet colgroup()}
+        {#each ["15%", "7%", "12%", "12%", "9%", "11%", "14%", "14%"] as w}
+          <col style:width={w} />
+        {/each}
+      {/snippet}
+
+      <!-- Fixed header -->
+      <Table.Root class="table-fixed">
+        {@render colgroup()}
         <Table.Header>
-          <Table.Row class="border-b border-white/5 hover:bg-transparent">
-            <Table.Head class="w-40">Date</Table.Head>
-            <Table.Head class="w-24">Type</Table.Head>
-            <Table.Head class="w-32 text-right">Amount (BTC)</Table.Head>
-            <Table.Head class="w-32 text-right">Price/BTC</Table.Head>
-            <Table.Head class="w-28 text-right">Fees</Table.Head>
-            <Table.Head class="w-32 text-right">Total</Table.Head>
-            <Table.Head class="w-32 text-right">Running BEP</Table.Head>
-            <Table.Head class="w-32 text-right">Realized P&L</Table.Head>
-          </Table.Row>
-        </Table.Header>
-        <Table.Body>
-          {#each paginatedRows as row, i (row.date + row.spent.amount + row.received.amount + i)}
-            {@const buy = isBuy(row)}
-            {@const dt = formatDate(row.date)}
-            <Table.Row class="border-b border-white/5">
-              <Table.Cell class="font-mono tabular-nums">
-                <span>{dt.date}</span>
-                <span class="text-muted-foreground ml-2">{dt.time}</span>
-              </Table.Cell>
-
-              <Table.Cell>
-                <span
-                  class="inline-flex items-center gap-1.5 {buy
-                    ? 'text-success'
-                    : 'text-destructive'}"
-                >
-                  {#if buy}
-                    <ArrowDownLeft class="size-3.5" />
-                  {:else}
-                    <ArrowUpRight class="size-3.5" />
+          {#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
+            <Table.Row class="border-b border-white/5 hover:bg-transparent">
+              {#each headerGroup.headers as header (header.id)}
+                <Table.Head>
+                  {#if !header.isPlaceholder}
+                    <FlexRender
+                      content={header.column.columnDef.header}
+                      context={header.getContext()}
+                    />
                   {/if}
-                  {buy ? "Buy" : "Sell"}
-                </span>
-              </Table.Cell>
-
-              <Table.Cell
-                class="text-right font-mono tabular-nums {buy
-                  ? 'text-success'
-                  : 'text-destructive'}"
-              >
-                {formatBtc(row)}
-              </Table.Cell>
-
-              <Table.Cell class="text-right font-mono tabular-nums">
-                {formatFiat(pricePerUnit(row))}
-              </Table.Cell>
-
-              <Table.Cell
-                class="text-muted-foreground text-right font-mono tabular-nums"
-              >
-                {formatFiat(row.fee.amount)}
-              </Table.Cell>
-
-              <Table.Cell class="text-right font-mono tabular-nums">
-                {formatFiat(quoteAmount(row))}
-              </Table.Cell>
-
-              <Table.Cell
-                class="text-right font-mono tabular-nums text-amber-400"
-              >
-                {row.bep ? formatFiat(row.bep.amount) : "–"}
-              </Table.Cell>
-
-              <Table.Cell class="text-right font-mono tabular-nums">
-                {#if row.pnl}
-                  <span
-                    class={parseFloat(row.pnl.amount) >= 0
-                      ? "text-success"
-                      : "text-destructive"}
-                  >
-                    {formatPnl(row.pnl.amount)}
-                  </span>
-                {:else}
-                  <span class="text-muted-foreground">–</span>
-                {/if}
-              </Table.Cell>
-            </Table.Row>
-          {:else}
-            <Table.Row>
-              <Table.Cell
-                colspan={8}
-                class="text-muted-foreground py-8 text-center"
-              >
-                No trades match your search.
-              </Table.Cell>
+                </Table.Head>
+              {/each}
             </Table.Row>
           {/each}
-        </Table.Body>
+        </Table.Header>
       </Table.Root>
-    </div>
 
-    <!-- Footer -->
-    {#if filteredRows.length > 0}
-      <div class="mt-3 flex items-center justify-between">
-        <span class="text-muted-foreground text-xs">
-          Showing {Math.min(
-            filteredRows.length,
-            (currentPage - 1) * PAGE_SIZE + 1,
-          )}–{Math.min(filteredRows.length, currentPage * PAGE_SIZE)} of {filteredRows.length}
-          trades
-        </span>
-
-        {#if totalPages > 1}
-          <Pagination.Root
-            count={filteredRows.length}
-            perPage={PAGE_SIZE}
-            bind:page={currentPage}
-            siblingCount={1}
-          >
-            {#snippet children({ pages })}
-              <Pagination.Content>
-                <Pagination.Item>
-                  <Pagination.Previous />
-                </Pagination.Item>
-                {#each pages as page (page.key)}
-                  {#if page.type === "ellipsis"}
-                    <Pagination.Item>
-                      <Pagination.Ellipsis />
-                    </Pagination.Item>
-                  {:else}
-                    <Pagination.Item>
-                      <Pagination.Link
-                        {page}
-                        isActive={currentPage === page.value}
-                      >
-                        {page.value}
-                      </Pagination.Link>
-                    </Pagination.Item>
-                  {/if}
+      <!-- Scrollable body -->
+      <ScrollArea class="min-h-0 flex-1" orientation="vertical">
+        <Table.Root class="table-fixed">
+          {@render colgroup()}
+          <Table.Body>
+            {#each table.getRowModel().rows as row (row.id)}
+              <Table.Row class="border-b border-white/5">
+                {#each row.getVisibleCells() as cell (cell.id)}
+                  <Table.Cell class="last:pr-6">
+                    <FlexRender
+                      content={cell.column.columnDef.cell}
+                      context={cell.getContext()}
+                    />
+                  </Table.Cell>
                 {/each}
-                <Pagination.Item>
-                  <Pagination.Next />
-                </Pagination.Item>
-              </Pagination.Content>
-            {/snippet}
-          </Pagination.Root>
+              </Table.Row>
+            {:else}
+              <Table.Row>
+                <Table.Cell
+                  colspan={columns.length}
+                  class="text-muted-foreground py-8 text-center"
+                >
+                  No trades match your search.
+                </Table.Cell>
+              </Table.Row>
+            {/each}
+          </Table.Body>
+        </Table.Root>
+
+        <!-- Footer -->
+        {#if total > 0}
+          <div class="flex items-center justify-between px-4 py-3">
+            <span class="text-muted-foreground text-xs">
+              Showing {start}–{end} of {total} trades
+            </span>
+            <div class="flex items-center gap-2">
+              <span class="text-muted-foreground text-xs">
+                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onclick={() => table.previousPage()}
+                disabled={!table.getCanPreviousPage()}
+              >
+                Previous
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onclick={() => table.nextPage()}
+                disabled={!table.getCanNextPage()}
+              >
+                Next
+              </Button>
+            </div>
+          </div>
         {/if}
-      </div>
-    {/if}
+      </ScrollArea>
+    </div>
   {/if}
 </div>
