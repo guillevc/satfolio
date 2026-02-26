@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte";
   import { Search } from "@lucide/svelte";
   import type { SortingState, PaginationState } from "@tanstack/table-core";
   import {
@@ -13,7 +12,7 @@
   import { Input } from "$lib/components/ui/input";
   import { Button } from "$lib/components/ui/button";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
-  import { trades, loadTrades } from "$lib/stores/trades.svelte";
+  import { trades } from "$lib/stores/trades.svelte";
   import {
     columns,
     isBuy,
@@ -21,8 +20,6 @@
     pricePerUnit,
     formatDate,
   } from "./columns";
-
-  onMount(loadTrades);
 
   // ── Filter state ──────────────────────────────────────────
 

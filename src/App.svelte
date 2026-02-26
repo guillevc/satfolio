@@ -1,12 +1,22 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import "./app.css";
   import TitleBar from "$lib/components/title-bar.svelte";
   import AppSidebar from "$lib/components/app-sidebar.svelte";
   import { Dashboard } from "$lib/components/dashboard";
   import { Trades } from "$lib/components/trades";
   import { type View, viewTitles } from "$lib/types";
+  import { loadSample } from "$lib/api";
+  import { loadDashboard } from "$lib/stores/dashboard.svelte";
+  import { loadTrades } from "$lib/stores/trades.svelte";
 
   let view: View = $state("dashboard");
+
+  onMount(async () => {
+    await loadSample();
+    loadDashboard();
+    loadTrades();
+  });
 </script>
 
 <svelte:head>

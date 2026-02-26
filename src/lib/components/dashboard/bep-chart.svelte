@@ -7,6 +7,8 @@
     ColorType,
   } from "lightweight-charts";
   import type { IChartApi, Time } from "lightweight-charts";
+  import { RefreshCw } from "@lucide/svelte";
+  import { Button } from "$lib/components/ui/button";
   import { Switch } from "$lib/components/ui/switch";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import type { BepSnapshot, Candle } from "$lib/types/bindings";
@@ -15,9 +17,13 @@
   let {
     bepSnaps,
     candles,
+    syncing,
+    onrefresh,
   }: {
     bepSnaps: Record<string, BepSnapshot>;
     candles: Candle[];
+    syncing: boolean;
+    onrefresh: () => void;
   } = $props();
 
   let showTrades = $state(false);
@@ -131,13 +137,17 @@
     ALL: null,
   };
 
-  // Data sync effects (declared before range effect so data is set first)
+  // Data sync effects (declared before range effect so data is set first).
+  // Read derived values before optional chain — otherwise ?. short-circuits
+  // and Svelte never tracks the dependency (effect becomes dead).
   $effect(() => {
-    priceSeries?.setData(marketPrices);
+    const data = marketPrices;
+    priceSeries?.setData(data);
   });
 
   $effect(() => {
-    bepSeries?.setData(bepPrices);
+    const data = bepPrices;
+    bepSeries?.setData(data);
   });
 
   function applyShowTrades(show: boolean) {
@@ -283,7 +293,18 @@
 
 <div class="glass-panel flex min-h-0 flex-1 flex-col gap-4 p-5">
   <div class="flex items-center justify-between">
-    <h3 class="text-sm font-semibold">Performance vs. BEP</h3>
+    <div class="flex items-center gap-2">
+      <h3 class="text-sm font-semibold">Performance vs. BEP</h3>
+      <Button
+        variant="ghost"
+        size="icon"
+        class="size-7"
+        disabled={syncing}
+        onclick={onrefresh}
+      >
+        <RefreshCw class="size-3.5 {syncing ? 'animate-spin' : ''}" />
+      </Button>
+    </div>
     <div class="flex items-center gap-6">
       <div class="flex items-center gap-2 text-xs">
         <Switch

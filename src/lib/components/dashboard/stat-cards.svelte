@@ -1,10 +1,15 @@
 <script lang="ts">
   import { TrendingUp, TrendingDown } from "@lucide/svelte";
   import * as Card from "$lib/components/ui/card";
+  import { Skeleton } from "$lib/components/ui/skeleton";
   import { cn, displayAmount } from "$lib/utils";
   import type { Candle, PositionSummary } from "$lib/types/bindings";
 
-  let { summary, candles }: { summary: PositionSummary; candles: Candle[] } =
+  let {
+    summary,
+    candles,
+    syncing,
+  }: { summary: PositionSummary; candles: Candle[]; syncing: boolean } =
     $props();
 
   let lastCandle = $derived(candles.at(-1));
@@ -61,23 +66,31 @@
   <Card.Root class={[cardRoot, "glass-panel"]}>
     <Card.Header class={cardHeader}>
       <Card.Description class={cardLabel}>BTC Price</Card.Description>
-      <Card.Title class={cardValue}>{formatUsd(btcPrice)}</Card.Title>
+      {#if !syncing}
+        <Card.Title class={cardValue}>{formatUsd(btcPrice)}</Card.Title>
+      {:else}
+        <Skeleton class="h-7 w-28" />
+      {/if}
     </Card.Header>
     <Card.Content class={cardContent}>
-      <span
-        class={cn(
-          cardSub,
-          "inline-flex items-center gap-1",
-          change24h >= 0 ? "text-success" : "text-destructive",
-        )}
-      >
-        {#if change24h >= 0}
-          <TrendingUp class="size-3.5" />
-        {:else}
-          <TrendingDown class="size-3.5" />
-        {/if}
-        {change24h > 0 ? "+" : ""}{change24h.toFixed(1)}% (24h)
-      </span>
+      {#if !syncing}
+        <span
+          class={cn(
+            cardSub,
+            "inline-flex items-center gap-1",
+            change24h >= 0 ? "text-success" : "text-destructive",
+          )}
+        >
+          {#if change24h >= 0}
+            <TrendingUp class="size-3.5" />
+          {:else}
+            <TrendingDown class="size-3.5" />
+          {/if}
+          {change24h > 0 ? "+" : ""}{change24h.toFixed(1)}% (24h)
+        </span>
+      {:else}
+        <Skeleton class="h-4 w-20" />
+      {/if}
     </Card.Content>
   </Card.Root>
 
@@ -103,16 +116,24 @@
   <Card.Root class={[cardRoot, "glass-panel"]}>
     <Card.Header class={cardHeader}>
       <Card.Description class={cardLabel}>Unrealized P&L</Card.Description>
-      <Card.Title
-        class={[cardValue, pnl >= 0 ? "text-success" : "text-destructive"]}
-      >
-        {pnl >= 0 ? "+" : ""}{formatUsd(pnl)}
-      </Card.Title>
+      {#if !syncing}
+        <Card.Title
+          class={[cardValue, pnl >= 0 ? "text-success" : "text-destructive"]}
+        >
+          {pnl >= 0 ? "+" : ""}{formatUsd(pnl)}
+        </Card.Title>
+      {:else}
+        <Skeleton class="h-7 w-28" />
+      {/if}
     </Card.Header>
     <Card.Content class={cardContent}>
-      <span class={cardSub}>
-        {pnl >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
-      </span>
+      {#if !syncing}
+        <span class={cardSub}>
+          {pnl >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
+        </span>
+      {:else}
+        <Skeleton class="h-4 w-20" />
+      {/if}
     </Card.Content>
   </Card.Root>
 

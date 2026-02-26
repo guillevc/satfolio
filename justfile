@@ -141,6 +141,14 @@ example name:
 gen-types:
     TS_RS_EXPORT_DIR="$(pwd)/src/lib/types/bindings" cargo test -p app-core export_bindings
 
-# Tools
+# Dev utilities
+[group('dev')]
+[doc("Delete local SQLite database")]
+reset-db:
+    rm -f ~/Library/Application\ Support/xyz.guillevc.betc/betc.db
+    @echo "Database deleted"
+
+[group('dev')]
+[doc("Run shadcn-svelte CLI (e.g. just shadcn add button)")]
 shadcn *args:
   -pnpm dlx shadcn-svelte@latest {{args}}
