@@ -70,32 +70,26 @@ fn main() {
         println!("Break-even price: N/A (no holdings)");
     }
 
-    // ── bep_snaps ──────────────────────────────────────────
-    let snaps = api::bep_snaps(&cfg).unwrap();
-    println!("\n=== BEP Timeline ({} snapshots) ===", snaps.len());
-    for (date, snap) in &snaps {
-        let bep_str = snap.bep.map_or("N/A".to_string(), |b| format!("{}", b));
-        println!(
-            "  {} | held: {} BTC | bep: {} EUR/BTC",
-            date,
-            snap.held.amount(),
-            bep_str,
-        );
-    }
-
-    // ── trades list ────────────────────────────────────────
+    // ── enriched trades (with BEP timeline) ────────────────
     let trades = api::trades(&cfg).unwrap();
-    println!("\n=== All Trades ({}) ===", trades.len());
+    println!("\n=== Enriched Trades ({}) ===", trades.len());
     for trade in &trades {
+        let side_str = trade
+            .side
+            .as_ref()
+            .map_or("—".to_string(), |s| format!("{:?}", s));
+        let bep_str = trade.bep.as_ref().map_or("N/A".to_string(), |b| {
+            format!("{} {}", b.amount(), b.asset())
+        });
         println!(
-            "  {} | spent {} {} → received {} {} | fee {} {}",
+            "  {} | {:4} | spent {} {} → received {} {} | bep: {}",
             trade.date.date_naive(),
+            side_str,
             trade.spent.amount(),
             trade.spent.asset(),
             trade.received.amount(),
             trade.received.asset(),
-            trade.fee.amount(),
-            trade.fee.asset(),
+            bep_str,
         );
     }
 

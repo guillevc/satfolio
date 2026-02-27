@@ -11,16 +11,16 @@
   import { Button } from "$lib/components/ui/button";
   import { Switch } from "$lib/components/ui/switch";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
-  import type { BepSnapshot, Candle } from "$lib/types/bindings";
+  import type { EnrichedTrade, Candle } from "$lib/types/bindings";
   import { Label } from "$lib/components/ui/label";
 
   let {
-    bepSnaps,
+    trades,
     candles,
     syncing,
     onrefresh,
   }: {
-    bepSnaps: Record<string, BepSnapshot>;
+    trades: EnrichedTrade[];
     candles: Candle[];
     syncing: boolean;
     onrefresh: () => void;
@@ -51,20 +51,26 @@
     candles.map((c) => ({ time: c.date as Time, value: parseFloat(c.close) })),
   );
 
-  let snapDates = $derived(Object.keys(bepSnaps).sort());
+  // Trades sorted by date with their date-only key for the two-pointer merge.
+  // Assumes chrono's DateTime<Utc> serialises as "YYYY-MM-DDTHH:MM:SS..." (chrono default serde).
+  let tradeDates = $derived(
+    trades
+      .filter((t) => t.side !== null && t.bep !== null)
+      .map((t) => ({ dateKey: t.date.slice(0, 10), trade: t })),
+  );
 
   let bepPrices = $derived.by(() => {
-    if (snapDates.length === 0) return [];
+    if (tradeDates.length === 0) return [];
 
     let lastBep: number | null = null;
-    let si = 0;
+    let ti = 0;
     const points: { time: Time; value: number }[] = [];
 
     for (const c of candles) {
-      while (si < snapDates.length && snapDates[si] <= c.date) {
-        const snap = bepSnaps[snapDates[si]];
-        if (snap.bep) lastBep = parseFloat(snap.bep);
-        si++;
+      while (ti < tradeDates.length && tradeDates[ti].dateKey <= c.date) {
+        const bep = tradeDates[ti].trade.bep;
+        if (bep) lastBep = parseFloat(bep.amount);
+        ti++;
       }
       if (lastBep !== null) {
         points.push({ time: c.date as Time, value: lastBep });
@@ -78,20 +84,22 @@
   const sellColor = "rgba(148,163,184,0.15)";
 
   let tradeBands = $derived.by(() => {
-    const bands: Array<{ time: Time; value: number; color: string }> = [];
+    // Deduplicate by date — lightweight-charts requires unique timestamps.
+    // Last trade per day wins, matching old BTreeMap<NaiveDate, _> behavior.
+    const byDate = new Map<
+      string,
+      { time: Time; value: number; color: string }
+    >();
 
-    for (let i = 0; i < snapDates.length; i++) {
-      const curr = bepSnaps[snapDates[i]];
-      if (!curr.bep) continue;
-
-      bands.push({
-        time: snapDates[i] as Time,
+    for (const { dateKey, trade } of tradeDates) {
+      byDate.set(dateKey, {
+        time: dateKey as Time,
         value: 999_999_999,
-        color: curr.side === "Buy" ? buyColor : sellColor,
+        color: trade.side === "Buy" ? buyColor : sellColor,
       });
     }
 
-    return bands;
+    return [...byDate.values()];
   });
 
   // Legend: crosshair values or latest from series

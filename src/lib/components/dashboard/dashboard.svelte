@@ -1,5 +1,6 @@
 <script lang="ts">
   import { dashboard, refreshDashboard } from "$lib/stores/dashboard.svelte";
+  import { trades } from "$lib/stores/trades.svelte";
   import StatCards from "./stat-cards.svelte";
   import BepChart from "./bep-chart.svelte";
 </script>
@@ -13,14 +14,14 @@
     <div class="flex flex-1 items-center justify-center">
       <span class="text-muted-foreground text-sm">Loading…</span>
     </div>
-  {:else if dashboard.summary && dashboard.candles && dashboard.bepSnaps}
+  {:else if dashboard.summary && dashboard.candles && trades.rows}
     <StatCards
       summary={dashboard.summary}
       candles={dashboard.candles}
       syncing={dashboard.syncing}
     />
     <BepChart
-      bepSnaps={dashboard.bepSnaps}
+      trades={trades.rows}
       candles={dashboard.candles}
       syncing={dashboard.syncing}
       onrefresh={refreshDashboard}

@@ -1,11 +1,10 @@
-use std::collections::BTreeMap;
 use std::path::Path;
 
-use chrono::{NaiveDate, Utc};
+use chrono::Utc;
 
 use crate::errors::CoreResult;
 use crate::models::{
-    AppConfig, Asset, AssetPair, BepSnapshot, Candle, EnrichedTrade, PositionSummary, TradesSummary,
+    AppConfig, Asset, AssetPair, Candle, EnrichedTrade, PositionSummary, TradesSummary,
 };
 use crate::{db, engine, parser, price};
 
@@ -38,14 +37,6 @@ pub fn position_summary(cfg: &AppConfig) -> CoreResult<PositionSummary> {
     let trades = db::load_trades(&conn)?;
     let stats = engine::position_summary(&pair, &trades)?;
     Ok(stats)
-}
-
-pub fn bep_snaps(cfg: &AppConfig) -> CoreResult<BTreeMap<NaiveDate, BepSnapshot>> {
-    let conn = db::open(&cfg.db_path)?;
-    let pair = btc_pair(&cfg.quote);
-    let trades = db::load_trades(&conn)?;
-    let series = engine::bep_snaps(&pair, &trades)?;
-    Ok(series)
 }
 
 pub fn trades(cfg: &AppConfig) -> CoreResult<Vec<EnrichedTrade>> {

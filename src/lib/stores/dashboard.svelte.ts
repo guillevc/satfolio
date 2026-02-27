@@ -1,14 +1,8 @@
-import {
-  getPositionSummary,
-  getBepSnaps,
-  getCandles,
-  syncCandles,
-} from "$lib/api";
-import type { BepSnapshot, Candle, PositionSummary } from "$lib/types/bindings";
+import { getPositionSummary, getCandles, syncCandles } from "$lib/api";
+import type { Candle, PositionSummary } from "$lib/types/bindings";
 
 export const dashboard = $state({
   summary: null as PositionSummary | null,
-  bepSnaps: null as Record<string, BepSnapshot> | null,
   candles: null as Candle[] | null,
   loading: false,
   syncing: false,
@@ -19,13 +13,11 @@ export async function loadDashboard(): Promise<void> {
   dashboard.error = null;
   dashboard.loading = true;
   try {
-    const [summary, bepSnaps, candles] = await Promise.all([
+    const [summary, candles] = await Promise.all([
       getPositionSummary(),
-      getBepSnaps(),
       getCandles(),
     ]);
     dashboard.summary = summary;
-    dashboard.bepSnaps = bepSnaps;
     dashboard.candles = candles;
   } catch (e) {
     dashboard.error =
@@ -52,7 +44,7 @@ export async function loadDashboard(): Promise<void> {
     });
 }
 
-/** Re-sync prices only (no trades/summary/bepSnaps reload). */
+/** Re-sync prices only (no trades/summary reload). */
 export async function refreshDashboard(): Promise<void> {
   dashboard.syncing = true;
   try {

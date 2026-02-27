@@ -159,6 +159,8 @@ pub struct EnrichedTrade {
     pub spent: AssetAmount,
     pub received: AssetAmount,
     pub fee: AssetAmount,
+    /// Trade side relative to the tracked pair. None for unrelated trades.
+    pub side: Option<TradeSide>,
     /// Break-even price in quote currency. None if position is fully closed.
     pub bep: Option<AssetAmount>,
     /// Realized P&L in quote currency. None for buys.
@@ -175,20 +177,6 @@ pub struct TradesSummary {
     pub spent: AssetAmount,
     pub received: AssetAmount,
     pub fees: AssetAmount,
-}
-
-#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
-#[cfg_attr(test, derive(TS))]
-#[cfg_attr(test, ts(export))]
-pub struct BepSnapshot {
-    pub date: NaiveDate,
-    pub side: TradeSide,
-    pub held: AssetAmount,
-    pub invested: AssetAmount,
-    pub proceeds: AssetAmount,
-    pub fees: AssetAmount,
-    #[cfg_attr(test, ts(as = "Option<String>"))]
-    pub bep: Option<Decimal>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]

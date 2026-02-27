@@ -1,12 +1,9 @@
-use std::collections::BTreeMap;
-
-use chrono::{DateTime, NaiveDate, Utc};
+use chrono::{DateTime, Utc};
 use rust_decimal::Decimal;
 
 use crate::errors::EngineResult;
 use crate::models::{
-    AssetAmount, AssetPair, BepSnapshot, EnrichedTrade, PositionSummary, Trade, TradeSide,
-    TradesSummary,
+    AssetAmount, AssetPair, EnrichedTrade, PositionSummary, Trade, TradeSide, TradesSummary,
 };
 
 struct Accumulator {
@@ -59,33 +56,6 @@ impl Accumulator {
             .amount()
             .checked_div(self.held.amount()))
     }
-}
-
-pub(crate) fn bep_snaps(
-    pair: &AssetPair,
-    trades: &[Trade],
-) -> EngineResult<BTreeMap<NaiveDate, BepSnapshot>> {
-    let mut acc = Accumulator::new(pair);
-    let mut snaps = BTreeMap::new();
-    for trade in trades {
-        let Some(side) = acc.apply(pair, trade)? else {
-            continue;
-        };
-        let date = trade.date.date_naive();
-        snaps.insert(
-            date,
-            BepSnapshot {
-                date,
-                side,
-                held: acc.held.clone(),
-                invested: acc.invested.clone(),
-                proceeds: acc.proceeds.clone(),
-                fees: acc.fees.clone(),
-                bep: acc.bep()?,
-            },
-        );
-    }
-    Ok(snaps)
 }
 
 pub(crate) fn position_summary(
@@ -185,6 +155,7 @@ pub(crate) fn enrich_trades(
                     spent: trade.spent,
                     received: trade.received,
                     fee: trade.fee,
+                    side: None,
                     bep: None,
                     pnl: None,
                 });
@@ -262,6 +233,7 @@ pub(crate) fn enrich_trades(
             spent: trade.spent,
             received: trade.received,
             fee: trade.fee,
+            side: Some(side),
             bep,
             pnl,
         });
@@ -274,7 +246,7 @@ pub(crate) fn enrich_trades(
 mod tests {
     use super::*;
     use crate::models::Asset;
-    use chrono::{NaiveDate, TimeZone};
+    use chrono::TimeZone;
     use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
 
@@ -283,10 +255,6 @@ mod tests {
             base: Asset::Btc,
             quote: Asset::Eur,
         }
-    }
-
-    fn date(y: i32, m: u32, d: u32) -> NaiveDate {
-        NaiveDate::from_ymd_opt(y, m, d).unwrap()
     }
 
     fn make_buy(y: i32, m: u32, d: u32, eur: Decimal, btc: Decimal, fee: Decimal) -> Trade {
@@ -323,43 +291,57 @@ mod tests {
         }
     }
 
-    // ── BEP series ──────────────────────────────────────────
+    // ── BEP via enrich_trades ──────────────────────────────
 
     #[test]
-    fn bep_two_buys() {
+    fn enrich_two_buys_bep_is_weighted_avg() {
         let trades = vec![
             make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
             make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
         ];
-        let snaps = bep_snaps(&btc_eur(), &trades).unwrap();
-        assert_eq!(snaps.len(), 2);
-        assert_eq!(snaps[&date(2025, 1, 1)].bep, Some(dec!(100500)));
-        assert_eq!(snaps[&date(2025, 2, 1)].bep, Some(dec!(75375)));
+        let enriched = enrich_trades(&btc_eur(), trades).unwrap();
+        assert_eq!(enriched.len(), 2);
+        // BEP = (100+0.50)/0.001 = 100_500
+        assert_eq!(
+            enriched[0].bep,
+            Some(AssetAmount::new(dec!(100500), Asset::Eur))
+        );
+        assert_eq!(enriched[0].side, Some(TradeSide::Buy));
+        // BEP = (100+200+0.50+1.00)/0.004 = 75_375
+        assert_eq!(
+            enriched[1].bep,
+            Some(AssetAmount::new(dec!(75375), Asset::Eur))
+        );
+        assert_eq!(enriched[1].side, Some(TradeSide::Buy));
     }
 
     #[test]
-    fn bep_buy_then_sell() {
+    fn enrich_buy_sell_bep_adjusts() {
         let trades = vec![
             make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
             make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
             make_sell(2025, 3, 1, dec!(0.001), dec!(120), dec!(0.60)),
         ];
-        let snaps = bep_snaps(&btc_eur(), &trades).unwrap();
-        assert_eq!(snaps.len(), 3);
-        assert_eq!(snaps[&date(2025, 3, 1)].held.amount(), dec!(0.003));
-        assert_eq!(snaps[&date(2025, 3, 1)].bep, Some(dec!(60700)));
+        let enriched = enrich_trades(&btc_eur(), trades).unwrap();
+        assert_eq!(enriched.len(), 3);
+        // After sell: BEP = (300-120+2.10)/0.003 = 60_700
+        assert_eq!(
+            enriched[2].bep,
+            Some(AssetAmount::new(dec!(60700), Asset::Eur))
+        );
+        assert_eq!(enriched[2].side, Some(TradeSide::Sell));
     }
 
     #[test]
-    fn bep_sell_all_is_none() {
+    fn enrich_sell_all_resets_bep() {
         let trades = vec![
             make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
             make_sell(2025, 2, 1, dec!(0.001), dec!(120), dec!(0.60)),
         ];
-        let snaps = bep_snaps(&btc_eur(), &trades).unwrap();
-        assert_eq!(snaps.len(), 2);
-        assert_eq!(snaps[&date(2025, 2, 1)].held.amount(), Decimal::ZERO);
-        assert_eq!(snaps[&date(2025, 2, 1)].bep, None);
+        let enriched = enrich_trades(&btc_eur(), trades).unwrap();
+        assert_eq!(enriched.len(), 2);
+        assert_eq!(enriched[1].bep, None);
+        assert_eq!(enriched[1].side, Some(TradeSide::Sell));
     }
 
     // ── Position summary ────────────────────────────────────

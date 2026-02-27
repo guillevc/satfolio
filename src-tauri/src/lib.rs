@@ -1,11 +1,7 @@
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use app_core::errors::CoreError;
-use app_core::models::{
-    AppConfig, Asset, BepSnapshot, Candle, EnrichedTrade, PositionSummary, TradesSummary,
-};
-use chrono::NaiveDate;
+use app_core::models::{AppConfig, Asset, Candle, EnrichedTrade, PositionSummary, TradesSummary};
 use serde::Serialize;
 use tauri::{Manager, State};
 
@@ -63,14 +59,6 @@ async fn confirm_import(
 #[allow(clippy::unused_async)]
 async fn position_summary(state: State<'_, AppState>) -> Result<PositionSummary, AppError> {
     Ok(app_core::api::position_summary(&state.cfg)?)
-}
-
-#[tauri::command]
-#[allow(clippy::unused_async)]
-async fn bep_snaps(
-    state: State<'_, AppState>,
-) -> Result<BTreeMap<NaiveDate, BepSnapshot>, AppError> {
-    Ok(app_core::api::bep_snaps(&state.cfg)?)
 }
 
 #[tauri::command]
@@ -143,7 +131,6 @@ pub fn run() {
             preview_import,
             confirm_import,
             position_summary,
-            bep_snaps,
             trades,
             candles,
             sync_candles,
