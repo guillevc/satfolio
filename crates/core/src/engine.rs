@@ -6,6 +6,49 @@ use crate::models::{
     AssetAmount, AssetPair, EnrichedTrade, PositionSummary, Trade, TradeSide, TradesSummary,
 };
 
+impl Trade {
+    fn side_for(&self, pair: &AssetPair) -> Option<TradeSide> {
+        let trade_pair = (self.spent.asset(), self.received.asset());
+        if trade_pair == (&pair.quote, &pair.base) {
+            Some(TradeSide::Buy)
+        } else if trade_pair == (&pair.base, &pair.quote) {
+            Some(TradeSide::Sell)
+        } else {
+            None
+        }
+    }
+}
+
+struct ResolvedTrade {
+    side: TradeSide,
+    units: Decimal,
+    quote_amount: Decimal,
+    fee_quote: Decimal,
+}
+
+fn resolve(trade: &Trade, pair: &AssetPair) -> Option<ResolvedTrade> {
+    let side = trade.side_for(pair)?;
+    let (units, quote_amount) = match side {
+        TradeSide::Buy => (trade.received.amount(), trade.spent.amount()),
+        TradeSide::Sell => (trade.spent.amount(), trade.received.amount()),
+    };
+    let price = quote_amount.checked_div(units).unwrap_or(Decimal::ZERO);
+    // Normalize fee to quote currency (e.g. BTC fee → EUR via trade price)
+    let fee_quote = if trade.fee.asset() == &pair.quote {
+        trade.fee.amount()
+    } else if trade.fee.asset() == &pair.base {
+        trade.fee.amount() * price
+    } else {
+        Decimal::ZERO
+    };
+    Some(ResolvedTrade {
+        side,
+        units,
+        quote_amount,
+        fee_quote,
+    })
+}
+
 struct Accumulator {
     held: AssetAmount,
     invested: AssetAmount,
@@ -29,23 +72,26 @@ impl Accumulator {
 
     /// Apply a trade, returning the matched side (or None if unrelated).
     fn apply(&mut self, pair: &AssetPair, trade: &Trade) -> EngineResult<Option<TradeSide>> {
-        match trade.side_for(pair) {
-            Some(TradeSide::Buy) => {
+        let r = match resolve(trade, pair) {
+            Some(r) => r,
+            None => return Ok(None),
+        };
+        match r.side {
+            TradeSide::Buy => {
                 self.buys += 1;
                 self.held = self.held.checked_add(&trade.received)?;
                 self.invested = self.invested.checked_add(&trade.spent)?;
-                self.fees = self.fees.checked_add(&trade.fee)?;
-                Ok(Some(TradeSide::Buy))
             }
-            Some(TradeSide::Sell) => {
+            TradeSide::Sell => {
                 self.sells += 1;
                 self.held = self.held.checked_sub(&trade.spent)?;
                 self.proceeds = self.proceeds.checked_add(&trade.received)?;
-                self.fees = self.fees.checked_add(&trade.fee)?;
-                Ok(Some(TradeSide::Sell))
             }
-            None => Ok(None),
         }
+        self.fees = self
+            .fees
+            .checked_add(&AssetAmount::new(r.fee_quote, pair.quote.clone()))?;
+        Ok(Some(r.side))
     }
 
     fn bep(&self) -> EngineResult<Option<Decimal>> {
@@ -88,24 +134,26 @@ pub(crate) fn trades_summary(pair: &AssetPair, trades: &[Trade]) -> EngineResult
     let mut latest: Option<DateTime<Utc>> = None;
 
     for trade in trades {
-        match trade.side_for(pair) {
-            Some(TradeSide::Buy) => {
-                buys += 1;
-                spent = spent.checked_add(&trade.spent)?;
-                received = received.checked_add(&trade.received)?;
-                fees = fees.checked_add(&trade.fee)?;
-            }
-            Some(TradeSide::Sell) => {
-                sells += 1;
-                spent = spent.checked_add(&trade.received)?;
-                received = received.checked_add(&trade.spent)?;
-                fees = fees.checked_add(&trade.fee)?;
-            }
+        let r = match resolve(trade, pair) {
+            Some(r) => r,
             None => {
                 unknown += 1;
                 continue;
             }
+        };
+        match r.side {
+            TradeSide::Buy => {
+                buys += 1;
+                spent = spent.checked_add(&trade.spent)?;
+                received = received.checked_add(&trade.received)?;
+            }
+            TradeSide::Sell => {
+                sells += 1;
+                spent = spent.checked_add(&trade.received)?;
+                received = received.checked_add(&trade.spent)?;
+            }
         }
+        fees = fees.checked_add(&AssetAmount::new(r.fee_quote, pair.quote.clone()))?;
 
         earliest = Some(earliest.map_or(trade.date, |e| e.min(trade.date)));
         latest = Some(latest.map_or(trade.date, |l| l.max(trade.date)));
@@ -123,17 +171,6 @@ pub(crate) fn trades_summary(pair: &AssetPair, trades: &[Trade]) -> EngineResult
     })
 }
 
-/// Normalize fee to quote currency for accurate P&L.
-fn normalize_fee_to_quote(trade: &Trade, pair: &AssetPair, price_per_unit: Decimal) -> Decimal {
-    if trade.fee.asset() == &pair.quote {
-        trade.fee.amount()
-    } else if trade.fee.asset() == &pair.base {
-        trade.fee.amount() * price_per_unit
-    } else {
-        Decimal::ZERO
-    }
-}
-
 /// Enrich trades with running BEP and realized P&L.
 pub(crate) fn enrich_trades(
     pair: &AssetPair,
@@ -147,8 +184,8 @@ pub(crate) fn enrich_trades(
     let mut enriched = Vec::with_capacity(trades.len());
 
     for trade in trades {
-        let side = match trade.side_for(pair) {
-            Some(s) => s,
+        let r = match resolve(&trade, pair) {
+            Some(r) => r,
             None => {
                 enriched.push(EnrichedTrade {
                     date: trade.date,
@@ -170,62 +207,30 @@ pub(crate) fn enrich_trades(
             (invested - proceeds + fees_fiat).checked_div(held)
         };
 
-        let (bep, pnl) = match side {
+        let pnl = match r.side {
             TradeSide::Buy => {
-                let units = trade.received.amount();
-                let price_per_unit = trade
-                    .spent
-                    .amount()
-                    .checked_div(units)
-                    .unwrap_or(Decimal::ZERO);
-
-                let fee_fiat = normalize_fee_to_quote(&trade, pair, price_per_unit);
-
-                held += units;
-                invested += trade.spent.amount();
-                fees_fiat += fee_fiat;
-
-                let running_bep = if held.is_zero() {
-                    None
-                } else {
-                    (invested - proceeds + fees_fiat).checked_div(held)
-                };
-
-                (
-                    running_bep.map(|v| AssetAmount::new(v, pair.quote.clone())),
-                    None,
-                )
+                held += r.units;
+                invested += r.quote_amount;
+                fees_fiat += r.fee_quote;
+                None
             }
             TradeSide::Sell => {
-                let units = trade.spent.amount();
-                let price_per_unit = trade
-                    .received
-                    .amount()
-                    .checked_div(units)
-                    .unwrap_or(Decimal::ZERO);
-
-                let fee_fiat = normalize_fee_to_quote(&trade, pair, price_per_unit);
-
-                held -= units;
-                proceeds += trade.received.amount();
-                fees_fiat += fee_fiat;
-
-                let running_bep = if held.is_zero() {
-                    None
-                } else {
-                    (invested - proceeds + fees_fiat).checked_div(held)
-                };
-
-                (
-                    running_bep.map(|v| AssetAmount::new(v, pair.quote.clone())),
-                    bep_before.map(|bep| {
-                        AssetAmount::new(
-                            trade.received.amount() - fee_fiat - bep * units,
-                            pair.quote.clone(),
-                        )
-                    }),
-                )
+                held -= r.units;
+                proceeds += r.quote_amount;
+                fees_fiat += r.fee_quote;
+                bep_before.map(|bep| {
+                    AssetAmount::new(
+                        r.quote_amount - r.fee_quote - bep * r.units,
+                        pair.quote.clone(),
+                    )
+                })
             }
+        };
+
+        let running_bep = if held.is_zero() {
+            None
+        } else {
+            (invested - proceeds + fees_fiat).checked_div(held)
         };
 
         enriched.push(EnrichedTrade {
@@ -233,8 +238,8 @@ pub(crate) fn enrich_trades(
             spent: trade.spent,
             received: trade.received,
             fee: trade.fee,
-            side: Some(side),
-            bep,
+            side: Some(r.side),
+            bep: running_bep.map(|v| AssetAmount::new(v, pair.quote.clone())),
             pnl,
         });
     }
@@ -289,6 +294,26 @@ mod tests {
             received: AssetAmount::new(received, Asset::Btc),
             fee: AssetAmount::new(fee, Asset::Eur),
         }
+    }
+
+    // ── side_for ──────────────────────────────────────────
+
+    #[test]
+    fn side_for_buy_sell_none() {
+        let trade = make_buy(2024, 1, 15, dec!(187.2514), dec!(0.0020104289), dec!(0.749));
+        assert_eq!(trade.side_for(&btc_eur()), Some(TradeSide::Buy));
+
+        let eur_btc = AssetPair {
+            base: Asset::Eur,
+            quote: Asset::Btc,
+        };
+        assert_eq!(trade.side_for(&eur_btc), Some(TradeSide::Sell));
+
+        let btc_usd = AssetPair {
+            base: Asset::Btc,
+            quote: Asset::Usd,
+        };
+        assert_eq!(trade.side_for(&btc_usd), None);
     }
 
     // ── BEP via enrich_trades ──────────────────────────────

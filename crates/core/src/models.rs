@@ -137,19 +137,6 @@ pub(crate) struct Trade {
     pub(crate) fee: AssetAmount,
 }
 
-impl Trade {
-    pub(crate) fn side_for(&self, pair: &AssetPair) -> Option<TradeSide> {
-        let trade_pair = (self.spent.asset(), self.received.asset());
-        if trade_pair == (&pair.quote, &pair.base) {
-            Some(TradeSide::Buy)
-        } else if trade_pair == (&pair.base, &pair.quote) {
-            Some(TradeSide::Sell)
-        } else {
-            None
-        }
-    }
-}
-
 /// Trade enriched with computed analytics for display.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(TS))]
@@ -214,8 +201,6 @@ pub struct Candle {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use chrono::TimeZone;
-    use rust_decimal_macros::dec;
 
     #[test]
     fn asset_from_btc() {
@@ -264,30 +249,5 @@ mod tests {
         assert_eq!(Asset::Gbp.as_str(), "GBP");
         assert_eq!(Asset::Usd.as_str(), "USD");
         assert_eq!(Asset::Other("MSC".to_string()).as_str(), "MSC");
-    }
-
-    #[test]
-    fn trade_side_for() {
-        let btc_eur = AssetPair {
-            base: Asset::Btc,
-            quote: Asset::Eur,
-        };
-        let trade = Trade {
-            date: Utc.with_ymd_and_hms(2024, 1, 15, 12, 0, 0).unwrap(),
-            spent: AssetAmount::new(dec!(187.2514), Asset::Eur),
-            received: AssetAmount::new(dec!(0.0020104289), Asset::Btc),
-            fee: AssetAmount::new(dec!(0.749), Asset::Eur),
-        };
-        assert_eq!(trade.side_for(&btc_eur), Some(TradeSide::Buy));
-        let eur_btc = AssetPair {
-            base: Asset::Eur,
-            quote: Asset::Btc,
-        };
-        assert_eq!(trade.side_for(&eur_btc), Some(TradeSide::Sell));
-        let btc_usd = AssetPair {
-            base: Asset::Btc,
-            quote: Asset::Usd,
-        };
-        assert_eq!(trade.side_for(&btc_usd), None);
     }
 }

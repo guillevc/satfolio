@@ -362,7 +362,7 @@
         {/if}
         {#if legendSpread !== null}
           <span class="flex items-center gap-1">
-            <span class="text-muted-foreground font-medium">P&L</span>
+            <span class="text-muted-foreground font-medium">Spread</span>
             <span
               class={legendSpread >= 0 ? "text-emerald-400" : "text-red-400"}
             >

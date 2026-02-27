@@ -28,7 +28,7 @@
   let bep = $derived(summary.bep ? parseFloat(summary.bep) : 0);
   let tradeCount = $derived(summary.buys + summary.sells);
 
-  let pnl = $derived(btcPrice * held - invested);
+  let pnl = $derived((btcPrice - bep) * held);
   let pnlPct = $derived(invested !== 0 ? (pnl / invested) * 100 : 0);
   let fiatValue = $derived(btcPrice * held);
 

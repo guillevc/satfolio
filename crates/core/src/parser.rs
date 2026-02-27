@@ -120,11 +120,18 @@ fn find_trades(entries: &[LedgerEntry]) -> Vec<Trade> {
             } else {
                 (right, left)
             };
+            // Kraken places the fee on either entry — pick whichever has a
+            // non-zero fee (first non-zero wins, matching BittyTax behaviour).
+            let (fee_amount, fee_asset) = if !sell.fee.is_zero() {
+                (sell.fee.abs(), sell.asset.clone())
+            } else {
+                (buy.fee.abs(), buy.asset.clone())
+            };
             Trade {
                 date: buy.time,
                 spent: AssetAmount::new(sell.amount.abs(), sell.asset.clone()),
                 received: AssetAmount::new(buy.amount.abs(), buy.asset.clone()),
-                fee: AssetAmount::new(sell.fee.abs(), sell.asset.clone()),
+                fee: AssetAmount::new(fee_amount, fee_asset),
             }
         })
         .collect()
@@ -299,6 +306,63 @@ mod tests {
             );
             let result = find_trades(&[dep]);
             assert!(result.is_empty());
+        }
+
+        /// Sell trade: BTC negative, EUR positive, fee on EUR (positive) side.
+        #[test]
+        fn sell_trade_fee_on_positive_side() {
+            let btc = make_entry(
+                "SELL-001",
+                EntryType::Trade,
+                Asset::Btc,
+                dec!(-0.001),
+                Decimal::ZERO,
+            );
+            let eur = make_entry(
+                "SELL-001",
+                EntryType::Trade,
+                Asset::Eur,
+                dec!(63.124),
+                dec!(0.2525),
+            );
+            let result = find_trades(&[btc, eur]);
+            assert_eq!(result.len(), 1);
+            let trade = &result[0];
+            assert_eq!(*trade.spent.asset(), Asset::Btc);
+            assert_eq!(trade.spent.amount(), dec!(0.001));
+            assert_eq!(*trade.received.asset(), Asset::Eur);
+            assert_eq!(trade.received.amount(), dec!(63.124));
+            // Fee is on the EUR (positive) entry — parser must pick it up
+            assert_eq!(trade.fee.amount(), dec!(0.2525));
+            assert_eq!(*trade.fee.asset(), Asset::Eur);
+        }
+
+        /// Buy trade with fee on the BTC (positive) side — matches real
+        /// Kraken trade XOI65FD in the fixture.
+        #[test]
+        fn buy_trade_fee_on_positive_side() {
+            let eur = make_entry(
+                "BUY-002",
+                EntryType::Trade,
+                Asset::Eur,
+                dec!(-193.9818),
+                Decimal::ZERO,
+            );
+            let btc = make_entry(
+                "BUY-002",
+                EntryType::Trade,
+                Asset::Btc,
+                dec!(0.0021553528),
+                dec!(0.0000053897),
+            );
+            let result = find_trades(&[eur, btc]);
+            assert_eq!(result.len(), 1);
+            let trade = &result[0];
+            assert_eq!(*trade.spent.asset(), Asset::Eur);
+            assert_eq!(*trade.received.asset(), Asset::Btc);
+            // Fee is on BTC (positive/buy) side
+            assert_eq!(trade.fee.amount(), dec!(0.0000053897));
+            assert_eq!(*trade.fee.asset(), Asset::Btc);
         }
     }
 
