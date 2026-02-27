@@ -68,14 +68,15 @@ pub(crate) fn bep_snaps(
     let mut acc = Accumulator::new(pair);
     let mut snaps = BTreeMap::new();
     for trade in trades {
-        if acc.apply(pair, trade)?.is_none() {
+        let Some(side) = acc.apply(pair, trade)? else {
             continue;
-        }
+        };
         let date = trade.date.date_naive();
         snaps.insert(
             date,
             BepSnapshot {
                 date,
+                side,
                 held: acc.held.clone(),
                 invested: acc.invested.clone(),
                 proceeds: acc.proceeds.clone(),

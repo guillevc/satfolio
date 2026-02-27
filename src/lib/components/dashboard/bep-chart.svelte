@@ -84,14 +84,10 @@
       const curr = bepSnaps[snapDates[i]];
       if (!curr.bep) continue;
 
-      const prev = i > 0 ? bepSnaps[snapDates[i - 1]] : null;
-      if (prev && curr.bep === prev.bep) continue;
-
-      const isBuy = !prev || parseFloat(curr.bep) > parseFloat(prev.bep ?? "0");
       bands.push({
         time: snapDates[i] as Time,
         value: 999_999_999,
-        color: isBuy ? buyColor : sellColor,
+        color: curr.side === "Buy" ? buyColor : sellColor,
       });
     }
 

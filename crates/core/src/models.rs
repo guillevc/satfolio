@@ -121,8 +121,10 @@ impl AssetAmount {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub(crate) enum TradeSide {
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(test, derive(TS))]
+#[cfg_attr(test, ts(export))]
+pub enum TradeSide {
     Buy,
     Sell,
 }
@@ -180,6 +182,7 @@ pub struct TradesSummary {
 #[cfg_attr(test, ts(export))]
 pub struct BepSnapshot {
     pub date: NaiveDate,
+    pub side: TradeSide,
     pub held: AssetAmount,
     pub invested: AssetAmount,
     pub proceeds: AssetAmount,

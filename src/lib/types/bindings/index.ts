@@ -4,3 +4,4 @@ export type { BepSnapshot } from "./BepSnapshot";
 export type { Candle } from "./Candle";
 export type { EnrichedTrade } from "./EnrichedTrade";
 export type { PositionSummary } from "./PositionSummary";
+export type { TradeSide } from "./TradeSide";
