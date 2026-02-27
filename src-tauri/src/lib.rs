@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use app_core::errors::CoreError;
-use app_core::models::{AppConfig, Asset, Candle, EnrichedTrade, PositionSummary, TradesSummary};
+use app_core::models::{AppConfig, Asset, DashboardStats, EnrichedTrade, TradesSummary};
 use serde::Serialize;
 use tauri::{Manager, State};
 
@@ -32,7 +32,6 @@ impl From<CoreError> for AppError {
 
 struct AppState {
     cfg: AppConfig,
-    prices_dir: PathBuf,
 }
 
 // -- Commands ------------------------------------------------------------
@@ -57,20 +56,14 @@ async fn confirm_import(
 
 #[tauri::command]
 #[allow(clippy::unused_async)]
-async fn position_summary(state: State<'_, AppState>) -> Result<PositionSummary, AppError> {
-    Ok(app_core::api::position_summary(&state.cfg)?)
+async fn dashboard_stats(state: State<'_, AppState>) -> Result<DashboardStats, AppError> {
+    Ok(app_core::api::dashboard_stats(&state.cfg)?)
 }
 
 #[tauri::command]
 #[allow(clippy::unused_async)]
 async fn trades(state: State<'_, AppState>) -> Result<Vec<EnrichedTrade>, AppError> {
     Ok(app_core::api::trades(&state.cfg)?)
-}
-
-#[tauri::command]
-#[allow(clippy::unused_async)]
-async fn candles(state: State<'_, AppState>) -> Result<Vec<Candle>, AppError> {
-    Ok(app_core::api::candles(&state.cfg, &state.prices_dir)?)
 }
 
 #[tauri::command]
@@ -110,29 +103,26 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
 
-            let db_path = data_dir.join("betc.db");
-            app_core::api::init_db(&db_path).map_err(|e| e.to_string())?;
+            let cfg = AppConfig {
+                db_path: data_dir.join("betc.db"),
+                quote: Asset::Eur,
+            };
 
             let prices_dir = app
                 .path()
                 .resolve("resources/prices", tauri::path::BaseDirectory::Resource)?;
 
-            app.manage(AppState {
-                cfg: AppConfig {
-                    db_path,
-                    quote: Asset::Eur,
-                },
-                prices_dir,
-            });
+            app_core::api::init_db(&cfg, &prices_dir).map_err(|e| e.to_string())?;
+
+            app.manage(AppState { cfg });
 
             Ok(())
         })
         .invoke_handler(tauri::generate_handler![
             preview_import,
             confirm_import,
-            position_summary,
+            dashboard_stats,
             trades,
-            candles,
             sync_candles,
             load_sample,
         ])

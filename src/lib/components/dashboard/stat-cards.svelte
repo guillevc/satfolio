@@ -3,34 +3,18 @@
   import * as Card from "$lib/components/ui/card";
   import { Skeleton } from "$lib/components/ui/skeleton";
   import { cn, displayAmount } from "$lib/utils";
-  import type { Candle, PositionSummary } from "$lib/types/bindings";
+  import type { DashboardStats } from "$lib/types/bindings";
 
-  let {
-    summary,
-    candles,
-    syncing,
-  }: { summary: PositionSummary; candles: Candle[]; syncing: boolean } =
+  let { stats, syncing }: { stats: DashboardStats; syncing: boolean } =
     $props();
 
-  let lastCandle = $derived(candles.at(-1));
-  let prevCandle = $derived(candles.at(-2));
-
-  let btcPrice = $derived(lastCandle ? parseFloat(lastCandle.close) : 0);
-  let change24h = $derived.by(() => {
-    if (!lastCandle || !prevCandle) return 0;
-    const curr = parseFloat(lastCandle.close);
-    const prev = parseFloat(prevCandle.close);
-    return prev !== 0 ? ((curr - prev) / prev) * 100 : 0;
-  });
-
-  let held = $derived(displayAmount(summary.held));
-  let invested = $derived(displayAmount(summary.invested));
-  let bep = $derived(summary.bep ? parseFloat(summary.bep) : 0);
-  let tradeCount = $derived(summary.buys + summary.sells);
-
-  let pnl = $derived((btcPrice - bep) * held);
-  let pnlPct = $derived(invested !== 0 ? (pnl / invested) * 100 : 0);
-  let fiatValue = $derived(btcPrice * held);
+  let btcPrice = $derived(displayAmount(stats.btc_price));
+  let change24h = $derived(parseFloat(stats.change_24h_pct));
+  let bep = $derived(stats.bep ? displayAmount(stats.bep) : 0);
+  let held = $derived(displayAmount(stats.held));
+  let positionValue = $derived(displayAmount(stats.position_value));
+  let pnl = $derived(displayAmount(stats.unrealized_pnl));
+  let pnlPct = $derived(parseFloat(stats.unrealized_pnl_pct));
 
   function formatUsd(value: number): string {
     return new Intl.NumberFormat("en-US", {
@@ -108,7 +92,7 @@
       <Card.Title class={cardValue}>{formatUsd(bep)}</Card.Title>
     </Card.Header>
     <Card.Content class={cardContent}>
-      <span class={cardSub}>{tradeCount} trades</span>
+      <span class={cardSub}>{stats.trade_count} trades</span>
     </Card.Content>
   </Card.Root>
 
@@ -144,7 +128,7 @@
       <Card.Title class={cardValue}>{formatBtc(held)}</Card.Title>
     </Card.Header>
     <Card.Content class={cardContent}>
-      <span class={cardSub}>{formatUsdFull(fiatValue)}</span>
+      <span class={cardSub}>{formatUsdFull(positionValue)}</span>
     </Card.Content>
   </Card.Root>
 </div>

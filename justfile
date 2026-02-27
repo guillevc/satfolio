@@ -129,12 +129,6 @@ test-rust:
 test-web:
     @echo "test-web: not configured yet"
 
-# Examples
-[group('examples')]
-[doc("Run a core example by name (e.g. just example parse_csv)")]
-example name:
-    cargo run -p app-core --example {{name}}
-
 # Gen
 [group('gen')]
 [doc("Generate TS types from Rust models")]

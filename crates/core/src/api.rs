@@ -3,9 +3,7 @@ use std::path::Path;
 use chrono::Utc;
 
 use crate::errors::CoreResult;
-use crate::models::{
-    AppConfig, Asset, AssetPair, Candle, EnrichedTrade, PositionSummary, TradesSummary,
-};
+use crate::models::{AppConfig, Asset, AssetPair, DashboardStats, EnrichedTrade, TradesSummary};
 use crate::{db, engine, parser, price};
 
 fn btc_pair(quote: &Asset) -> AssetPair {
@@ -31,11 +29,18 @@ pub fn confirm_import(cfg: &AppConfig, path: &Path) -> CoreResult<TradesSummary>
     Ok(summary)
 }
 
-pub fn position_summary(cfg: &AppConfig) -> CoreResult<PositionSummary> {
+pub fn dashboard_stats(cfg: &AppConfig) -> CoreResult<DashboardStats> {
     let conn = db::open(&cfg.db_path)?;
     let pair = btc_pair(&cfg.quote);
     let trades = db::load_trades(&conn)?;
-    let stats = engine::position_summary(&pair, &trades)?;
+    let summary = engine::position_summary(&pair, &trades)?;
+
+    let candles = db::load_candles(&conn, &cfg.quote)?;
+    let current = candles.last().map(|c| c.close).unwrap_or_default();
+    let prev = candles.iter().rev().nth(1).map(|c| c.close);
+
+    let mut stats = engine::dashboard_stats(&summary, current, prev);
+    stats.candles = candles;
     Ok(stats)
 }
 
@@ -44,19 +49,6 @@ pub fn trades(cfg: &AppConfig) -> CoreResult<Vec<EnrichedTrade>> {
     let pair = btc_pair(&cfg.quote);
     let trades = db::load_trades(&conn)?;
     Ok(engine::enrich_trades(&pair, trades)?)
-}
-
-/// Return candles from DB (or seed from bundled CSV on first run). No network.
-pub fn candles(cfg: &AppConfig, prices_dir: &Path) -> CoreResult<Vec<Candle>> {
-    let conn = db::open(&cfg.db_path)?;
-    let mut candles = db::load_candles(&conn, &cfg.quote)?;
-
-    if candles.is_empty() {
-        candles = price::load_bundled_prices(prices_dir, &cfg.quote)?;
-        db::save_candles(&conn, &cfg.quote, &candles)?;
-    }
-
-    Ok(candles)
 }
 
 /// Gap-fill candles from Kraken API if behind today. Network I/O.
@@ -82,8 +74,13 @@ pub async fn sync_candles(cfg: &AppConfig) -> CoreResult<()> {
     Ok(())
 }
 
-/// Validate that the DB can be opened and migrated. Call once at startup.
-pub fn init_db(db_path: &Path) -> CoreResult<()> {
-    db::open(db_path)?;
+/// Open + migrate DB and seed bundled price data if empty. Call once at startup.
+pub fn init_db(cfg: &AppConfig, prices_dir: &Path) -> CoreResult<()> {
+    let conn = db::open(&cfg.db_path)?;
+    let candles = db::load_candles(&conn, &cfg.quote)?;
+    if candles.is_empty() {
+        let bundled = price::load_bundled_prices(prices_dir, &cfg.quote)?;
+        db::save_candles(&conn, &cfg.quote, &bundled)?;
+    }
     Ok(())
 }

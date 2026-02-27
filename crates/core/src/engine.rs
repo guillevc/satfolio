@@ -3,7 +3,8 @@ use rust_decimal::Decimal;
 
 use crate::errors::EngineResult;
 use crate::models::{
-    AssetAmount, AssetPair, EnrichedTrade, PositionSummary, Trade, TradeSide, TradesSummary,
+    AssetAmount, AssetPair, DashboardStats, EnrichedTrade, PositionSummary, Trade, TradeSide,
+    TradesSummary,
 };
 
 impl Trade {
@@ -245,6 +246,49 @@ pub(crate) fn enrich_trades(
     }
 
     Ok(enriched)
+}
+
+/// Build dashboard stats from a position summary and current/previous prices.
+pub(crate) fn dashboard_stats(
+    summary: &PositionSummary,
+    current_price: Decimal,
+    prev_price: Option<Decimal>,
+) -> DashboardStats {
+    let hundred = Decimal::ONE_HUNDRED;
+    // held is in base (BTC), invested/proceeds/fees are in quote (EUR)
+    let quote = summary.invested.asset().clone();
+    let held_amount = summary.held.amount();
+
+    let position_value = current_price * held_amount;
+
+    let unrealized_pnl = match summary.bep {
+        Some(bep) => (current_price - bep) * held_amount,
+        None => Decimal::ZERO,
+    };
+
+    let invested = summary.invested.amount();
+    let unrealized_pnl_pct = if invested.is_zero() {
+        Decimal::ZERO
+    } else {
+        unrealized_pnl / invested * hundred
+    };
+
+    let change_24h_pct = match prev_price {
+        Some(prev) if !prev.is_zero() => (current_price - prev) / prev * hundred,
+        _ => Decimal::ZERO,
+    };
+
+    DashboardStats {
+        btc_price: AssetAmount::new(current_price, quote.clone()),
+        change_24h_pct,
+        bep: summary.bep.map(|b| AssetAmount::new(b, quote.clone())),
+        trade_count: summary.buys + summary.sells,
+        held: summary.held.clone(),
+        position_value: AssetAmount::new(position_value, quote.clone()),
+        unrealized_pnl: AssetAmount::new(unrealized_pnl, quote),
+        unrealized_pnl_pct,
+        candles: Vec::new(),
+    }
 }
 
 #[cfg(test)]
@@ -544,5 +588,104 @@ mod tests {
         // After sell: held=0.005, invested=1000, proceeds=600, fees=5+6=11
         // BEP = (1000-600+11)/0.005 = 411/0.005 = 82_200
         assert_eq!(sell.bep, Some(AssetAmount::new(dec!(82200), Asset::Eur)));
+    }
+
+    // ── Dashboard stats ─────────────────────────────────────
+
+    fn make_position(
+        bep: Option<Decimal>,
+        held: Decimal,
+        invested: Decimal,
+        proceeds: Decimal,
+        fees: Decimal,
+        buys: usize,
+        sells: usize,
+    ) -> PositionSummary {
+        PositionSummary {
+            bep,
+            held: AssetAmount::new(held, Asset::Btc),
+            invested: AssetAmount::new(invested, Asset::Eur),
+            proceeds: AssetAmount::new(proceeds, Asset::Eur),
+            fees: AssetAmount::new(fees, Asset::Eur),
+            buys,
+            sells,
+        }
+    }
+
+    #[test]
+    fn dashboard_stats_basic() {
+        // BEP=60_700, held=0.003, invested=300, proceeds=120, fees=2.10
+        let pos = make_position(
+            Some(dec!(60700)),
+            dec!(0.003),
+            dec!(300),
+            dec!(120),
+            dec!(2.10),
+            2,
+            1,
+        );
+        let stats = dashboard_stats(&pos, dec!(90000), Some(dec!(88000)));
+
+        // position_value = 90000 * 0.003 = 270
+        assert_eq!(
+            stats.position_value,
+            AssetAmount::new(dec!(270), Asset::Eur)
+        );
+        // unrealized_pnl = (90000 - 60700) * 0.003 = 29300 * 0.003 = 87.9
+        assert_eq!(
+            stats.unrealized_pnl,
+            AssetAmount::new(dec!(87.9), Asset::Eur)
+        );
+        // unrealized_pnl_pct = 87.9 / 300 * 100 = 29.3
+        assert_eq!(stats.unrealized_pnl_pct, dec!(29.3));
+        // change_24h_pct = (90000 - 88000) / 88000 * 100 ≈ 2.272727...
+        // Decimal division is exact here
+        let expected_change = (dec!(2000) / dec!(88000)) * dec!(100);
+        assert_eq!(stats.change_24h_pct, expected_change);
+        assert_eq!(stats.trade_count, 3);
+        assert_eq!(stats.btc_price, AssetAmount::new(dec!(90000), Asset::Eur));
+    }
+
+    #[test]
+    fn dashboard_stats_no_bep() {
+        // Position fully closed: no BEP, no held
+        let pos = make_position(None, dec!(0), dec!(300), dec!(300), dec!(2), 2, 2);
+        let stats = dashboard_stats(&pos, dec!(90000), Some(dec!(85000)));
+
+        assert_eq!(stats.unrealized_pnl, AssetAmount::new(dec!(0), Asset::Eur));
+        assert_eq!(stats.unrealized_pnl_pct, Decimal::ZERO);
+        assert_eq!(stats.bep, None);
+    }
+
+    #[test]
+    fn dashboard_stats_no_prev_price() {
+        let pos = make_position(
+            Some(dec!(50000)),
+            dec!(0.01),
+            dec!(500),
+            dec!(0),
+            dec!(1),
+            1,
+            0,
+        );
+        let stats = dashboard_stats(&pos, dec!(60000), None);
+
+        assert_eq!(stats.change_24h_pct, Decimal::ZERO);
+        // unrealized_pnl = (60000 - 50000) * 0.01 = 100
+        assert_eq!(
+            stats.unrealized_pnl,
+            AssetAmount::new(dec!(100), Asset::Eur)
+        );
+    }
+
+    #[test]
+    fn dashboard_stats_no_investment() {
+        // Edge: no invested amount (shouldn't happen normally, but guard against div-by-zero)
+        let pos = make_position(None, dec!(0), dec!(0), dec!(0), dec!(0), 0, 0);
+        let stats = dashboard_stats(&pos, dec!(90000), Some(dec!(90000)));
+
+        assert_eq!(stats.unrealized_pnl_pct, Decimal::ZERO);
+        assert_eq!(stats.change_24h_pct, Decimal::ZERO);
+        assert_eq!(stats.trade_count, 0);
     }
 }

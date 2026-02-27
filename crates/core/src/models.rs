@@ -180,6 +180,24 @@ pub struct PositionSummary {
     pub sells: usize,
 }
 
+/// Pre-computed dashboard metrics for the frontend stat cards.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(TS))]
+#[cfg_attr(test, ts(export))]
+pub struct DashboardStats {
+    pub btc_price: AssetAmount,
+    #[cfg_attr(test, ts(as = "String"))]
+    pub change_24h_pct: Decimal,
+    pub bep: Option<AssetAmount>,
+    pub trade_count: usize,
+    pub held: AssetAmount,
+    pub position_value: AssetAmount,
+    pub unrealized_pnl: AssetAmount,
+    #[cfg_attr(test, ts(as = "String"))]
+    pub unrealized_pnl_pct: Decimal,
+    pub candles: Vec<Candle>,
+}
+
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(TS))]
 #[cfg_attr(test, ts(export))]

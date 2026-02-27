@@ -1,9 +1,8 @@
-import { getPositionSummary, getCandles, syncCandles } from "$lib/api";
-import type { Candle, PositionSummary } from "$lib/types/bindings";
+import { getDashboardStats, syncCandles } from "$lib/api";
+import type { DashboardStats } from "$lib/types/bindings";
 
 export const dashboard = $state({
-  summary: null as PositionSummary | null,
-  candles: null as Candle[] | null,
+  stats: null as DashboardStats | null,
   loading: false,
   syncing: false,
   error: null as string | null,
@@ -13,12 +12,7 @@ export async function loadDashboard(): Promise<void> {
   dashboard.error = null;
   dashboard.loading = true;
   try {
-    const [summary, candles] = await Promise.all([
-      getPositionSummary(),
-      getCandles(),
-    ]);
-    dashboard.summary = summary;
-    dashboard.candles = candles;
+    dashboard.stats = await getDashboardStats();
   } catch (e) {
     dashboard.error =
       e && typeof e === "object" && "message" in e
@@ -29,14 +23,16 @@ export async function loadDashboard(): Promise<void> {
     dashboard.loading = false;
   }
 
-  // Gap-fill candles from Kraken in background, then refresh
+  // Gap-fill candles from Kraken in background, then refresh stats
   dashboard.syncing = true;
   syncCandles()
-    .then(() => getCandles())
+    .then(() => getDashboardStats())
     .then((fresh) => {
-      const last = fresh[fresh.length - 1];
-      console.log(`sync done: ${fresh.length} candles, last: ${last?.date}`);
-      dashboard.candles = fresh;
+      const last = fresh.candles[fresh.candles.length - 1];
+      console.log(
+        `sync done: ${fresh.candles.length} candles, last: ${last?.date}`,
+      );
+      dashboard.stats = fresh;
     })
     .catch((e) => console.error("sync_candles failed:", e))
     .finally(() => {
@@ -44,12 +40,12 @@ export async function loadDashboard(): Promise<void> {
     });
 }
 
-/** Re-sync prices only (no trades/summary reload). */
+/** Re-sync prices and stats. */
 export async function refreshDashboard(): Promise<void> {
   dashboard.syncing = true;
   try {
     await syncCandles();
-    dashboard.candles = await getCandles();
+    dashboard.stats = await getDashboardStats();
   } catch (e) {
     console.error("refresh failed:", e);
   } finally {

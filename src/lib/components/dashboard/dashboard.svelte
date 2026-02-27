@@ -14,15 +14,11 @@
     <div class="flex flex-1 items-center justify-center">
       <span class="text-muted-foreground text-sm">Loading…</span>
     </div>
-  {:else if dashboard.summary && dashboard.candles && trades.rows}
-    <StatCards
-      summary={dashboard.summary}
-      candles={dashboard.candles}
-      syncing={dashboard.syncing}
-    />
+  {:else if dashboard.stats && trades.rows}
+    <StatCards stats={dashboard.stats} syncing={dashboard.syncing} />
     <BepChart
       trades={trades.rows}
-      candles={dashboard.candles}
+      candles={dashboard.stats.candles}
       syncing={dashboard.syncing}
       onrefresh={refreshDashboard}
     />
