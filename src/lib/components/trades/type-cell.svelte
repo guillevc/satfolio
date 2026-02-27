@@ -6,14 +6,20 @@
 </script>
 
 <span
-  class="inline-flex items-center gap-1.5 {buy
+  class="inline-flex items-center gap-2 {buy
     ? 'text-success'
-    : 'text-destructive'}"
+    : 'text-foreground'}"
 >
-  {#if buy}
-    <ArrowDownLeft class="size-3.5" />
-  {:else}
-    <ArrowUpRight class="size-3.5" />
-  {/if}
+  <span
+    class="inline-flex items-center justify-center rounded-md size-6 {buy
+      ? 'bg-success/15'
+      : 'bg-foreground/10'}"
+  >
+    {#if buy}
+      <ArrowDownLeft class="size-3.5" />
+    {:else}
+      <ArrowUpRight class="size-3.5" />
+    {/if}
+  </span>
   {value}
 </span>

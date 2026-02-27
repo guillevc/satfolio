@@ -156,7 +156,7 @@
       <p class="text-muted-foreground mb-3 text-xs">
         {summaryStats.total} trades ·
         <span class="text-success">{summaryStats.buys} buys</span> ·
-        <span class="text-destructive">{summaryStats.sells} sells</span> ·
+        <span class="text-foreground">{summaryStats.sells} sells</span> ·
         First: {summaryStats.firstDate} · Latest: {summaryStats.lastDate}
       </p>
     {/if}

@@ -74,29 +74,24 @@
   });
 
   // Trade bands: full-height vertical lines at each trade date
+  const buyColor = "rgba(251,191,36,0.15)";
+  const sellColor = "rgba(148,163,184,0.15)";
+
   let tradeBands = $derived.by(() => {
     const bands: Array<{ time: Time; value: number; color: string }> = [];
 
-    // First trade
-    if (snapDates.length > 0 && bepSnaps[snapDates[0]].bep) {
-      bands.push({
-        time: snapDates[0] as Time,
-        value: 999_999_999,
-        color: "rgba(251,191,36,0.15)",
-      });
-    }
-
-    // Subsequent trades: detect BEP changes
-    for (let i = 1; i < snapDates.length; i++) {
-      const prev = bepSnaps[snapDates[i - 1]];
+    for (let i = 0; i < snapDates.length; i++) {
       const curr = bepSnaps[snapDates[i]];
-      if (!curr.bep || curr.bep === prev.bep) continue;
+      if (!curr.bep) continue;
 
-      const isBuy = parseFloat(curr.bep) > parseFloat(prev.bep ?? "0");
+      const prev = i > 0 ? bepSnaps[snapDates[i - 1]] : null;
+      if (prev && curr.bep === prev.bep) continue;
+
+      const isBuy = !prev || parseFloat(curr.bep) > parseFloat(prev.bep ?? "0");
       bands.push({
         time: snapDates[i] as Time,
         value: 999_999_999,
-        color: isBuy ? "rgba(251,191,36,0.15)" : "rgba(16,185,129,0.15)",
+        color: isBuy ? buyColor : sellColor,
       });
     }
 

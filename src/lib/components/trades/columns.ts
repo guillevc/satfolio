@@ -127,13 +127,10 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
         onclick: column.getToggleSortingHandler()!,
       }),
     cell: ({ row }) => {
-      const t = row.original;
-      const buy = isBuy(t);
-      const text = formatBtc(t);
-      const color = buy ? "text-success" : "text-destructive";
+      const text = formatBtc(row.original);
       const snippet = createRawSnippet(() => ({
         render: () =>
-          `<div class="text-right font-mono tabular-nums ${color}">${text}</div>`,
+          `<div class="text-right font-mono tabular-nums text-foreground">${text}</div>`,
       }));
       return renderSnippet(snippet);
     },
