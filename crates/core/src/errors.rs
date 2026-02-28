@@ -1,6 +1,7 @@
 use crate::models::Asset;
 use thiserror::Error;
 
+/// Kraken CSV parsing failures (malformed rows, IO).
 #[derive(Debug, Error)]
 pub enum ParseError {
     #[error("CSV error: {0}")]
@@ -19,6 +20,7 @@ pub enum DbError {
     Sql(#[from] rusqlite::Error),
 }
 
+/// Price fetching: bundled CSV loading + Kraken OHLC API.
 #[derive(Debug, Error)]
 pub enum PriceError {
     #[error("IO error: {0}")]
@@ -37,6 +39,8 @@ pub enum PriceError {
     UnsupportedCurrency(String),
 }
 
+/// Currency type safety guard — raised by `AssetAmount::checked_add/sub` when
+/// operands have different assets (e.g. adding EUR to BTC).
 #[derive(Debug, Clone, PartialEq, Eq, Error)]
 #[error("asset mismatch: expected {expected}, got {got}")]
 pub struct AssetMismatch {
@@ -44,12 +48,14 @@ pub struct AssetMismatch {
     pub got: Asset,
 }
 
+/// Position tracking and BEP/P&L calculation errors.
 #[derive(Debug, Error)]
 pub enum EngineError {
     #[error(transparent)]
     AssetMismatch(#[from] AssetMismatch),
 }
 
+/// Top-level error unifying all modules. Returned by public `api::` functions.
 #[derive(Debug, Error)]
 pub enum CoreError {
     #[error(transparent)]

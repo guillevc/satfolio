@@ -6,6 +6,7 @@ use crate::errors::CoreResult;
 use crate::models::{AppConfig, Asset, AssetPair, DashboardStats, EnrichedTrade, TradesSummary};
 use crate::{db, engine, parser, price};
 
+/// Construct the BTC/{quote} pair. BTC is always the base asset.
 fn trading_pair(quote: &Asset) -> AssetPair {
     AssetPair {
         base: Asset::Btc,
@@ -13,6 +14,7 @@ fn trading_pair(quote: &Asset) -> AssetPair {
     }
 }
 
+/// Parse a Kraken CSV and return summary without persisting.
 pub fn preview_import(quote: &Asset, path: &Path) -> CoreResult<TradesSummary> {
     let pair = trading_pair(quote);
     let trades = parser::parse_kraken_csv(path)?;
@@ -20,6 +22,7 @@ pub fn preview_import(quote: &Asset, path: &Path) -> CoreResult<TradesSummary> {
     Ok(summary)
 }
 
+/// Parse a Kraken CSV, persist trades to SQLite, and return summary.
 pub fn confirm_import(cfg: &AppConfig, path: &Path) -> CoreResult<TradesSummary> {
     let conn = db::open(&cfg.db_path)?;
     let pair = trading_pair(&cfg.quote);
@@ -29,6 +32,7 @@ pub fn confirm_import(cfg: &AppConfig, path: &Path) -> CoreResult<TradesSummary>
     Ok(summary)
 }
 
+/// Build dashboard stats from all trades + candle history. Computes position, BEP, and P&L.
 pub fn dashboard_stats(cfg: &AppConfig) -> CoreResult<DashboardStats> {
     let conn = db::open(&cfg.db_path)?;
     let pair = trading_pair(&cfg.quote);
@@ -44,6 +48,7 @@ pub fn dashboard_stats(cfg: &AppConfig) -> CoreResult<DashboardStats> {
     Ok(stats)
 }
 
+/// Load all trades and enrich with running BEP + realized P&L per trade.
 pub fn trades(cfg: &AppConfig) -> CoreResult<Vec<EnrichedTrade>> {
     let conn = db::open(&cfg.db_path)?;
     let pair = trading_pair(&cfg.quote);

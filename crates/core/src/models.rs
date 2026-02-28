@@ -9,11 +9,14 @@ use ts_rs::TS;
 
 use crate::errors::AssetMismatch;
 
+/// Runtime configuration for the app.
 pub struct AppConfig {
     pub db_path: PathBuf,
+    /// Fiat currency for all position/P&L calculations.
     pub quote: Asset,
 }
 
+/// Currency identifier. Normalizes exchange-specific tickers (XBT→BTC, ZEUR→EUR).
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(test, derive(TS))]
 #[cfg_attr(test, ts(export, type = "string"))]
@@ -62,6 +65,7 @@ impl fmt::Display for Asset {
     }
 }
 
+/// Trading pair in base/quote convention (e.g. BTC/EUR = "buy BTC with EUR").
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct AssetPair {
     pub base: Asset,
@@ -74,6 +78,7 @@ impl fmt::Display for AssetPair {
     }
 }
 
+/// Value object: amount + currency. Arithmetic is asset-checked at runtime.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 #[cfg_attr(test, derive(TS))]
 #[cfg_attr(test, ts(export))]
@@ -121,6 +126,7 @@ impl AssetAmount {
     }
 }
 
+/// Direction relative to the tracked pair, not the raw ledger row.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 #[cfg_attr(test, derive(TS))]
 #[cfg_attr(test, ts(export))]
@@ -129,6 +135,7 @@ pub enum TradeSide {
     Sell,
 }
 
+/// Raw ledger row. Direction-agnostic: uses spent/received, not buy/sell.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct Trade {
     pub(crate) date: DateTime<Utc>,
@@ -150,53 +157,67 @@ pub struct EnrichedTrade {
     pub side: Option<TradeSide>,
     /// Break-even price in quote currency. None if position is fully closed.
     pub bep: Option<AssetAmount>,
-    /// Realized P&L in quote currency. None for buys.
+    /// Realized P&L in quote currency (average cost basis). None for buys.
     pub pnl: Option<AssetAmount>,
 }
 
+/// Aggregate stats for a set of trades.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct TradesSummary {
     pub total_trades: usize,
     pub buys: usize,
     pub sells: usize,
+    /// Trades that don't match the tracked pair (e.g. ETH/USD in a BTC/EUR context).
     pub unknown: usize,
     pub date_range: Option<(DateTime<Utc>, DateTime<Utc>)>,
     pub spent: AssetAmount,
     pub received: AssetAmount,
+    /// Fees normalized to quote currency (BTC fees converted via trade price).
     pub fees: AssetAmount,
 }
 
+/// Running position state (average cost basis method).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(TS))]
 #[cfg_attr(test, ts(export))]
 pub struct PositionSummary {
+    /// Break-even price (average cost basis). None when position is fully closed.
     pub bep: Option<AssetAmount>,
     pub held: AssetAmount,
+    /// Total quote spent on buys (gross, before fees).
     pub invested: AssetAmount,
+    /// Total quote received from sells (gross, before fees).
     pub proceeds: AssetAmount,
+    /// Cumulative fees normalized to quote currency.
     pub fees: AssetAmount,
     pub buys: usize,
     pub sells: usize,
 }
 
-/// Pre-computed dashboard metrics for the frontend stat cards.
+/// Pre-computed dashboard metrics.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(TS))]
 #[cfg_attr(test, ts(export))]
 pub struct DashboardStats {
+    /// Latest daily close price.
     pub btc_price: AssetAmount,
     #[cfg_attr(test, ts(as = "String"))]
     pub change_24h_pct: Decimal,
     pub bep: Option<AssetAmount>,
     pub trade_count: usize,
     pub held: AssetAmount,
+    /// held × current price.
     pub position_value: AssetAmount,
+    /// (current_price − BEP) × held. Zero if no open position.
     pub unrealized_pnl: AssetAmount,
+    /// unrealized_pnl / invested × 100.
     #[cfg_attr(test, ts(as = "String"))]
     pub unrealized_pnl_pct: Decimal,
+    /// Full daily candle history.
     pub candles: Vec<Candle>,
 }
 
+/// Daily OHLCV candle from Kraken. Stored in SQLite, keyed by (quote, date).
 #[derive(Debug, Clone, PartialEq, Eq, Serialize)]
 #[cfg_attr(test, derive(TS))]
 #[cfg_attr(test, ts(export))]
