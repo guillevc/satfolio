@@ -170,8 +170,7 @@ pub struct TradesSummary {
 #[cfg_attr(test, derive(TS))]
 #[cfg_attr(test, ts(export))]
 pub struct PositionSummary {
-    #[cfg_attr(test, ts(as = "Option<String>"))]
-    pub bep: Option<Decimal>,
+    pub bep: Option<AssetAmount>,
     pub held: AssetAmount,
     pub invested: AssetAmount,
     pub proceeds: AssetAmount,

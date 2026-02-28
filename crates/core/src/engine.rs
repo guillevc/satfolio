@@ -95,13 +95,14 @@ impl Accumulator {
         Ok(Some(r.side))
     }
 
-    fn bep(&self) -> EngineResult<Option<Decimal>> {
+    fn bep(&self, pair: &AssetPair) -> EngineResult<Option<AssetAmount>> {
         Ok(self
             .invested
             .checked_sub(&self.proceeds)?
             .checked_add(&self.fees)?
             .amount()
-            .checked_div(self.held.amount()))
+            .checked_div(self.held.amount())
+            .map(|d| AssetAmount::new(d, pair.quote.clone())))
     }
 }
 
@@ -114,7 +115,7 @@ pub(crate) fn position_summary(
         acc.apply(pair, trade)?;
     }
     Ok(PositionSummary {
-        bep: acc.bep()?,
+        bep: acc.bep(pair)?,
         held: acc.held,
         invested: acc.invested,
         proceeds: acc.proceeds,
@@ -177,11 +178,7 @@ pub(crate) fn enrich_trades(
     pair: &AssetPair,
     trades: Vec<Trade>,
 ) -> EngineResult<Vec<EnrichedTrade>> {
-    let mut held = Decimal::ZERO;
-    let mut invested = Decimal::ZERO;
-    let mut proceeds = Decimal::ZERO;
-    let mut fees_fiat = Decimal::ZERO;
-
+    let mut acc = Accumulator::new(pair);
     let mut enriched = Vec::with_capacity(trades.len());
 
     for trade in trades {
@@ -201,37 +198,16 @@ pub(crate) fn enrich_trades(
             }
         };
 
-        // Capture BEP *before* applying this trade
-        let bep_before = if held.is_zero() {
-            None
-        } else {
-            (invested - proceeds + fees_fiat).checked_div(held)
-        };
+        let bep_before = acc.bep(pair)?;
+        acc.apply(pair, &trade)?;
+        let bep_after = acc.bep(pair)?;
 
-        let pnl = match r.side {
-            TradeSide::Buy => {
-                held += r.units;
-                invested += r.quote_amount;
-                fees_fiat += r.fee_quote;
-                None
-            }
-            TradeSide::Sell => {
-                held -= r.units;
-                proceeds += r.quote_amount;
-                fees_fiat += r.fee_quote;
-                bep_before.map(|bep| {
-                    AssetAmount::new(
-                        r.quote_amount - r.fee_quote - bep * r.units,
-                        pair.quote.clone(),
-                    )
-                })
-            }
-        };
-
-        let running_bep = if held.is_zero() {
-            None
-        } else {
-            (invested - proceeds + fees_fiat).checked_div(held)
+        let pnl = match (&r.side, bep_before.as_ref()) {
+            (TradeSide::Sell, Some(bep)) => Some(AssetAmount::new(
+                r.quote_amount - r.fee_quote - bep.amount() * r.units,
+                pair.quote.clone(),
+            )),
+            _ => None,
         };
 
         enriched.push(EnrichedTrade {
@@ -240,7 +216,7 @@ pub(crate) fn enrich_trades(
             received: trade.received,
             fee: trade.fee,
             side: Some(r.side),
-            bep: running_bep.map(|v| AssetAmount::new(v, pair.quote.clone())),
+            bep: bep_after,
             pnl,
         });
     }
@@ -261,8 +237,8 @@ pub(crate) fn dashboard_stats(
 
     let position_value = current_price * held_amount;
 
-    let unrealized_pnl = match summary.bep {
-        Some(bep) => (current_price - bep) * held_amount,
+    let unrealized_pnl = match &summary.bep {
+        Some(bep) => (current_price - bep.amount()) * held_amount,
         None => Decimal::ZERO,
     };
 
@@ -281,7 +257,7 @@ pub(crate) fn dashboard_stats(
     DashboardStats {
         btc_price: AssetAmount::new(current_price, quote.clone()),
         change_24h_pct,
-        bep: summary.bep.map(|b| AssetAmount::new(b, quote.clone())),
+        bep: summary.bep.clone(),
         trade_count: summary.buys + summary.sells,
         held: summary.held.clone(),
         position_value: AssetAmount::new(position_value, quote.clone()),
@@ -423,7 +399,7 @@ mod tests {
             make_sell(2025, 3, 1, dec!(0.001), dec!(120), dec!(0.60)),
         ];
         let pos = position_summary(&btc_eur(), &trades).unwrap();
-        assert_eq!(pos.bep, Some(dec!(60700)));
+        assert_eq!(pos.bep, Some(AssetAmount::new(dec!(60700), Asset::Eur)));
         assert_eq!(pos.held, AssetAmount::new(dec!(0.003), Asset::Btc));
         assert_eq!(pos.invested, AssetAmount::new(dec!(300), Asset::Eur));
         assert_eq!(pos.proceeds, AssetAmount::new(dec!(120), Asset::Eur));
@@ -602,7 +578,7 @@ mod tests {
         sells: usize,
     ) -> PositionSummary {
         PositionSummary {
-            bep,
+            bep: bep.map(|b| AssetAmount::new(b, Asset::Eur)),
             held: AssetAmount::new(held, Asset::Btc),
             invested: AssetAmount::new(invested, Asset::Eur),
             proceeds: AssetAmount::new(proceeds, Asset::Eur),

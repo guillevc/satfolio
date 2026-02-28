@@ -6,7 +6,7 @@ use crate::errors::CoreResult;
 use crate::models::{AppConfig, Asset, AssetPair, DashboardStats, EnrichedTrade, TradesSummary};
 use crate::{db, engine, parser, price};
 
-fn btc_pair(quote: &Asset) -> AssetPair {
+fn trading_pair(quote: &Asset) -> AssetPair {
     AssetPair {
         base: Asset::Btc,
         quote: quote.clone(),
@@ -14,7 +14,7 @@ fn btc_pair(quote: &Asset) -> AssetPair {
 }
 
 pub fn preview_import(quote: &Asset, path: &Path) -> CoreResult<TradesSummary> {
-    let pair = btc_pair(quote);
+    let pair = trading_pair(quote);
     let trades = parser::parse_kraken_csv(path)?;
     let summary = engine::trades_summary(&pair, &trades)?;
     Ok(summary)
@@ -22,7 +22,7 @@ pub fn preview_import(quote: &Asset, path: &Path) -> CoreResult<TradesSummary> {
 
 pub fn confirm_import(cfg: &AppConfig, path: &Path) -> CoreResult<TradesSummary> {
     let conn = db::open(&cfg.db_path)?;
-    let pair = btc_pair(&cfg.quote);
+    let pair = trading_pair(&cfg.quote);
     let trades = parser::parse_kraken_csv(path)?;
     db::save_trades(&conn, &trades)?;
     let summary = engine::trades_summary(&pair, &trades)?;
@@ -31,7 +31,7 @@ pub fn confirm_import(cfg: &AppConfig, path: &Path) -> CoreResult<TradesSummary>
 
 pub fn dashboard_stats(cfg: &AppConfig) -> CoreResult<DashboardStats> {
     let conn = db::open(&cfg.db_path)?;
-    let pair = btc_pair(&cfg.quote);
+    let pair = trading_pair(&cfg.quote);
     let trades = db::load_trades(&conn)?;
     let summary = engine::position_summary(&pair, &trades)?;
 
@@ -46,7 +46,7 @@ pub fn dashboard_stats(cfg: &AppConfig) -> CoreResult<DashboardStats> {
 
 pub fn trades(cfg: &AppConfig) -> CoreResult<Vec<EnrichedTrade>> {
     let conn = db::open(&cfg.db_path)?;
-    let pair = btc_pair(&cfg.quote);
+    let pair = trading_pair(&cfg.quote);
     let trades = db::load_trades(&conn)?;
     Ok(engine::enrich_trades(&pair, trades)?)
 }
@@ -76,7 +76,7 @@ pub async fn sync_candles(cfg: &AppConfig) -> CoreResult<()> {
 
 /// Open + migrate DB and seed bundled price data if empty. Call once at startup.
 pub fn init_db(cfg: &AppConfig, prices_dir: &Path) -> CoreResult<()> {
-    let conn = db::open(&cfg.db_path)?;
+    let conn = db::init(&cfg.db_path)?;
     let candles = db::load_candles(&conn, &cfg.quote)?;
     if candles.is_empty() {
         let bundled = price::load_bundled_prices(prices_dir, &cfg.quote)?;

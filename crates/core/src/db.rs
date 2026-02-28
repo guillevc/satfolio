@@ -23,10 +23,16 @@ where
     })
 }
 
-pub(crate) fn open(path: &Path) -> DbResult<Connection> {
+/// Open + migrate. Call once at startup.
+pub(crate) fn init(path: &Path) -> DbResult<Connection> {
     let conn = Connection::open(path)?;
     migrate(&conn)?;
     Ok(conn)
+}
+
+/// Open without migrating. For all post-init usage.
+pub(crate) fn open(path: &Path) -> DbResult<Connection> {
+    Ok(Connection::open(path)?)
 }
 
 pub(crate) fn migrate(conn: &Connection) -> DbResult<()> {
