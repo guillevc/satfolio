@@ -55,7 +55,9 @@
       {/each}
     </div>
 
-    <Separator class="mx-3 my-2 w-8" />
+    <Separator
+      class="data-[orientation=horizontal]:w-auto mx-4 my-2 self-stretch"
+    />
 
     {@render navItem("settings", SettingsIcon, "Settings")}
   </nav>
