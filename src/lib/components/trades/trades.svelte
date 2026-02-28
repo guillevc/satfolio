@@ -1,5 +1,11 @@
 <script lang="ts">
-  import { Search } from "@lucide/svelte";
+  import {
+    Search,
+    ChevronLeft,
+    ChevronRight,
+    ChevronsLeft,
+    ChevronsRight,
+  } from "@lucide/svelte";
   import type { SortingState, PaginationState } from "@tanstack/table-core";
   import {
     getCoreRowModel,
@@ -20,6 +26,7 @@
     pricePerUnit,
     formatDate,
   } from "./columns";
+  import Separator from "../ui/separator/separator.svelte";
 
   // ── Filter state ──────────────────────────────────────────
 
@@ -141,7 +148,7 @@
   }
 </script>
 
-<div class="flex flex-1 flex-col overflow-hidden p-6">
+<div class="flex flex-1 flex-col overflow-hidden py-6">
   {#if trades.loading}
     <div class="flex flex-1 items-center justify-center">
       <span class="text-muted-foreground text-sm">Loading…</span>
@@ -152,10 +159,10 @@
     </div>
   {:else if trades.rows}
     <!-- Header -->
-    <div class="mb-4 flex items-center justify-between gap-4">
-      <h2 class="text-lg font-semibold">Trades</h2>
-
-      <div class="flex items-center gap-3">
+    <div class="flex items-center gap-5 px-6">
+      <h2 class="text-xl font-semibold">Trades</h2>
+      <Separator orientation="vertical" class="min-h-6!" />
+      <div class="flex items-center gap-5">
         <div class="relative">
           <Search
             class="text-muted-foreground pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2"
@@ -167,7 +174,7 @@
             class="h-8 w-56 pl-8 text-sm"
           />
         </div>
-
+        <Separator orientation="vertical" class="min-h-6!" />
         <ToggleGroup.Root
           type="single"
           value={activeFilter}
@@ -182,19 +189,22 @@
       </div>
     </div>
 
+    <Separator class="my-4" />
+
     <!-- Summary line -->
     {#if summaryStats}
-      <p class="text-muted-foreground mb-3 text-xs">
+      <p class="text-muted-foreground mb-4 px-6 text-xs font-mono">
         {summaryStats.total} trades ·
         <span class="text-success">{summaryStats.buys} buys</span> ·
-        <span class="text-foreground">{summaryStats.sells} sells</span> · First: {summaryStats.firstDate}
-        · Latest: {summaryStats.lastDate}
+        <span class="text-foreground">{summaryStats.sells} sells</span> · First:
+        <span class="text-foreground">{summaryStats.firstDate}</span>
+        · Latest: <span class="text-foreground">{summaryStats.lastDate}</span>
       </p>
     {/if}
 
     <!-- Table -->
     <div
-      class="glass-panel flex min-h-0 flex-1 flex-col **:data-[slot=table-container]:overflow-visible"
+      class="glass-panel mx-6 flex min-h-0 flex-1 flex-col **:data-[slot=table-container]:overflow-visible"
     >
       {#snippet colgroup()}
         {#each ["15%", "7%", "12%", "12%", "9%", "11%", "14%", "14%"] as w, i (i)}
@@ -260,30 +270,50 @@
       <!-- Footer (outside scroll area so it sticks to the bottom) -->
       {#if total > 0}
         <div
-          class="flex items-center justify-between border-t border-white/5 px-4 py-3"
+          class="flex items-center justify-between border-t border-white/5 px-4 py-3 tracking-wide"
         >
           <span class="text-muted-foreground text-xs">
             Showing {start}–{end} of {total} trades
           </span>
-          <div class="flex items-center gap-2">
-            <span class="text-muted-foreground text-xs">
+          <div class="flex items-center gap-1">
+            <span class="text-muted-foreground mr-4 text-xs tracking-wide">
               Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
             </span>
             <Button
               variant="outline"
-              size="sm"
-              onclick={() => table.previousPage()}
+              size="icon"
+              class="size-7"
+              onclick={() => table.firstPage()}
               disabled={!table.getCanPreviousPage()}
             >
-              Previous
+              <ChevronsLeft class="size-4" />
             </Button>
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
+              class="size-7"
+              onclick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              <ChevronLeft class="size-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              class="size-7"
               onclick={() => table.nextPage()}
               disabled={!table.getCanNextPage()}
             >
-              Next
+              <ChevronRight class="size-4" />
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              class="size-7"
+              onclick={() => table.lastPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              <ChevronsRight class="size-4" />
             </Button>
           </div>
         </div>

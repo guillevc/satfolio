@@ -16,10 +16,10 @@
 <Button variant="ghost" {onclick}>
   {label}
   {#if sorted === "asc"}
-    <ArrowUp class="ml-2 size-3.5" />
+    <ArrowUp class="ml-1 size-3.5" />
   {:else if sorted === "desc"}
-    <ArrowDown class="ml-2 size-3.5" />
+    <ArrowDown class="ml-1 size-3.5" />
   {:else}
-    <ArrowUpDown class="ml-2 size-3.5" />
+    <ArrowUpDown class="ml-1 size-3.5" />
   {/if}
 </Button>
