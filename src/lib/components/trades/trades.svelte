@@ -52,7 +52,38 @@
   // ── Table state ───────────────────────────────────────────
 
   let sorting = $state<SortingState>([{ id: "date", desc: true }]);
-  let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 15 });
+  let pagination = $state<PaginationState>({ pageIndex: 0, pageSize: 13 });
+
+  // ── Dynamic page size via ResizeObserver ────────────────
+
+  let scrollRef = $state<HTMLElement | null>(null);
+  const FALLBACK_ROW_HEIGHT = 37; // text-sm line-height + p-2 + border-b
+  const MIN_PAGE_SIZE = 5;
+
+  $effect(() => {
+    if (!scrollRef) return;
+
+    const observer = new ResizeObserver(() => {
+      const height = scrollRef!.clientHeight;
+      const firstRow = scrollRef!.querySelector("tr");
+      const rowHeight =
+        firstRow?.getBoundingClientRect().height || FALLBACK_ROW_HEIGHT;
+      const newPageSize = Math.max(
+        MIN_PAGE_SIZE,
+        Math.floor(height / rowHeight),
+      );
+      if (newPageSize !== pagination.pageSize) {
+        const firstItem = pagination.pageIndex * pagination.pageSize;
+        pagination = {
+          pageSize: newPageSize,
+          pageIndex: Math.floor(firstItem / newPageSize),
+        };
+      }
+    });
+
+    observer.observe(scrollRef);
+    return () => observer.disconnect();
+  });
 
   const table = createSvelteTable({
     get data() {
@@ -166,7 +197,7 @@
       class="glass-panel flex min-h-0 flex-1 flex-col **:data-[slot=table-container]:overflow-visible"
     >
       {#snippet colgroup()}
-        {#each ["15%", "7%", "12%", "12%", "9%", "11%", "14%", "14%"] as w}
+        {#each ["15%", "7%", "12%", "12%", "9%", "11%", "14%", "14%"] as w, i (i)}
           <col style:width={w} />
         {/each}
       {/snippet}
@@ -193,7 +224,11 @@
       </Table.Root>
 
       <!-- Scrollable body -->
-      <ScrollArea class="min-h-0 flex-1" orientation="vertical">
+      <ScrollArea
+        bind:ref={scrollRef}
+        class="min-h-0 flex-1"
+        orientation="vertical"
+      >
         <Table.Root class="table-fixed">
           {@render colgroup()}
           <Table.Body>
@@ -220,37 +255,39 @@
             {/each}
           </Table.Body>
         </Table.Root>
-
-        <!-- Footer -->
-        {#if total > 0}
-          <div class="flex items-center justify-between px-4 py-3">
-            <span class="text-muted-foreground text-xs">
-              Showing {start}–{end} of {total} trades
-            </span>
-            <div class="flex items-center gap-2">
-              <span class="text-muted-foreground text-xs">
-                Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
-              </span>
-              <Button
-                variant="outline"
-                size="sm"
-                onclick={() => table.previousPage()}
-                disabled={!table.getCanPreviousPage()}
-              >
-                Previous
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onclick={() => table.nextPage()}
-                disabled={!table.getCanNextPage()}
-              >
-                Next
-              </Button>
-            </div>
-          </div>
-        {/if}
       </ScrollArea>
+
+      <!-- Footer (outside scroll area so it sticks to the bottom) -->
+      {#if total > 0}
+        <div
+          class="flex items-center justify-between border-t border-white/5 px-4 py-3"
+        >
+          <span class="text-muted-foreground text-xs">
+            Showing {start}–{end} of {total} trades
+          </span>
+          <div class="flex items-center gap-2">
+            <span class="text-muted-foreground text-xs">
+              Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onclick={() => table.previousPage()}
+              disabled={!table.getCanPreviousPage()}
+            >
+              Previous
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onclick={() => table.nextPage()}
+              disabled={!table.getCanNextPage()}
+            >
+              Next
+            </Button>
+          </div>
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
