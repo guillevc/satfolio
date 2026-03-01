@@ -189,7 +189,7 @@
       </div>
     </div>
 
-    <Separator class="my-4" />
+    <Separator class="my-6" />
 
     <!-- Summary line -->
     {#if summaryStats}

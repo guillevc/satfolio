@@ -167,9 +167,11 @@
         </Card.Header>
         <Card.Content class="px-5">
           <p class="text-sm text-muted-foreground leading-relaxed">
-            Your data is processed <span class="text-foreground">entirely locally</span>
-            on your machine. No financial information is ever sent to external
-            servers or cloud storage.
+            Your data is processed <span class="text-foreground"
+              >entirely locally</span
+            >
+            on your machine. No financial information is ever sent to external servers
+            or cloud storage.
           </p>
         </Card.Content>
       </Card.Root>
