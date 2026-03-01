@@ -5,6 +5,7 @@
   import AppSidebar from "$lib/components/app-sidebar.svelte";
   import { Dashboard } from "$lib/components/dashboard";
   import { Trades } from "$lib/components/trades";
+  import { ImportPage } from "$lib/components/import";
   import { type View, viewTitles } from "$lib/types";
   import { loadSample } from "$lib/api";
   import { loadDashboard } from "$lib/stores/dashboard.svelte";
@@ -39,6 +40,8 @@
         <Dashboard />
       {:else if view === "trades"}
         <Trades />
+      {:else if view === "import"}
+        <ImportPage onnavigate={(v) => (view = v)} />
       {:else}
         <div class="flex h-full items-center justify-center">
           <p class="text-muted-foreground">Coming soon</p>

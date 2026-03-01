@@ -23,6 +23,7 @@
     "@tanstack/table-core": "^8.21.3",
     "@tauri-apps/api": "^2.10.1",
     "@tauri-apps/cli": "^2.10.0",
+    "@tauri-apps/plugin-dialog": "^2.6.0",
     "@tsconfig/svelte": "^5.0.6",
     "@types/node": "^24.10.1",
     "bits-ui": "^2.16.2",

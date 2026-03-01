@@ -163,6 +163,8 @@ pub struct EnrichedTrade {
 
 /// Aggregate stats for a set of trades.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(test, derive(TS))]
+#[cfg_attr(test, ts(export))]
 pub struct TradesSummary {
     pub total_trades: usize,
     pub buys: usize,

@@ -15,6 +15,6 @@ side: TradeSide | null,
  */
 bep: AssetAmount | null, 
 /**
- * Realized P&L in quote currency. None for buys.
+ * Realized P&L in quote currency (average cost basis). None for buys.
  */
 pnl: AssetAmount | null, };

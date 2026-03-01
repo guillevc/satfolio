@@ -3,6 +3,26 @@ import type { AssetAmount } from "./AssetAmount";
 import type { Candle } from "./Candle";
 
 /**
- * Pre-computed dashboard metrics for the frontend stat cards.
+ * Pre-computed dashboard metrics.
  */
-export type DashboardStats = { btc_price: AssetAmount, change_24h_pct: string, bep: AssetAmount | null, trade_count: number, held: AssetAmount, position_value: AssetAmount, unrealized_pnl: AssetAmount, unrealized_pnl_pct: string, candles: Array<Candle>, };
+export type DashboardStats = { 
+/**
+ * Latest daily close price.
+ */
+btc_price: AssetAmount, change_24h_pct: string, bep: AssetAmount | null, trade_count: number, held: AssetAmount, 
+/**
+ * held × current price.
+ */
+position_value: AssetAmount, 
+/**
+ * (current_price − BEP) × held. Zero if no open position.
+ */
+unrealized_pnl: AssetAmount, 
+/**
+ * unrealized_pnl / invested × 100.
+ */
+unrealized_pnl_pct: string, 
+/**
+ * Full daily candle history.
+ */
+candles: Array<Candle>, };

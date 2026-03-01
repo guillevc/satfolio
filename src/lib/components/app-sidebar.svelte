@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
     ChartLineIcon,
-    FlaskConicalIcon,
+    UploadIcon,
     SettingsIcon,
     ArrowLeftRightIcon,
   } from "@lucide/svelte";
@@ -20,7 +20,7 @@
     [
       { view: "dashboard", icon: ChartLineIcon, label: "Dashboard" },
       { view: "trades", icon: ArrowLeftRightIcon, label: "Trades" },
-      { view: "simulator", icon: FlaskConicalIcon, label: "Simulator" },
+      { view: "import", icon: UploadIcon, label: "Import" },
     ];
 </script>
 
