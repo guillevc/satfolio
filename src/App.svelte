@@ -25,7 +25,7 @@
 </svelte:head>
 
 <div
-  class="dark flex h-screen flex-col overflow-hidden bg-background text-foreground"
+  class="flex h-screen flex-col overflow-hidden bg-background text-foreground"
 >
   <TitleBar title={viewTitles[view]} />
 
@@ -41,7 +41,7 @@
       {:else if view === "trades"}
         <Trades />
       {:else if view === "import"}
-        <ImportPage onnavigate={(v) => (view = v)} />
+        <ImportPage />
       {:else}
         <div class="flex h-full items-center justify-center">
           <p class="text-muted-foreground">Coming soon</p>
