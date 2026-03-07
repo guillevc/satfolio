@@ -137,6 +137,11 @@ gen-types:
 
 # Dev utilities
 [group('dev')]
+[doc("Open local SQLite database in VS Code")]
+open-db:
+    codium "$HOME/Library/Application Support/xyz.guillevc.betc/betc.db"
+
+[group('dev')]
 [doc("Delete local SQLite database")]
 reset-db:
     rm -f ~/Library/Application\ Support/xyz.guillevc.betc/betc.db
