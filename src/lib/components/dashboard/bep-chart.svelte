@@ -331,7 +331,7 @@
         }}
       >
         {#each ranges as r (r)}
-          <ToggleGroup.Item value={r} class="text-xs font-mono">
+          <ToggleGroup.Item value={r} class="font-mono text-xs">
             {r}
           </ToggleGroup.Item>
         {/each}
@@ -342,27 +342,27 @@
   <div class="relative min-h-0 flex-1">
     {#if candles.length > 0}
       <div
-        class="pointer-events-none absolute left-3 top-2 z-10 flex items-center gap-2 text-xs font-mono tracking-wide"
+        class="pointer-events-none absolute top-2 left-3 z-10 flex items-center gap-2 font-mono text-xs tracking-wide"
       >
         <span class="flex items-center gap-1">
           <span class="size-2 rounded-full bg-zinc-300"></span>
-          <span class="text-muted-foreground font-medium">BTC</span>
-          <span class="text-zinc-200 min-w-[9ch]"
+          <span class="font-medium text-muted-foreground">BTC</span>
+          <span class="min-w-[9ch] text-zinc-200"
             >{formatPrice(legend.price)}</span
           >
         </span>
         {#if legend.bep !== null}
           <span class="flex items-center gap-1">
             <span class="size-2 rounded-full bg-amber-400"></span>
-            <span class="text-muted-foreground font-medium">BEP</span>
-            <span class="text-amber-400 min-w-[9ch]"
+            <span class="font-medium text-muted-foreground">BEP</span>
+            <span class="min-w-[9ch] text-amber-400"
               >{formatPrice(legend.bep)}</span
             >
           </span>
         {/if}
         {#if legendSpread !== null}
           <span class="flex items-center gap-1">
-            <span class="text-muted-foreground font-medium">Spread</span>
+            <span class="font-medium text-muted-foreground">Spread</span>
             <span
               class={legendSpread >= 0 ? "text-emerald-400" : "text-red-400"}
             >
@@ -377,7 +377,7 @@
 
     {#if candles.length === 0}
       <div class="absolute inset-0 flex items-center justify-center">
-        <span class="text-muted-foreground text-sm"
+        <span class="text-sm text-muted-foreground"
           >No price data available</span
         >
       </div>

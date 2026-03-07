@@ -151,11 +151,11 @@
 <div class="flex flex-1 flex-col overflow-hidden py-6">
   {#if trades.loading}
     <div class="flex flex-1 items-center justify-center">
-      <span class="text-muted-foreground text-sm">Loading…</span>
+      <span class="text-sm text-muted-foreground">Loading…</span>
     </div>
   {:else if trades.error}
     <div class="flex flex-1 items-center justify-center">
-      <span class="text-destructive text-sm">{trades.error}</span>
+      <span class="text-sm text-destructive">{trades.error}</span>
     </div>
   {:else if trades.rows}
     <!-- Header -->
@@ -165,7 +165,7 @@
       <div class="flex items-center gap-5">
         <div class="relative">
           <Search
-            class="text-muted-foreground pointer-events-none absolute left-2.5 top-1/2 size-4 -translate-y-1/2"
+            class="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground"
           />
           <Input
             type="text"
@@ -193,7 +193,7 @@
 
     <!-- Summary line -->
     {#if summaryStats}
-      <p class="text-muted-foreground mb-4 px-6 text-xs font-mono">
+      <p class="mb-4 px-6 font-mono text-xs text-muted-foreground">
         {summaryStats.total} trades ·
         <span class="text-success">{summaryStats.buys} buys</span> ·
         <span class="text-foreground">{summaryStats.sells} sells</span> · First:
@@ -272,11 +272,11 @@
         <div
           class="flex items-center justify-between border-t border-white/5 px-4 py-3 tracking-wide"
         >
-          <span class="text-muted-foreground text-xs">
+          <span class="text-xs text-muted-foreground">
             Showing {start}–{end} of {total} trades
           </span>
           <div class="flex items-center gap-1">
-            <span class="text-muted-foreground mr-4 text-xs tracking-wide">
+            <span class="mr-4 text-xs tracking-wide text-muted-foreground">
               Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount()}
             </span>
             <Button

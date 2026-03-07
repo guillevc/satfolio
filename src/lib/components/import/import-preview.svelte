@@ -69,7 +69,7 @@
 <!-- Stat cards grid: 3 columns top row -->
 <div class="grid grid-cols-3 gap-2">
   <!-- Total Rows -->
-  <Card.Root class={[statCard, "bg-muted/30 rounded-lg"]}>
+  <Card.Root class={[statCard, "rounded-lg bg-muted/30"]}>
     <Card.Header class={statHeader}>
       <div class="flex items-center gap-2">
         <ArrowRightLeftIcon class="size-3.5 text-muted-foreground" />
@@ -85,7 +85,7 @@
   </Card.Root>
 
   <!-- Volume -->
-  <Card.Root class={[statCard, "bg-muted/30 rounded-lg"]}>
+  <Card.Root class={[statCard, "rounded-lg bg-muted/30"]}>
     <Card.Header class={statHeader}>
       <div class="flex items-center gap-2">
         <CoinsIcon class="size-3.5 text-muted-foreground" />
@@ -111,7 +111,7 @@
   </Card.Root>
 
   <!-- Date Range -->
-  <Card.Root class={[statCard, "bg-muted/30 rounded-lg"]}>
+  <Card.Root class={[statCard, "rounded-lg bg-muted/30"]}>
     <Card.Header class={statHeader}>
       <div class="flex items-center gap-2">
         <CalendarIcon class="size-3.5 text-muted-foreground" />

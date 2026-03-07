@@ -113,7 +113,7 @@
           class={[
             "group flex w-full flex-col items-center gap-5 rounded-lg border-2 border-dashed px-16 py-20 transition-all",
             dragging
-              ? "border-primary bg-primary/5 scale-[1.02]"
+              ? "scale-[1.02] border-primary bg-primary/5"
               : "border-muted-foreground/25 hover:border-primary/50 hover:bg-white/2",
             disabled && "pointer-events-none opacity-50",
           ]}
@@ -152,21 +152,21 @@
 
       <!-- Info cards -->
       <div class="grid grid-cols-2 gap-4">
-        <Card.Root class="gap-3 py-5 shadow-none glass-panel">
-          <Card.Header class="px-5 gap-1">
+        <Card.Root class="glass-panel gap-3 py-5 shadow-none">
+          <Card.Header class="gap-1 px-5">
             <div class="flex items-center gap-2 text-muted-foreground">
               <div
                 class="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
               >
                 <FileQuestionMarkIcon class="size-4" />
               </div>
-              <Card.Description class="text-foreground tracking-wide">
+              <Card.Description class="tracking-wide text-foreground">
                 Where to find your file?
               </Card.Description>
             </div>
           </Card.Header>
           <Card.Content class="px-5">
-            <p class="text-sm text-muted-foreground leading-relaxed">
+            <p class="text-sm leading-relaxed text-muted-foreground">
               Log in to your Kraken account, navigate to the History tab, and
               select &ldquo;Export&rdquo;. Ensure you select
               <span class="text-foreground">Ledgers</span> as the export type.
@@ -183,21 +183,21 @@
           </Card.Content>
         </Card.Root>
 
-        <Card.Root class="gap-3 py-5 shadow-none glass-panel">
-          <Card.Header class="px-5 gap-1">
+        <Card.Root class="glass-panel gap-3 py-5 shadow-none">
+          <Card.Header class="gap-1 px-5">
             <div class="flex items-center gap-2 text-muted-foreground">
               <div
                 class="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
               >
                 <ShieldIcon class="size-4 fill-muted-foreground" />
               </div>
-              <Card.Description class="text-foreground tracking-wide">
+              <Card.Description class="tracking-wide text-foreground">
                 Privacy First
               </Card.Description>
             </div>
           </Card.Header>
           <Card.Content class="px-5">
-            <p class="text-sm text-muted-foreground leading-relaxed">
+            <p class="text-sm leading-relaxed text-muted-foreground">
               Your data is processed <span class="text-foreground"
                 >entirely locally</span
               >

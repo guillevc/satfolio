@@ -11,7 +11,7 @@
     : 'text-foreground'}"
 >
   <span
-    class="inline-flex items-center justify-center rounded-md size-6 {buy
+    class="inline-flex size-6 items-center justify-center rounded-md {buy
       ? 'bg-success/15'
       : 'bg-foreground/10'}"
   >

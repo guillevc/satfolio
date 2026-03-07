@@ -14,7 +14,7 @@
     <span class="text-sm font-semibold tracking-wide text-sidebar-foreground"
       >betc</span
     >
-    <span class="text-sm text-muted-foreground tracking-wide">/</span>
-    <span class="text-sm text-muted-foreground tracking-wide">{title}</span>
+    <span class="text-sm tracking-wide text-muted-foreground">/</span>
+    <span class="text-sm tracking-wide text-muted-foreground">{title}</span>
   </div>
 </header>

@@ -56,7 +56,7 @@
     </div>
 
     <Separator
-      class="data-[orientation=horizontal]:w-auto mx-4 my-2 self-stretch"
+      class="mx-4 my-2 self-stretch data-[orientation=horizontal]:w-auto"
     />
 
     {@render navItem("settings", SettingsIcon, "Settings")}
