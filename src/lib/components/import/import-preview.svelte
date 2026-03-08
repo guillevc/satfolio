@@ -197,8 +197,4 @@
       {/if}
     </Button>
   </div>
-  <p class="text-center text-xs text-muted-foreground">
-    By clicking Process Data, {newTradeCount} new transaction items will be added
-    to your ledger.
-  </p>
 </Dialog.Footer>

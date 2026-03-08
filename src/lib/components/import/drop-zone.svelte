@@ -4,17 +4,12 @@
   import {
     UploadIcon,
     FileSpreadsheetIcon,
-    ShieldCheckIcon,
-    BadgeInfoIcon,
     ShieldIcon,
-    InfoIcon,
-    FileIcon,
     FileQuestionMarkIcon,
     ExternalLinkIcon,
   } from "@lucide/svelte";
   import * as Card from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge";
-  import { Button } from "$lib/components/ui/button";
 
   interface Props {
     onfileselected: (path: string) => void;
@@ -73,32 +68,44 @@
 </script>
 
 {#if compact}
-  <div class="px-6">
+  <div class="glass-panel rounded-2xl p-1">
     <button
       type="button"
       onclick={handleBrowse}
       {disabled}
       class={[
-        "flex w-full items-center gap-3 rounded-lg border-2 border-dashed px-4 py-3 transition-all",
+        "bg-surface-dark/40 flex w-full items-center gap-4 rounded-xl border-2 border-dashed px-4 py-6 transition-all",
         dragging
           ? "border-primary bg-primary/5"
           : "border-muted-foreground/25 hover:border-primary/50 hover:bg-white/2",
         disabled && "pointer-events-none opacity-50",
       ]}
     >
-      <UploadIcon class="size-5 shrink-0 text-primary" />
-      <span class="text-sm text-muted-foreground">
-        Drop a CSV file or <span
-          class="font-medium text-primary underline underline-offset-2"
-          >browse</span
-        >
-      </span>
-      <Badge variant="outline" class="ml-auto text-muted-foreground">
-        .csv
+      <div
+        class={[
+          "flex size-12 shrink-0 items-center justify-center rounded-full text-primary transition-colors",
+          dragging ? "bg-primary/20" : "bg-primary/10",
+        ]}
+      >
+        <UploadIcon class="size-5" />
+      </div>
+      <div class="text-left">
+        <p class="text-sm font-semibold text-foreground">
+          {dragging ? "Drop your file here" : "Drop your Kraken CSV here"}
+        </p>
+        <p class="text-sm text-muted-foreground">
+          or <span class="text-primary underline underline-offset-2"
+            >browse</span
+          > to select a file
+        </p>
+      </div>
+      <Badge variant="outline" class="ml-auto shrink-0 text-muted-foreground">
+        <FileSpreadsheetIcon class="size-4" />
+        Supports .csv files
       </Badge>
     </button>
     {#if validationError}
-      <p class="mt-1.5 text-sm text-destructive">{validationError}</p>
+      <p class="px-4 py-1.5 text-sm text-destructive">{validationError}</p>
     {/if}
   </div>
 {:else}
