@@ -27,17 +27,17 @@
     },
   };
 
-  function formatDateShort(iso: string): string {
-    const d = new Date(iso);
-    const month = d.toLocaleDateString("en-US", { month: "short" });
-    const day = String(d.getDate()).padStart(2, "0");
-    const year = String(d.getFullYear()).slice(2);
-    return `${month} ${day} '${year}`;
+  function formatDate(iso: string): string {
+    return new Date(iso).toLocaleDateString(undefined, {
+      day: "numeric",
+      month: "short",
+      year: "2-digit",
+    });
   }
 
   function formatDateRange(from: string | null, to: string | null): string {
     if (!from || !to) return "—";
-    return `${formatDateShort(from)} – ${formatDateShort(to)}`;
+    return `${formatDate(from)} → ${formatDate(to)}`;
   }
 
   function formatRelativeTime(iso: string): string {
@@ -60,13 +60,13 @@
 <div class="glass-panel overflow-hidden rounded-xl">
   <!-- Header -->
   <div
-    class="grid grid-cols-12 gap-4 border-b border-white/[0.06] bg-white/[0.03] px-4 py-2.5 text-xs font-medium tracking-wider text-muted-foreground uppercase"
+    class="grid h-10 grid-cols-12 items-center gap-6 border-b border-white/[0.06] bg-white/[0.03] px-4 text-sm font-medium text-muted-foreground"
   >
     <div class="col-span-3">Filename</div>
     <div class="col-span-2">Source</div>
     <div class="col-span-2 text-right">Trades</div>
-    <div class="col-span-3 text-right">Date Range</div>
-    <div class="col-span-1 text-right">Imported</div>
+    <div class="col-span-2">Date Range</div>
+    <div class="col-span-2 text-right">Imported</div>
     <div class="col-span-1 text-center">Actions</div>
   </div>
 
@@ -75,7 +75,7 @@
     {#each files as file (file.id)}
       {@const provider = providerMeta[file.provider]}
       <div
-        class="grid grid-cols-12 items-center gap-4 border-b border-white/[0.04] px-4 py-3 transition-colors last:border-b-0 hover:bg-white/[0.02]"
+        class="grid grid-cols-12 items-center gap-6 border-b border-white/[0.04] px-4 py-3 transition-colors last:border-b-0 hover:bg-white/[0.02]"
       >
         <!-- Filename -->
         <div class="col-span-3 flex min-w-0 items-center gap-2.5">
@@ -94,25 +94,21 @@
           >
             {provider.initial}
           </div>
-          <span class="text-sm text-muted-foreground">{provider.label}</span>
+          <span class="text-sm text-foreground">{provider.label}</span>
         </div>
 
         <!-- Trades -->
-        <div class="col-span-2 text-right font-mono text-sm">
+        <div class="col-span-2 text-right font-mono text-sm text-foreground">
           {file.trade_count.toLocaleString()}
         </div>
 
         <!-- Date Range -->
-        <div
-          class="col-span-3 text-right font-mono text-sm text-muted-foreground"
-        >
+        <div class="col-span-2 font-mono text-sm text-foreground">
           {formatDateRange(file.date_from, file.date_to)}
         </div>
 
         <!-- Imported (relative) -->
-        <div
-          class="col-span-1 text-right font-mono text-xs text-muted-foreground"
-        >
+        <div class="col-span-2 text-right font-mono text-sm text-foreground">
           {formatRelativeTime(file.imported_at)}
         </div>
 
@@ -152,12 +148,5 @@
         </div>
       </div>
     {/each}
-  </div>
-
-  <!-- Footer -->
-  <div
-    class="border-t border-white/[0.06] bg-white/[0.03] px-4 py-2.5 text-xs text-muted-foreground"
-  >
-    Showing all imported sources
   </div>
 </div>

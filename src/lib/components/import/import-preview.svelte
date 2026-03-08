@@ -1,8 +1,5 @@
 <script lang="ts">
   import {
-    ArrowRightLeftIcon,
-    CalendarIcon,
-    CoinsIcon,
     SparklesIcon,
     InfoIcon,
     TableIcon,
@@ -14,7 +11,7 @@
   import { Button } from "$lib/components/ui/button";
   import { Separator } from "$lib/components/ui/separator";
   import { Spinner } from "$lib/components/ui/spinner";
-  import { cn, displayAmount } from "$lib/utils";
+  import { displayAmount } from "$lib/utils";
   import type { ImportPreview } from "$lib/types/bindings";
 
   interface Props {
@@ -32,23 +29,18 @@
   let newTradeCount = $derived(summary.total_trades - preview.duplicate_trades);
   let hasOverlap = $derived(preview.duplicate_trades > 0);
 
-  function formatDateShort(iso: string): string {
-    return new Date(iso).toLocaleDateString("en-US", {
-      month: "short",
+  function formatDate(iso: string): string {
+    return new Date(iso).toLocaleDateString(undefined, {
       day: "numeric",
+      month: "short",
+      year: "2-digit",
     });
   }
 
-  function formatDateYear(iso: string): string {
-    return new Date(iso).toLocaleDateString("en-US", { year: "numeric" });
-  }
-
-  const statCard = "gap-1 py-4 shadow-none";
-  const statHeader = "px-4 gap-1";
-  const statContent = "px-4";
+  const statCard = "gap-1 py-3 shadow-none";
+  const statHeader = "px-4 gap-0.5";
   const statLabel = "text-xs font-medium uppercase tracking-wider";
-  const statValue = "text-xl font-mono";
-  const statSub = "text-xs text-muted-foreground tabular-nums";
+  const statValue = "text-lg font-mono";
 </script>
 
 <Dialog.Header>
@@ -67,31 +59,27 @@
 
 <Separator />
 
-<!-- Stat cards grid: 3 columns top row -->
-<div class="grid grid-cols-3 gap-2">
-  <!-- Total Rows -->
+<!-- Stat cards grid -->
+<div class="grid grid-cols-2 gap-2">
+  <!-- Total Trades -->
   <Card.Root class={[statCard, "rounded-lg bg-muted/30"]}>
     <Card.Header class={statHeader}>
-      <div class="flex items-center gap-2">
-        <ArrowRightLeftIcon class="size-3.5 text-muted-foreground" />
-        <Card.Description class={statLabel}>Total Rows</Card.Description>
-      </div>
-      <Card.Title class={statValue}>{summary.total_trades}</Card.Title>
+      <Card.Description class={statLabel}>Total Trades</Card.Description>
+      <Card.Title class={statValue}>
+        {summary.total_trades}
+        <span class="text-sm font-normal">
+          (<span class="text-success">{summary.buys}</span>
+          /
+          <span class="text-foreground">{summary.sells}</span>)
+        </span>
+      </Card.Title>
     </Card.Header>
-    <Card.Content class={statContent}>
-      <span class={statSub}>
-        {summary.buys} buys · {summary.sells} sells
-      </span>
-    </Card.Content>
   </Card.Root>
 
   <!-- Volume -->
   <Card.Root class={[statCard, "rounded-lg bg-muted/30"]}>
     <Card.Header class={statHeader}>
-      <div class="flex items-center gap-2">
-        <CoinsIcon class="size-3.5 text-muted-foreground" />
-        <Card.Description class={statLabel}>Volume</Card.Description>
-      </div>
+      <Card.Description class={statLabel}>Volume</Card.Description>
       <Card.Title class={statValue}>
         {displayAmount(summary.spent).toLocaleString("en-US", {
           style: "currency",
@@ -100,27 +88,15 @@
         })}
       </Card.Title>
     </Card.Header>
-    <Card.Content class={statContent}>
-      <span class={statSub}>
-        ~{displayAmount(summary.fees).toLocaleString("en-US", {
-          style: "currency",
-          currency: "EUR",
-          maximumFractionDigits: 2,
-        })} in total fees
-      </span>
-    </Card.Content>
   </Card.Root>
 
   <!-- Date Range -->
   <Card.Root class={[statCard, "rounded-lg bg-muted/30"]}>
     <Card.Header class={statHeader}>
-      <div class="flex items-center gap-2">
-        <CalendarIcon class="size-3.5 text-muted-foreground" />
-        <Card.Description class={statLabel}>Date Range</Card.Description>
-      </div>
-      <Card.Title class={cn(statValue, "text-base")}>
+      <Card.Description class={statLabel}>Date Range</Card.Description>
+      <Card.Title class={statValue}>
         {#if summary.date_range}
-          {formatDateShort(summary.date_range[0])} &ndash; {formatDateShort(
+          {formatDate(summary.date_range[0])} &rarr; {formatDate(
             summary.date_range[1],
           )}
         {:else}
@@ -128,42 +104,23 @@
         {/if}
       </Card.Title>
     </Card.Header>
-    <Card.Content class={statContent}>
-      <span class={statSub}>
-        {#if summary.date_range}
-          {formatDateYear(summary.date_range[0])} fiscal year
-        {/if}
-      </span>
-    </Card.Content>
   </Card.Root>
-</div>
 
-<!-- New Entries (highlighted, full width) -->
-<Card.Root
-  class={[
-    statCard,
-    "glow-top-right rounded-lg border-primary/20 shadow-[0_0_15px] shadow-primary/5",
-  ]}
->
-  <Card.Header class={statHeader}>
-    <div class="flex items-center gap-2">
-      <SparklesIcon class="size-3.5 text-primary" />
+  <!-- New Entries -->
+  <Card.Root
+    class={[
+      statCard,
+      "glow-top-right rounded-lg border-primary/20 shadow-[0_0_15px] shadow-primary/5",
+    ]}
+  >
+    <Card.Header class={statHeader}>
       <Card.Description class={[statLabel, "text-primary"]}>
         New Entries
       </Card.Description>
-    </div>
-    <Card.Title class={statValue}>{newTradeCount}</Card.Title>
-  </Card.Header>
-  <Card.Content class={statContent}>
-    <span class={statSub}>
-      {#if summary.unknown > 0}
-        {summary.unknown} unrelated
-      {:else}
-        Ready to import
-      {/if}
-    </span>
-  </Card.Content>
-</Card.Root>
+      <Card.Title class={statValue}>{newTradeCount}</Card.Title>
+    </Card.Header>
+  </Card.Root>
+</div>
 
 <!-- Overlap info banner -->
 {#if hasOverlap}

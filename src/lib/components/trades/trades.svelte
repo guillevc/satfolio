@@ -148,7 +148,7 @@
   }
 </script>
 
-<div class="flex flex-1 flex-col overflow-hidden py-6">
+<div class="flex flex-1 flex-col overflow-hidden py-4">
   {#if trades.loading}
     <div class="flex flex-1 items-center justify-center">
       <span class="text-sm text-muted-foreground">Loading…</span>
@@ -189,7 +189,7 @@
       </div>
     </div>
 
-    <Separator class="my-6" />
+    <Separator class="my-4" />
 
     <!-- Summary line -->
     {#if summaryStats}

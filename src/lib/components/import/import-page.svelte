@@ -1,10 +1,5 @@
 <script lang="ts">
-  import {
-    AlertCircleIcon,
-    RotateCcwIcon,
-    InfoIcon,
-    ExternalLinkIcon,
-  } from "@lucide/svelte";
+  import { AlertCircleIcon, RotateCcwIcon } from "@lucide/svelte";
   import { Spinner } from "$lib/components/ui/spinner";
   import { previewImport, confirmImport } from "$lib/api";
   import { loadDashboard } from "$lib/stores/dashboard.svelte";
@@ -17,10 +12,12 @@
   import type { ImportPreview as ImportPreviewData } from "$lib/types/bindings";
   import * as Dialog from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
+  import { Separator } from "$lib/components/ui/separator";
   import DropZone from "./drop-zone.svelte";
   import ImportPreview from "./import-preview.svelte";
   import DuplicateWarning from "./duplicate-warning.svelte";
   import FileList from "./file-list.svelte";
+  import InfoCards from "./info-cards.svelte";
 
   type DialogState =
     | { step: "closed" }
@@ -107,16 +104,20 @@
   }
 </script>
 
-<div class="flex flex-1 flex-col overflow-auto">
+<div class="flex flex-1 flex-col overflow-auto py-4">
   {#if loading}
     <div class="flex flex-1 flex-col items-center justify-center gap-3">
       <Spinner class="size-8 text-primary" />
       <p class="text-sm text-muted-foreground">Parsing file...</p>
     </div>
   {:else if hasFiles}
-    <div class="mx-auto flex w-full max-w-5xl flex-col gap-8 p-8">
-      <h1 class="text-2xl font-bold tracking-tight">Import Transactions</h1>
+    <div class="flex h-8 items-center px-6">
+      <h2 class="text-xl font-semibold">Import Transactions</h2>
+    </div>
 
+    <Separator class="mt-4 mb-6" />
+
+    <div class="flex flex-col gap-6 px-6">
       <DropZone
         onfileselected={handleFileSelected}
         compact
@@ -135,33 +136,7 @@
         <FileList files={importedFiles.list} onremove={handleRemove} />
       </div>
 
-      <!-- Help card -->
-      <div
-        class="flex items-start gap-4 rounded-xl border border-muted bg-muted/30 p-4"
-      >
-        <div
-          class="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted"
-        >
-          <InfoIcon class="size-4 text-muted-foreground" />
-        </div>
-        <div>
-          <h4 class="text-sm font-medium">Need help?</h4>
-          <p class="mt-1 text-sm leading-relaxed text-muted-foreground">
-            Export your ledger history as CSV from your exchange account. Your
-            data is processed entirely locally — nothing is sent to external
-            servers.
-          </p>
-          <a
-            href="https://support.kraken.com/articles/208267878-how-to-export-your-account-history"
-            target="_blank"
-            rel="noopener noreferrer"
-            class="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
-          >
-            Go to Kraken export
-            <ExternalLinkIcon class="size-3" />
-          </a>
-        </div>
-      </div>
+      <InfoCards />
     </div>
   {:else}
     <DropZone onfileselected={handleFileSelected} disabled={dialogOpen} />
