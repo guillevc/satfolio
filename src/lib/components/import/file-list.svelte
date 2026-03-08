@@ -8,21 +8,19 @@
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
   import { Badge } from "$lib/components/ui/badge";
   import { Button } from "$lib/components/ui/button";
-  import type { ImportedFile } from "$lib/stores/imported-files.svelte";
+  import type { ImportRecord } from "$lib/types/bindings";
 
   interface Props {
-    files: ImportedFile[];
-    onremove: (id: string) => void;
+    files: ImportRecord[];
+    onremove: (id: number) => void;
   }
 
   let { files, onremove }: Props = $props();
 
-  let totalTrades = $derived(
-    files.reduce((sum, f) => sum + f.summary.total_trades, 0),
-  );
+  let totalTrades = $derived(files.reduce((sum, f) => sum + f.trade_count, 0));
 
-  function formatDate(date: Date): string {
-    return date.toLocaleDateString("en-US", {
+  function formatImportedAt(iso: string): string {
+    return new Date(iso).toLocaleDateString("en-US", {
       month: "short",
       day: "numeric",
       hour: "numeric",
@@ -30,14 +28,14 @@
     });
   }
 
-  function formatDateRange(range: [string, string] | null): string {
-    if (!range) return "";
+  function formatDateRange(from: string | null, to: string | null): string {
+    if (!from || !to) return "";
     const fmt = (iso: string) =>
       new Date(iso).toLocaleDateString("en-US", {
         month: "short",
         day: "numeric",
       });
-    return `${fmt(range[0])} – ${fmt(range[1])}`;
+    return `${fmt(from)} – ${fmt(to)}`;
   }
 </script>
 
@@ -49,15 +47,15 @@
       <div class="min-w-0 flex-1">
         <p class="truncate text-sm font-medium">{file.filename}</p>
         <p class="text-xs text-muted-foreground">
-          {file.summary.total_trades} trades{#if file.summary.date_range}
-            &nbsp;&middot; {formatDateRange(file.summary.date_range)}
+          {file.trade_count} trades{#if file.date_from && file.date_to}
+            &nbsp;&middot; {formatDateRange(file.date_from, file.date_to)}
           {/if}
         </p>
       </div>
 
       <Badge variant="outline" class="shrink-0 text-muted-foreground">
         <CalendarIcon class="size-3" />
-        {formatDate(file.importedAt)}
+        {formatImportedAt(file.imported_at)}
       </Badge>
 
       <AlertDialog.Root>
@@ -79,9 +77,8 @@
               >Remove &ldquo;{file.filename}&rdquo;?</AlertDialog.Title
             >
             <AlertDialog.Description>
-              This removes the file from the import list only. Trades already
-              processed remain in the database. Full cascade deletion will be
-              available in a future update.
+              This will permanently remove the import record and its {file.trade_count}
+              associated trades from the database. This action cannot be undone.
             </AlertDialog.Description>
           </AlertDialog.Header>
           <AlertDialog.Footer>

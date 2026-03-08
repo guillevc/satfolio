@@ -6,11 +6,10 @@
   import { loadTrades } from "$lib/stores/trades.svelte";
   import {
     importedFiles,
-    addImportedFile,
-    removeImportedFile,
-    isFilenameDuplicate,
+    addImport,
+    deleteImport,
   } from "$lib/stores/imported-files.svelte";
-  import type { TradesSummary } from "$lib/types/bindings";
+  import type { ImportPreview as ImportPreviewData } from "$lib/types/bindings";
   import * as Dialog from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
   import DropZone from "./drop-zone.svelte";
@@ -20,9 +19,10 @@
 
   type DialogState =
     | { step: "closed" }
-    | { step: "preview"; path: string; summary: TradesSummary }
-    | { step: "confirming"; path: string; summary: TradesSummary }
-    | { step: "duplicate"; path: string; filename: string }
+    | { step: "preview"; path: string; preview: ImportPreviewData }
+    | { step: "confirming"; path: string; preview: ImportPreviewData }
+    | { step: "duplicate-file"; path: string; filename: string }
+    | { step: "all-duplicates"; path: string; count: number }
     | { step: "error"; path: string; message: string };
 
   let dialogState: DialogState = $state({ step: "closed" });
@@ -38,16 +38,29 @@
   async function handleFileSelected(path: string) {
     if (dialogOpen || loading) return;
 
-    if (isFilenameDuplicate(path)) {
-      const filename = path.split("/").pop() ?? path;
-      dialogState = { step: "duplicate", path, filename };
-      return;
-    }
-
     loading = true;
     try {
-      const summary = await previewImport(path);
-      dialogState = { step: "preview", path, summary };
+      const preview = await previewImport(path);
+
+      if (preview.exact_file_duplicate) {
+        const filename = path.split("/").pop() ?? path;
+        dialogState = { step: "duplicate-file", path, filename };
+        return;
+      }
+
+      if (
+        preview.duplicate_trades === preview.summary.total_trades &&
+        preview.duplicate_trades > 0
+      ) {
+        dialogState = {
+          step: "all-duplicates",
+          path,
+          count: preview.duplicate_trades,
+        };
+        return;
+      }
+
+      dialogState = { step: "preview", path, preview };
     } catch (e) {
       const message =
         e && typeof e === "object" && "message" in e
@@ -61,11 +74,11 @@
 
   async function handleConfirm() {
     if (dialogState.step !== "preview") return;
-    const { path, summary } = dialogState;
-    dialogState = { step: "confirming", path, summary };
+    const { path, preview } = dialogState;
+    dialogState = { step: "confirming", path, preview };
     try {
       const result = await confirmImport(path);
-      addImportedFile(path, result);
+      addImport(result.import);
       dialogState = { step: "closed" };
       loadDashboard();
       loadTrades();
@@ -82,8 +95,10 @@
     dialogState = { step: "closed" };
   }
 
-  function handleRemove(id: string) {
-    removeImportedFile(id);
+  async function handleRemove(id: number) {
+    await deleteImport(id);
+    loadDashboard();
+    loadTrades();
   }
 </script>
 
@@ -113,14 +128,21 @@
     {#if dialogState.step === "preview" || dialogState.step === "confirming"}
       <ImportPreview
         path={dialogState.path}
-        summary={dialogState.summary}
+        preview={dialogState.preview}
         confirming={dialogState.step === "confirming"}
         onconfirm={handleConfirm}
         oncancel={handleCancel}
       />
-    {:else if dialogState.step === "duplicate"}
+    {:else if dialogState.step === "duplicate-file"}
       <DuplicateWarning
+        mode="file"
         filename={dialogState.filename}
+        onclose={handleCancel}
+      />
+    {:else if dialogState.step === "all-duplicates"}
+      <DuplicateWarning
+        mode="trades"
+        count={dialogState.count}
         onclose={handleCancel}
       />
     {:else if dialogState.step === "error"}

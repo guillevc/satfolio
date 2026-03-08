@@ -1,7 +1,9 @@
 use std::path::PathBuf;
 
 use app_core::errors::CoreError;
-use app_core::models::{AppConfig, Asset, DashboardStats, EnrichedTrade, TradesSummary};
+use app_core::models::{
+    AppConfig, Asset, DashboardStats, EnrichedTrade, ImportOutcome, ImportPreview, ImportRecord,
+};
 use serde::Serialize;
 use tauri::{Manager, State};
 
@@ -20,6 +22,7 @@ impl From<CoreError> for AppError {
             CoreError::Db(_) => "db",
             CoreError::Price(_) => "price",
             CoreError::Engine(_) => "engine",
+            CoreError::DuplicateFile | CoreError::AllTradesDuplicate(_) => "import",
         };
         Self {
             kind,
@@ -41,8 +44,8 @@ struct AppState {
 async fn preview_import(
     state: State<'_, AppState>,
     path: PathBuf,
-) -> Result<TradesSummary, AppError> {
-    Ok(app_core::api::preview_import(&state.cfg.quote, &path)?)
+) -> Result<ImportPreview, AppError> {
+    Ok(app_core::api::preview_import(&state.cfg, &path)?)
 }
 
 #[tauri::command]
@@ -50,8 +53,20 @@ async fn preview_import(
 async fn confirm_import(
     state: State<'_, AppState>,
     path: PathBuf,
-) -> Result<TradesSummary, AppError> {
+) -> Result<ImportOutcome, AppError> {
     Ok(app_core::api::confirm_import(&state.cfg, &path)?)
+}
+
+#[tauri::command]
+#[allow(clippy::unused_async)]
+async fn list_imports(state: State<'_, AppState>) -> Result<Vec<ImportRecord>, AppError> {
+    Ok(app_core::api::list_imports(&state.cfg)?)
+}
+
+#[tauri::command]
+#[allow(clippy::unused_async)]
+async fn remove_import(state: State<'_, AppState>, import_id: i64) -> Result<(), AppError> {
+    Ok(app_core::api::remove_import(&state.cfg, import_id)?)
 }
 
 #[tauri::command]
@@ -81,7 +96,7 @@ async fn load_sample(state: State<'_, AppState>) -> Result<(), AppError> {
                 env!("CARGO_MANIFEST_DIR"),
                 "/../crates/core/fixtures/sample.csv"
             ));
-            app_core::api::confirm_import(&state.cfg, &fixture)?;
+            let _ = app_core::api::confirm_import(&state.cfg, &fixture)?;
         }
     }
     Ok(())
@@ -122,6 +137,8 @@ pub fn run() {
         .invoke_handler(tauri::generate_handler![
             preview_import,
             confirm_import,
+            list_imports,
+            remove_import,
             dashboard_stats,
             trades,
             sync_candles,

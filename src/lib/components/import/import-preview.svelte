@@ -4,7 +4,7 @@
     CalendarIcon,
     CoinsIcon,
     SparklesIcon,
-    AlertTriangleIcon,
+    InfoIcon,
     TableIcon,
     ShieldCheckIcon,
   } from "@lucide/svelte";
@@ -15,21 +15,22 @@
   import { Separator } from "$lib/components/ui/separator";
   import { Spinner } from "$lib/components/ui/spinner";
   import { cn, displayAmount } from "$lib/utils";
-  import { trades } from "$lib/stores/trades.svelte";
-  import type { TradesSummary } from "$lib/types/bindings";
+  import type { ImportPreview } from "$lib/types/bindings";
 
   interface Props {
     path: string;
-    summary: TradesSummary;
+    preview: ImportPreview;
     confirming: boolean;
     onconfirm: () => void;
     oncancel: () => void;
   }
 
-  let { path, summary, confirming, onconfirm, oncancel }: Props = $props();
+  let { path, preview, confirming, onconfirm, oncancel }: Props = $props();
 
+  let summary = $derived(preview.summary);
   let filename = $derived(path.split("/").pop() ?? path);
-  let existingCount = $derived(trades.rows?.length ?? 0);
+  let newTradeCount = $derived(summary.total_trades - preview.duplicate_trades);
+  let hasOverlap = $derived(preview.duplicate_trades > 0);
 
   function formatDateShort(iso: string): string {
     return new Date(iso).toLocaleDateString("en-US", {
@@ -151,7 +152,7 @@
         New Entries
       </Card.Description>
     </div>
-    <Card.Title class={statValue}>{summary.total_trades}</Card.Title>
+    <Card.Title class={statValue}>{newTradeCount}</Card.Title>
   </Card.Header>
   <Card.Content class={statContent}>
     <span class={statSub}>
@@ -164,17 +165,17 @@
   </Card.Content>
 </Card.Root>
 
-<!-- Duplicate warning -->
-{#if existingCount > 0}
+<!-- Overlap info banner -->
+{#if hasOverlap}
   <div
-    class="flex items-start gap-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3"
+    class="flex items-start gap-3 rounded-lg border border-blue-500/20 bg-blue-500/5 px-4 py-3"
   >
-    <AlertTriangleIcon class="mt-0.5 size-5 shrink-0 text-yellow-500" />
+    <InfoIcon class="mt-0.5 size-5 shrink-0 text-blue-500" />
     <div class="text-sm">
-      <p class="font-medium text-yellow-500">Heads up</p>
+      <p class="font-medium text-blue-500">Partial overlap detected</p>
       <p class="mt-1 text-muted-foreground">
-        You already have {existingCount} trades. Importing will add {summary.total_trades}
-        more entries. Duplicate detection is not yet supported.
+        {preview.duplicate_trades} of {summary.total_trades} trades already exist
+        and will be skipped. {newTradeCount} new trades will be imported.
       </p>
     </div>
   </div>
@@ -197,7 +198,7 @@
     </Button>
   </div>
   <p class="text-center text-xs text-muted-foreground">
-    By clicking Process Data, {summary.total_trades} new transaction items will be
-    added to your ledger. This action cannot be undone immediately.
+    By clicking Process Data, {newTradeCount} new transaction items will be added
+    to your ledger.
   </p>
 </Dialog.Footer>

@@ -10,13 +10,22 @@
   import { loadSample } from "$lib/api";
   import { loadDashboard } from "$lib/stores/dashboard.svelte";
   import { loadTrades } from "$lib/stores/trades.svelte";
+  import {
+    importedFiles,
+    loadImportedFiles,
+  } from "$lib/stores/imported-files.svelte";
 
-  let view: View = $state("dashboard");
+  let view: View = $state("import");
+  let hasImports = $derived(importedFiles.list.length > 0);
 
   onMount(async () => {
-    await loadSample();
-    loadDashboard();
-    loadTrades();
+    await loadImportedFiles();
+    if (hasImports) {
+      view = "dashboard";
+      await loadSample();
+      loadDashboard();
+      loadTrades();
+    }
   });
 </script>
 
@@ -30,7 +39,7 @@
   <TitleBar title={viewTitles[view]} />
 
   <div class="flex flex-1 overflow-hidden">
-    <AppSidebar active={view} onnavigate={(v) => (view = v)} />
+    <AppSidebar active={view} onnavigate={(v) => (view = v)} {hasImports} />
 
     <main
       class="flex flex-1 flex-col overflow-hidden"

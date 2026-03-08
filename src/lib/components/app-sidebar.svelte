@@ -12,9 +12,10 @@
   interface Props {
     active: View;
     onnavigate: (view: View) => void;
+    hasImports: boolean;
   }
 
-  let { active, onnavigate }: Props = $props();
+  let { active, onnavigate, hasImports }: Props = $props();
 
   const navItems: { view: View; icon: typeof ChartLineIcon; label: string }[] =
     [
@@ -25,22 +26,29 @@
 </script>
 
 {#snippet navItem(view: View, Icon: typeof ChartLineIcon, label: string)}
+  {@const disabled = !hasImports && view !== "import"}
   <Tooltip.Root>
     <Tooltip.Trigger>
       <button
         class={[
-          "flex size-10 items-center justify-center rounded-lg text-muted-foreground transition-all",
-          active === view &&
+          "flex size-10 items-center justify-center rounded-lg transition-all",
+          disabled && "cursor-not-allowed text-muted-foreground/30",
+          !disabled && "text-muted-foreground",
+          !disabled &&
+            active === view &&
             "bg-primary/20 text-primary shadow-[0_0_12px_-3px] shadow-primary/40",
-          active !== view && "hover:bg-white/5 hover:text-foreground",
+          !disabled &&
+            active !== view &&
+            "hover:bg-white/5 hover:text-foreground",
         ]}
+        {disabled}
         onclick={() => onnavigate(view)}
       >
         <Icon class="size-5" />
       </button>
     </Tooltip.Trigger>
     <Tooltip.Content side="right">
-      <p>{label}</p>
+      <p>{label}{disabled ? " (import data first)" : ""}</p>
     </Tooltip.Content>
   </Tooltip.Root>
 {/snippet}

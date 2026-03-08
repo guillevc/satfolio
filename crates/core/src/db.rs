@@ -1,3 +1,4 @@
+use std::collections::HashSet;
 use std::path::Path;
 
 use chrono::{DateTime, Utc};
@@ -5,7 +6,7 @@ use rusqlite::{Connection, params};
 
 use crate::{
     errors::DbResult,
-    models::{Asset, AssetAmount, Candle, Trade},
+    models::{Asset, AssetAmount, Candle, ImportRecord, Provider, Trade},
 };
 
 /// Parse a TEXT column value, mapping parse failures to `rusqlite::Error`
@@ -36,48 +37,52 @@ pub(crate) fn open(path: &Path) -> DbResult<Connection> {
 }
 
 pub(crate) fn migrate(conn: &Connection) -> DbResult<()> {
-    let version: i64 = conn.query_row("SELECT user_version FROM pragma_user_version", [], |r| {
-        r.get(0)
-    })?;
-    if version < 1 {
-        conn.execute_batch(
-            "
-             CREATE TABLE IF NOT EXISTS trades (
-                id               INTEGER PRIMARY KEY,
-                date             TEXT NOT NULL,
-                spent_amount     TEXT NOT NULL,
-                spent_asset      TEXT NOT NULL,
-                received_amount  TEXT NOT NULL,
-                received_asset   TEXT NOT NULL,
-                fee_amount       TEXT NOT NULL,
-                fee_asset        TEXT NOT NULL
-            );
-            PRAGMA user_version = 1;
+    conn.execute_batch(
+        "
+        CREATE TABLE IF NOT EXISTS trades (
+            id               INTEGER PRIMARY KEY,
+            date             TEXT NOT NULL,
+            spent_amount     TEXT NOT NULL,
+            spent_asset      TEXT NOT NULL,
+            received_amount  TEXT NOT NULL,
+            received_asset   TEXT NOT NULL,
+            fee_amount       TEXT NOT NULL,
+            fee_asset        TEXT NOT NULL,
+            import_id        INTEGER,
+            trade_hash       TEXT
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_trades_hash ON trades(trade_hash);
+
+        CREATE TABLE IF NOT EXISTS candles (
+            id      INTEGER PRIMARY KEY,
+            quote   TEXT NOT NULL,
+            date    TEXT NOT NULL,
+            open    TEXT NOT NULL,
+            high    TEXT NOT NULL,
+            low     TEXT NOT NULL,
+            close   TEXT NOT NULL,
+            volume  TEXT NOT NULL,
+            count   INTEGER NOT NULL,
+            UNIQUE(quote, date)
+        );
+
+        CREATE TABLE IF NOT EXISTS imports (
+            id          INTEGER PRIMARY KEY,
+            provider    TEXT NOT NULL,
+            filename    TEXT NOT NULL,
+            file_hash   TEXT NOT NULL,
+            trade_count INTEGER NOT NULL DEFAULT 0,
+            date_from   TEXT,
+            date_to     TEXT,
+            imported_at TEXT NOT NULL
+        );
+        CREATE UNIQUE INDEX IF NOT EXISTS idx_imports_file_hash ON imports(file_hash);
         ",
-        )?;
-    }
-    if version < 2 {
-        conn.execute_batch(
-            "
-            CREATE TABLE IF NOT EXISTS candles (
-                id      INTEGER PRIMARY KEY,
-                quote   TEXT NOT NULL,
-                date    TEXT NOT NULL,
-                open    TEXT NOT NULL,
-                high    TEXT NOT NULL,
-                low     TEXT NOT NULL,
-                close   TEXT NOT NULL,
-                volume  TEXT NOT NULL,
-                count   INTEGER NOT NULL,
-                UNIQUE(quote, date)
-            );
-            PRAGMA user_version = 2;
-        ",
-        )?;
-    }
+    )?;
     Ok(())
 }
 
+#[cfg(test)]
 pub(crate) fn save_trades(conn: &Connection, trades: &[Trade]) -> DbResult<()> {
     let tx = conn.unchecked_transaction()?;
     let mut stmt = tx.prepare_cached("\
@@ -96,6 +101,174 @@ pub(crate) fn save_trades(conn: &Connection, trades: &[Trade]) -> DbResult<()> {
         ])?;
     }
     drop(stmt);
+    tx.commit()?;
+    Ok(())
+}
+
+/// Load all existing trade hashes for O(1) dedup lookup.
+pub(crate) fn existing_trade_hashes(conn: &Connection) -> DbResult<HashSet<String>> {
+    let mut stmt = conn.prepare("SELECT trade_hash FROM trades WHERE trade_hash IS NOT NULL")?;
+    let hashes = stmt
+        .query_map([], |row| row.get::<_, String>(0))?
+        .collect::<Result<HashSet<_>, _>>()?;
+    Ok(hashes)
+}
+
+/// Find an import record by file hash.
+pub(crate) fn find_import_by_hash(
+    conn: &Connection,
+    file_hash: &str,
+) -> DbResult<Option<ImportRecord>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, provider, filename, file_hash, trade_count, date_from, date_to, imported_at \
+         FROM imports WHERE file_hash = ?1",
+    )?;
+    let mut rows = stmt.query_map(params![file_hash], |row| {
+        Ok(ImportRecord {
+            id: row.get(0)?,
+            provider: parse_col::<Provider>(&row.get::<_, String>(1)?, "imports.provider")?,
+            filename: row.get(2)?,
+            file_hash: row.get(3)?,
+            trade_count: row.get::<_, i64>(4)? as usize,
+            date_from: row
+                .get::<_, Option<String>>(5)?
+                .map(|s| parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.date_from"))
+                .transpose()?
+                .map(|d| d.with_timezone(&Utc)),
+            date_to: row
+                .get::<_, Option<String>>(6)?
+                .map(|s| parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.date_to"))
+                .transpose()?
+                .map(|d| d.with_timezone(&Utc)),
+            imported_at: {
+                let s: String = row.get(7)?;
+                parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.imported_at")?
+                    .with_timezone(&Utc)
+            },
+        })
+    })?;
+    match rows.next() {
+        Some(r) => Ok(Some(r?)),
+        None => Ok(None),
+    }
+}
+
+/// Insert an import record and its new trades in a single transaction.
+/// Skips trades whose hash is in `existing_hashes`. Returns the created ImportRecord.
+pub(crate) fn save_import_with_trades(
+    conn: &Connection,
+    provider: &Provider,
+    filename: &str,
+    file_hash: &str,
+    trades: &[Trade],
+    trade_hashes: &[String],
+    existing_hashes: &HashSet<String>,
+) -> DbResult<ImportRecord> {
+    let tx = conn.unchecked_transaction()?;
+    let now = Utc::now();
+
+    tx.execute(
+        "INSERT INTO imports (provider, filename, file_hash, trade_count, imported_at) VALUES (?1, ?2, ?3, 0, ?4)",
+        params![provider.as_str(), filename, file_hash, now.to_rfc3339()],
+    )?;
+    let import_id = tx.last_insert_rowid();
+
+    let mut stmt = tx.prepare_cached(
+        "INSERT INTO trades (date, spent_amount, spent_asset, received_amount, received_asset, \
+         fee_amount, fee_asset, import_id, trade_hash) \
+         VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+    )?;
+
+    let mut inserted = 0usize;
+    let mut date_from: Option<DateTime<Utc>> = None;
+    let mut date_to: Option<DateTime<Utc>> = None;
+
+    for (trade, th) in trades.iter().zip(trade_hashes.iter()) {
+        if existing_hashes.contains(th) {
+            continue;
+        }
+        stmt.execute(params![
+            trade.date.to_rfc3339(),
+            trade.spent.amount().to_string(),
+            trade.spent.asset().as_str(),
+            trade.received.amount().to_string(),
+            trade.received.asset().as_str(),
+            trade.fee.amount().to_string(),
+            trade.fee.asset().as_str(),
+            import_id,
+            th,
+        ])?;
+        inserted += 1;
+        date_from = Some(date_from.map_or(trade.date, |d: DateTime<Utc>| d.min(trade.date)));
+        date_to = Some(date_to.map_or(trade.date, |d: DateTime<Utc>| d.max(trade.date)));
+    }
+    drop(stmt);
+
+    tx.execute(
+        "UPDATE imports SET trade_count = ?1, date_from = ?2, date_to = ?3 WHERE id = ?4",
+        params![
+            inserted as i64,
+            date_from.map(|d| d.to_rfc3339()),
+            date_to.map(|d| d.to_rfc3339()),
+            import_id,
+        ],
+    )?;
+
+    tx.commit()?;
+
+    Ok(ImportRecord {
+        id: import_id,
+        provider: *provider,
+        filename: filename.to_string(),
+        file_hash: file_hash.to_string(),
+        trade_count: inserted,
+        date_from,
+        date_to,
+        imported_at: now,
+    })
+}
+
+/// List all imports ordered by most recent first.
+pub(crate) fn list_imports(conn: &Connection) -> DbResult<Vec<ImportRecord>> {
+    let mut stmt = conn.prepare(
+        "SELECT id, provider, filename, file_hash, trade_count, date_from, date_to, imported_at \
+         FROM imports ORDER BY imported_at DESC",
+    )?;
+    let rows = stmt.query_map([], |row| {
+        Ok(ImportRecord {
+            id: row.get(0)?,
+            provider: parse_col::<Provider>(&row.get::<_, String>(1)?, "imports.provider")?,
+            filename: row.get(2)?,
+            file_hash: row.get(3)?,
+            trade_count: row.get::<_, i64>(4)? as usize,
+            date_from: row
+                .get::<_, Option<String>>(5)?
+                .map(|s| parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.date_from"))
+                .transpose()?
+                .map(|d| d.with_timezone(&Utc)),
+            date_to: row
+                .get::<_, Option<String>>(6)?
+                .map(|s| parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.date_to"))
+                .transpose()?
+                .map(|d| d.with_timezone(&Utc)),
+            imported_at: {
+                let s: String = row.get(7)?;
+                parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.imported_at")?
+                    .with_timezone(&Utc)
+            },
+        })
+    })?;
+    rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
+}
+
+/// Remove an import and cascade-delete its trades.
+pub(crate) fn remove_import(conn: &Connection, import_id: i64) -> DbResult<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "DELETE FROM trades WHERE import_id = ?1",
+        params![import_id],
+    )?;
+    tx.execute("DELETE FROM imports WHERE id = ?1", params![import_id])?;
     tx.commit()?;
     Ok(())
 }
@@ -187,6 +360,7 @@ pub(crate) fn load_candles(conn: &Connection, quote: &Asset) -> DbResult<Vec<Can
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::hash;
     use chrono::{NaiveDate, TimeZone};
     use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
@@ -346,5 +520,160 @@ mod tests {
             loaded[2].date,
             Utc.with_ymd_and_hms(2024, 12, 1, 12, 0, 0).unwrap()
         );
+    }
+
+    // ── Imports ─────────────────────────────────────────
+
+    fn make_hashes(trades: &[Trade]) -> Vec<String> {
+        trades
+            .iter()
+            .map(|t| hash::trade_hash(Provider::Kraken.as_str(), t))
+            .collect()
+    }
+
+    #[test]
+    fn save_import_inserts_all_trades() {
+        let conn = test_conn();
+        let trades = vec![sample_trade(2024, 1, 15), sample_trade(2024, 3, 20)];
+        let hashes = make_hashes(&trades);
+        let existing = HashSet::new();
+        let rec = save_import_with_trades(
+            &conn,
+            &Provider::Kraken,
+            "test.csv",
+            "abc123",
+            &trades,
+            &hashes,
+            &existing,
+        )
+        .unwrap();
+        assert_eq!(rec.trade_count, 2);
+        assert_eq!(rec.filename, "test.csv");
+        assert_eq!(rec.provider, Provider::Kraken);
+        assert!(rec.date_from.is_some());
+        assert!(rec.date_to.is_some());
+        let loaded = load_trades(&conn).unwrap();
+        assert_eq!(loaded.len(), 2);
+    }
+
+    #[test]
+    fn save_import_skips_duplicates() {
+        let conn = test_conn();
+        let trades = vec![sample_trade(2024, 1, 15), sample_trade(2024, 3, 20)];
+        let hashes = make_hashes(&trades);
+        // Mark the first trade as already existing
+        let mut existing = HashSet::new();
+        existing.insert(hashes[0].clone());
+        let rec = save_import_with_trades(
+            &conn,
+            &Provider::Kraken,
+            "test.csv",
+            "abc123",
+            &trades,
+            &hashes,
+            &existing,
+        )
+        .unwrap();
+        assert_eq!(rec.trade_count, 1);
+        let loaded = load_trades(&conn).unwrap();
+        assert_eq!(loaded.len(), 1);
+        assert_eq!(loaded[0], trades[1]);
+    }
+
+    #[test]
+    fn list_imports_roundtrip() {
+        let conn = test_conn();
+        let trades = vec![sample_trade(2024, 1, 15)];
+        let hashes = make_hashes(&trades);
+        save_import_with_trades(
+            &conn,
+            &Provider::Kraken,
+            "a.csv",
+            "hash_a",
+            &trades,
+            &hashes,
+            &HashSet::new(),
+        )
+        .unwrap();
+        save_import_with_trades(
+            &conn,
+            &Provider::Kraken,
+            "b.csv",
+            "hash_b",
+            &[],
+            &[],
+            &HashSet::new(),
+        )
+        .unwrap();
+        let imports = list_imports(&conn).unwrap();
+        assert_eq!(imports.len(), 2);
+        // Most recent first
+        assert_eq!(imports[0].filename, "b.csv");
+        assert_eq!(imports[1].filename, "a.csv");
+    }
+
+    #[test]
+    fn remove_import_cascades_trades() {
+        let conn = test_conn();
+        let trades = vec![sample_trade(2024, 1, 15), sample_trade(2024, 3, 20)];
+        let hashes = make_hashes(&trades);
+        let rec = save_import_with_trades(
+            &conn,
+            &Provider::Kraken,
+            "test.csv",
+            "abc123",
+            &trades,
+            &hashes,
+            &HashSet::new(),
+        )
+        .unwrap();
+        assert_eq!(load_trades(&conn).unwrap().len(), 2);
+
+        remove_import(&conn, rec.id).unwrap();
+        assert_eq!(load_trades(&conn).unwrap().len(), 0);
+        assert!(list_imports(&conn).unwrap().is_empty());
+    }
+
+    #[test]
+    fn find_import_by_hash_found() {
+        let conn = test_conn();
+        save_import_with_trades(
+            &conn,
+            &Provider::Kraken,
+            "test.csv",
+            "abc123",
+            &[],
+            &[],
+            &HashSet::new(),
+        )
+        .unwrap();
+        assert!(find_import_by_hash(&conn, "abc123").unwrap().is_some());
+    }
+
+    #[test]
+    fn find_import_by_hash_not_found() {
+        let conn = test_conn();
+        assert!(find_import_by_hash(&conn, "nonexistent").unwrap().is_none());
+    }
+
+    #[test]
+    fn existing_trade_hashes_returns_all() {
+        let conn = test_conn();
+        let trades = vec![sample_trade(2024, 1, 15), sample_trade(2024, 3, 20)];
+        let hashes = make_hashes(&trades);
+        save_import_with_trades(
+            &conn,
+            &Provider::Kraken,
+            "test.csv",
+            "abc123",
+            &trades,
+            &hashes,
+            &HashSet::new(),
+        )
+        .unwrap();
+        let existing = existing_trade_hashes(&conn).unwrap();
+        assert_eq!(existing.len(), 2);
+        assert!(existing.contains(&hashes[0]));
+        assert!(existing.contains(&hashes[1]));
     }
 }

@@ -2,9 +2,12 @@ use std::path::Path;
 
 use chrono::Utc;
 
-use crate::errors::CoreResult;
-use crate::models::{AppConfig, Asset, AssetPair, DashboardStats, EnrichedTrade, TradesSummary};
-use crate::{db, engine, parser, price};
+use crate::errors::{CoreError, CoreResult};
+use crate::models::{
+    AppConfig, Asset, AssetPair, DashboardStats, EnrichedTrade, ImportOutcome, ImportPreview,
+    ImportRecord,
+};
+use crate::{db, engine, hash, parser, price};
 
 /// Construct the BTC/{quote} pair. BTC is always the base asset.
 fn trading_pair(quote: &Asset) -> AssetPair {
@@ -14,22 +17,105 @@ fn trading_pair(quote: &Asset) -> AssetPair {
     }
 }
 
-/// Parse a Kraken CSV and return summary without persisting.
-pub fn preview_import(quote: &Asset, path: &Path) -> CoreResult<TradesSummary> {
-    let pair = trading_pair(quote);
-    let trades = parser::parse_kraken_csv(path)?;
+/// Auto-detect CSV provider, parse trades, and return preview with dedup info.
+pub fn preview_import(cfg: &AppConfig, path: &Path) -> CoreResult<ImportPreview> {
+    let provider = parser::detect_provider(path)?;
+    let pair = trading_pair(&cfg.quote);
+    let trades = parser::parse_csv(&provider, path)?;
     let summary = engine::trades_summary(&pair, &trades)?;
-    Ok(summary)
+
+    let file_hash = hash::file_sha256(path)?;
+    let conn = db::open(&cfg.db_path)?;
+    let exact_file_duplicate = db::find_import_by_hash(&conn, &file_hash)?.is_some();
+
+    let existing = db::existing_trade_hashes(&conn)?;
+    let trade_hashes: Vec<String> = trades
+        .iter()
+        .map(|t| hash::trade_hash(provider.as_str(), t))
+        .collect();
+    let duplicate_trades = trade_hashes
+        .iter()
+        .filter(|h| existing.contains(*h))
+        .count();
+
+    Ok(ImportPreview {
+        provider,
+        summary,
+        file_hash,
+        duplicate_trades,
+        exact_file_duplicate,
+    })
 }
 
-/// Parse a Kraken CSV, persist trades to SQLite, and return summary.
-pub fn confirm_import(cfg: &AppConfig, path: &Path) -> CoreResult<TradesSummary> {
-    let conn = db::open(&cfg.db_path)?;
+/// Auto-detect CSV provider, parse, dedup, persist trades + import record, and return result.
+pub fn confirm_import(cfg: &AppConfig, path: &Path) -> CoreResult<ImportOutcome> {
+    let provider = parser::detect_provider(path)?;
     let pair = trading_pair(&cfg.quote);
-    let trades = parser::parse_kraken_csv(path)?;
-    db::save_trades(&conn, &trades)?;
+    let trades = parser::parse_csv(&provider, path)?;
     let summary = engine::trades_summary(&pair, &trades)?;
-    Ok(summary)
+
+    let file_hash = hash::file_sha256(path)?;
+    let conn = db::open(&cfg.db_path)?;
+
+    if db::find_import_by_hash(&conn, &file_hash)?.is_some() {
+        return Err(CoreError::DuplicateFile);
+    }
+
+    let existing = db::existing_trade_hashes(&conn)?;
+    let trade_hashes: Vec<String> = trades
+        .iter()
+        .map(|t| hash::trade_hash(provider.as_str(), t))
+        .collect();
+    let duplicate_count = trade_hashes
+        .iter()
+        .filter(|h| existing.contains(*h))
+        .count();
+
+    if duplicate_count == trades.len() && !trades.is_empty() {
+        return Err(CoreError::AllTradesDuplicate(trades.len()));
+    }
+
+    let filename = path
+        .file_name()
+        .map(|n| n.to_string_lossy().into_owned())
+        .unwrap_or_default();
+
+    let import = db::save_import_with_trades(
+        &conn,
+        &provider,
+        &filename,
+        &file_hash,
+        &trades,
+        &trade_hashes,
+        &existing,
+    )?;
+
+    let message = if duplicate_count > 0 {
+        Some(format!(
+            "{duplicate_count} of {} trades were skipped (already in database)",
+            trades.len(),
+        ))
+    } else {
+        None
+    };
+
+    Ok(ImportOutcome {
+        import,
+        summary,
+        message,
+    })
+}
+
+/// List all import records.
+pub fn list_imports(cfg: &AppConfig) -> CoreResult<Vec<ImportRecord>> {
+    let conn = db::open(&cfg.db_path)?;
+    Ok(db::list_imports(&conn)?)
+}
+
+/// Remove an import and cascade-delete its trades.
+pub fn remove_import(cfg: &AppConfig, import_id: i64) -> CoreResult<()> {
+    let conn = db::open(&cfg.db_path)?;
+    Ok(db::remove_import(&conn, import_id)?)
 }
 
 /// Build dashboard stats from all trades + candle history. Computes position, BEP, and P&L.

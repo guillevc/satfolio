@@ -1,5 +1,6 @@
 use std::fmt;
 use std::path::PathBuf;
+use std::str::FromStr;
 
 use chrono::{DateTime, NaiveDate, Utc};
 use rust_decimal::Decimal;
@@ -8,6 +9,53 @@ use serde::{Deserialize, Serialize};
 use ts_rs::TS;
 
 use crate::errors::AssetMismatch;
+
+/// Supported exchange / data providers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize)]
+#[cfg_attr(test, derive(TS))]
+#[cfg_attr(test, ts(export, type = "'kraken' | 'coinbase'"))]
+pub enum Provider {
+    #[serde(rename = "kraken")]
+    Kraken,
+    #[serde(rename = "coinbase")]
+    Coinbase,
+}
+
+impl Provider {
+    /// Lowercase slug used for hashing, DB storage, and serialization.
+    pub fn as_str(&self) -> &'static str {
+        match self {
+            Self::Kraken => "kraken",
+            Self::Coinbase => "coinbase",
+        }
+    }
+
+    /// Human-readable name for UI display (e.g. badge text).
+    pub fn display_name(&self) -> &'static str {
+        match self {
+            Self::Kraken => "Kraken",
+            Self::Coinbase => "Coinbase",
+        }
+    }
+}
+
+impl fmt::Display for Provider {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
+
+impl FromStr for Provider {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "kraken" => Ok(Self::Kraken),
+            "coinbase" => Ok(Self::Coinbase),
+            other => Err(format!("unknown provider: {other}")),
+        }
+    }
+}
 
 /// Runtime configuration for the app.
 pub struct AppConfig {
@@ -238,9 +286,73 @@ pub struct Candle {
     pub count: u32,
 }
 
+/// Persisted import record — one per CSV file successfully imported.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(TS))]
+#[cfg_attr(test, ts(export))]
+pub struct ImportRecord {
+    #[cfg_attr(test, ts(type = "number"))]
+    pub id: i64,
+    pub provider: Provider,
+    pub filename: String,
+    pub file_hash: String,
+    pub trade_count: usize,
+    pub date_from: Option<DateTime<Utc>>,
+    pub date_to: Option<DateTime<Utc>>,
+    pub imported_at: DateTime<Utc>,
+}
+
+/// Preview data for a CSV file before confirming the import.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(TS))]
+#[cfg_attr(test, ts(export))]
+pub struct ImportPreview {
+    pub provider: Provider,
+    pub summary: TradesSummary,
+    pub file_hash: String,
+    pub duplicate_trades: usize,
+    pub exact_file_duplicate: bool,
+}
+
+/// Outcome of confirming an import: the persisted record plus summary.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize)]
+#[cfg_attr(test, derive(TS))]
+#[cfg_attr(test, ts(export))]
+pub struct ImportOutcome {
+    pub import: ImportRecord,
+    pub summary: TradesSummary,
+    /// e.g. "5 of 12 trades were skipped (already in database)". None if no dupes.
+    pub message: Option<String>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn provider_as_str() {
+        assert_eq!(Provider::Kraken.as_str(), "kraken");
+        assert_eq!(Provider::Coinbase.as_str(), "coinbase");
+    }
+
+    #[test]
+    fn provider_display() {
+        assert_eq!(Provider::Kraken.to_string(), "kraken");
+        assert_eq!(Provider::Coinbase.to_string(), "coinbase");
+    }
+
+    #[test]
+    fn provider_from_str() {
+        assert_eq!("kraken".parse::<Provider>().unwrap(), Provider::Kraken);
+        assert_eq!("coinbase".parse::<Provider>().unwrap(), Provider::Coinbase);
+        assert!("unknown".parse::<Provider>().is_err());
+    }
+
+    #[test]
+    fn provider_display_name() {
+        assert_eq!(Provider::Kraken.display_name(), "Kraken");
+        assert_eq!(Provider::Coinbase.display_name(), "Coinbase");
+    }
 
     #[test]
     fn asset_from_btc() {

@@ -3,18 +3,23 @@
   import * as Dialog from "$lib/components/ui/dialog";
   import { Button } from "$lib/components/ui/button";
 
-  interface Props {
-    filename: string;
-    onclose: () => void;
-  }
+  type Props =
+    | { mode: "file"; filename: string; count?: never; onclose: () => void }
+    | { mode: "trades"; count: number; filename?: never; onclose: () => void };
 
-  let { filename, onclose }: Props = $props();
+  let { mode, filename, count, onclose }: Props = $props();
 </script>
 
 <Dialog.Header>
-  <Dialog.Title>Duplicate File</Dialog.Title>
+  <Dialog.Title>
+    {mode === "file" ? "Duplicate File" : "No New Data"}
+  </Dialog.Title>
   <Dialog.Description>
-    A file with this name has already been imported.
+    {#if mode === "file"}
+      This exact file has already been imported.
+    {:else}
+      All trades in this file already exist in the database.
+    {/if}
   </Dialog.Description>
 </Dialog.Header>
 
@@ -23,13 +28,23 @@
 >
   <AlertTriangleIcon class="mt-0.5 size-5 shrink-0 text-yellow-500" />
   <div class="text-sm">
-    <p class="font-medium text-yellow-500">
-      &ldquo;{filename}&rdquo; already exists
-    </p>
-    <p class="mt-1 text-muted-foreground">
-      Rename the file before importing to avoid confusion. Duplicate detection
-      by content hash will be supported in a future update.
-    </p>
+    {#if mode === "file"}
+      <p class="font-medium text-yellow-500">
+        &ldquo;{filename}&rdquo; already imported
+      </p>
+      <p class="mt-1 text-muted-foreground">
+        This exact file has already been imported (verified by content hash).
+        There&rsquo;s nothing new to import.
+      </p>
+    {:else}
+      <p class="font-medium text-yellow-500">
+        All {count} trades already exist
+      </p>
+      <p class="mt-1 text-muted-foreground">
+        All {count} trades in this file already exist in the database. There&rsquo;s
+        nothing new to import.
+      </p>
+    {/if}
   </div>
 </div>
 

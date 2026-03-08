@@ -1,4 +1,4 @@
-import { getDashboardStats, syncCandles } from "$lib/api";
+import { dashboardStats, syncCandles } from "$lib/api";
 import type { DashboardStats } from "$lib/types/bindings";
 
 export const dashboard = $state({
@@ -12,7 +12,7 @@ export async function loadDashboard(): Promise<void> {
   dashboard.error = null;
   dashboard.loading = true;
   try {
-    dashboard.stats = await getDashboardStats();
+    dashboard.stats = await dashboardStats();
   } catch (e) {
     dashboard.error =
       e && typeof e === "object" && "message" in e
@@ -26,7 +26,7 @@ export async function loadDashboard(): Promise<void> {
   // Gap-fill candles from Kraken in background, then refresh stats
   dashboard.syncing = true;
   syncCandles()
-    .then(() => getDashboardStats())
+    .then(() => dashboardStats())
     .then((fresh) => {
       const last = fresh.candles[fresh.candles.length - 1];
       console.log(
@@ -45,7 +45,7 @@ export async function refreshDashboard(): Promise<void> {
   dashboard.syncing = true;
   try {
     await syncCandles();
-    dashboard.stats = await getDashboardStats();
+    dashboard.stats = await dashboardStats();
   } catch (e) {
     console.error("refresh failed:", e);
   } finally {

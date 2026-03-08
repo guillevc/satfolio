@@ -1,7 +1,7 @@
 use crate::models::Asset;
 use thiserror::Error;
 
-/// Kraken CSV parsing failures (malformed rows, IO).
+/// CSV parsing failures (malformed rows, IO, unrecognized format).
 #[derive(Debug, Error)]
 pub enum ParseError {
     #[error("CSV error: {0}")]
@@ -12,6 +12,12 @@ pub enum ParseError {
 
     #[error("Invalid row at line {line}: {message}")]
     InvalidRow { line: usize, message: String },
+
+    #[error("Unrecognized CSV format. Headers: {0}")]
+    UnrecognizedFormat(String),
+
+    #[error("{0} import is not yet supported")]
+    NotYetSupported(String),
 }
 
 #[derive(Debug, Error)]
@@ -69,6 +75,12 @@ pub enum CoreError {
 
     #[error(transparent)]
     Engine(#[from] EngineError),
+
+    #[error("This file has already been imported (SHA-256 match)")]
+    DuplicateFile,
+
+    #[error("All {0} trades in this file already exist in the database")]
+    AllTradesDuplicate(usize),
 }
 
 pub type ParseResult<T> = Result<T, ParseError>;

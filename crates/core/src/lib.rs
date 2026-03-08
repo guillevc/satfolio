@@ -4,5 +4,6 @@ pub mod models;
 
 mod db;
 mod engine;
+mod hash;
 mod parser;
 mod price;

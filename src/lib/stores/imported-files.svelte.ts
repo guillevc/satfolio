@@ -1,41 +1,27 @@
-// TODO: persist to SQLite — list resets on app restart
+import { listImports, removeImport } from "$lib/api";
+import type { ImportRecord } from "$lib/types/bindings";
 
-import { SvelteDate } from "svelte/reactivity";
-import type { TradesSummary } from "$lib/types/bindings";
+export const importedFiles = $state<{
+  list: ImportRecord[];
+  loading: boolean;
+}>({ list: [], loading: false });
 
-export interface ImportedFile {
-  id: string;
-  filename: string;
-  path: string;
-  summary: TradesSummary;
-  importedAt: Date;
+export async function loadImportedFiles(): Promise<void> {
+  importedFiles.loading = true;
+  try {
+    importedFiles.list = await listImports();
+  } catch (e) {
+    console.error("Failed to load imports:", e);
+  } finally {
+    importedFiles.loading = false;
+  }
 }
 
-export const importedFiles = $state<{ list: ImportedFile[] }>({ list: [] });
-
-export function addImportedFile(
-  path: string,
-  summary: TradesSummary,
-): ImportedFile {
-  const filename = path.split("/").pop() ?? path;
-  const file: ImportedFile = {
-    id: crypto.randomUUID(),
-    filename,
-    path,
-    summary,
-    importedAt: new SvelteDate(),
-  };
-  importedFiles.list.push(file);
-  return file;
+export function addImport(record: ImportRecord): void {
+  importedFiles.list = [record, ...importedFiles.list];
 }
 
-export function removeImportedFile(id: string): void {
-  // In-memory only — full cascade deletion (trades + DB row) comes with backend work
+export async function deleteImport(id: number): Promise<void> {
+  await removeImport(id);
   importedFiles.list = importedFiles.list.filter((f) => f.id !== id);
-}
-
-/** Temporary: matches by filename. Will be replaced with SHA-256 hash when backend supports it. */
-export function isFilenameDuplicate(path: string): boolean {
-  const filename = path.split("/").pop() ?? path;
-  return importedFiles.list.some((f) => f.filename === filename);
 }
