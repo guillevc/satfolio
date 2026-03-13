@@ -531,6 +531,20 @@ mod tests {
             .collect()
     }
 
+    /// Mirror of the real `api::confirm_import` flow: queries existing hashes
+    /// from the DB, then calls `save_import_with_trades`.
+    fn do_import(
+        conn: &Connection,
+        trades: &[Trade],
+        filename: &str,
+        file_hash: &str,
+    ) -> ImportRecord {
+        let hashes = make_hashes(trades);
+        let existing = existing_trade_hashes(conn).unwrap();
+        save_import_with_trades(conn, &Provider::Kraken, filename, file_hash, trades, &hashes, &existing)
+            .unwrap()
+    }
+
     #[test]
     fn save_import_inserts_all_trades() {
         let conn = test_conn();
@@ -675,5 +689,69 @@ mod tests {
         assert_eq!(existing.len(), 2);
         assert!(existing.contains(&hashes[0]));
         assert!(existing.contains(&hashes[1]));
+    }
+
+    // ── Two-import dedup (uses do_import helper) ───────
+
+    #[test]
+    fn two_imports_partial_overlap() {
+        let conn = test_conn();
+        let a = vec![sample_trade(2025, 1, 15), sample_trade(2025, 2, 15), sample_trade(2025, 3, 15)];
+        let b = vec![sample_trade(2025, 2, 15), sample_trade(2025, 3, 15), sample_trade(2025, 4, 15)];
+
+        let rec_a = do_import(&conn, &a, "a.csv", "hash_a");
+        let rec_b = do_import(&conn, &b, "b.csv", "hash_b");
+
+        assert_eq!(rec_a.trade_count, 3);
+        assert_eq!(rec_b.trade_count, 1); // only Apr is new
+        assert_eq!(load_trades(&conn).unwrap().len(), 4);
+        assert_eq!(list_imports(&conn).unwrap().len(), 2);
+    }
+
+    #[test]
+    fn two_imports_full_overlap() {
+        let conn = test_conn();
+        let a = vec![sample_trade(2025, 1, 15), sample_trade(2025, 2, 15), sample_trade(2025, 3, 15)];
+        let b = vec![sample_trade(2025, 1, 15), sample_trade(2025, 2, 15)];
+
+        let rec_a = do_import(&conn, &a, "a.csv", "hash_a");
+        let rec_b = do_import(&conn, &b, "b.csv", "hash_b");
+
+        assert_eq!(rec_a.trade_count, 3);
+        assert_eq!(rec_b.trade_count, 0);
+        assert!(rec_b.date_from.is_none());
+        assert!(rec_b.date_to.is_none());
+        assert_eq!(load_trades(&conn).unwrap().len(), 3);
+    }
+
+    #[test]
+    fn two_imports_disjoint() {
+        let conn = test_conn();
+        let a = vec![sample_trade(2025, 1, 15), sample_trade(2025, 2, 15)];
+        let b = vec![sample_trade(2025, 3, 15), sample_trade(2025, 4, 15)];
+
+        let rec_a = do_import(&conn, &a, "a.csv", "hash_a");
+        let rec_b = do_import(&conn, &b, "b.csv", "hash_b");
+
+        assert_eq!(rec_a.trade_count, 2);
+        assert_eq!(rec_b.trade_count, 2);
+        assert_eq!(load_trades(&conn).unwrap().len(), 4);
+    }
+
+    #[test]
+    fn two_imports_overlap_chronological_union() {
+        let conn = test_conn();
+        let a = vec![sample_trade(2025, 1, 15), sample_trade(2025, 2, 15), sample_trade(2025, 3, 15)];
+        let b = vec![sample_trade(2025, 2, 15), sample_trade(2025, 3, 15), sample_trade(2025, 4, 15)];
+
+        do_import(&conn, &a, "a.csv", "hash_a");
+        do_import(&conn, &b, "b.csv", "hash_b");
+
+        let loaded = load_trades(&conn).unwrap();
+        assert_eq!(loaded.len(), 4);
+        assert_eq!(loaded[0], sample_trade(2025, 1, 15));
+        assert_eq!(loaded[1], sample_trade(2025, 2, 15));
+        assert_eq!(loaded[2], sample_trade(2025, 3, 15));
+        assert_eq!(loaded[3], sample_trade(2025, 4, 15));
     }
 }
