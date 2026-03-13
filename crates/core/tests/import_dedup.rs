@@ -25,10 +25,10 @@ fn test_cfg() -> (tempfile::TempDir, AppConfig) {
 fn confirm_two_overlapping_csvs_deduplicates() {
     let (_dir, cfg) = test_cfg();
 
-    let outcome_a = confirm_import(&cfg, &fixture("overlap_a.csv")).unwrap();
+    let outcome_a = confirm_import(&cfg, &fixture("kraken_overlap_a.csv")).unwrap();
     assert_eq!(outcome_a.import.trade_count, 22);
 
-    let outcome_b = confirm_import(&cfg, &fixture("overlap_b.csv")).unwrap();
+    let outcome_b = confirm_import(&cfg, &fixture("kraken_overlap_b.csv")).unwrap();
     // 28 total in file B, 13 overlap with A → 15 new
     assert_eq!(outcome_b.import.trade_count, 15);
     assert!(outcome_b.message.is_some(), "should report skipped duplicates");
@@ -45,15 +45,15 @@ fn preview_then_confirm_overlap() {
     let (_dir, cfg) = test_cfg();
 
     // Import file A first
-    confirm_import(&cfg, &fixture("overlap_a.csv")).unwrap();
+    confirm_import(&cfg, &fixture("kraken_overlap_a.csv")).unwrap();
 
     // Preview file B — should detect 13 duplicates
-    let preview = preview_import(&cfg, &fixture("overlap_b.csv")).unwrap();
+    let preview = preview_import(&cfg, &fixture("kraken_overlap_b.csv")).unwrap();
     assert_eq!(preview.duplicate_trades, 13);
     assert!(!preview.exact_file_duplicate);
 
     // Confirm file B
-    let outcome_b = confirm_import(&cfg, &fixture("overlap_b.csv")).unwrap();
+    let outcome_b = confirm_import(&cfg, &fixture("kraken_overlap_b.csv")).unwrap();
     assert_eq!(outcome_b.import.trade_count, 15);
 
     let all_trades = trades(&cfg).unwrap();

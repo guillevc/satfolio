@@ -94,7 +94,7 @@ async fn load_sample(state: State<'_, AppState>) -> Result<(), AppError> {
         if trades.is_empty() {
             let fixture = std::path::PathBuf::from(concat!(
                 env!("CARGO_MANIFEST_DIR"),
-                "/../crates/core/fixtures/sample.csv"
+                "/../crates/core/fixtures/kraken_sample.csv"
             ));
             let _ = app_core::api::confirm_import(&state.cfg, &fixture)?;
         }

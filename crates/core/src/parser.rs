@@ -106,13 +106,4 @@ mod tests {
         );
     }
 
-    #[test]
-    fn parse_csv_coinbase_returns_not_yet_supported() {
-        let f = csv_tempfile("fake");
-        let err = parse_csv(&Provider::Coinbase, f.path()).unwrap_err();
-        assert!(
-            matches!(err, ParseError::NotYetSupported(ref s) if s == "Coinbase"),
-            "expected NotYetSupported, got: {err}"
-        );
-    }
 }

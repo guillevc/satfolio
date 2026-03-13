@@ -1,0 +1,17 @@
+You can use this transaction report to inform your tax return. Learn more
+
+Timestamp,Transaction Type,Asset,Quantity Transacted,Spot Price Currency,Spot Price at Transaction,Subtotal,Total (inclusive of fees and/or spread),Fees and/or Spread,Notes
+2025-01-15T10:30:00Z,Buy,BTC,0.00150000,EUR,62000.00,93.00,95.79,2.79,Bought 0.0015 BTC for 95.79 EUR
+2025-01-20T14:00:00Z,Deposit,EUR,500.00,EUR,,,,,Deposited 500.00 EUR
+2025-02-01T09:15:00Z,Buy,BTC,0.00200000,EUR,61500.00,123.00,126.69,3.69,Bought 0.002 BTC for 126.69 EUR
+2025-02-10T11:45:00Z,Sell,BTC,0.00100000,EUR,63000.00,63.00,61.11,1.89,Sold 0.001 BTC for 61.11 EUR
+2025-03-01T08:00:00Z,Receive,BTC,0.00050000,,,,,,Received 0.0005 BTC from external
+2025-03-05T16:30:00Z,Advanced Trade Buy,BTC,0.00300000,EUR,60000.00,180.00,183.60,3.60,Bought 0.003 BTC for 183.60 EUR
+2025-03-10T12:00:00Z,Send,BTC,0.00100000,,,,,,Sent 0.001 BTC to external
+2025-03-15T18:00:00Z,Advanced Trade Sell,BTC,0.00200000,EUR,64000.00,128.00,124.16,3.84,Sold 0.002 BTC for 124.16 EUR
+2025-04-01T10:00:00Z,Learning Reward,GRT,5.00000000,EUR,0.15,0.75,0.75,0.00,Earned 5 GRT from Coinbase Learn
+2025-04-05T14:30:00Z,Advance Trade Buy,BTC,0.00100000,EUR,65000.00,65.00,66.95,1.95,Bought 0.001 BTC for 66.95 EUR
+2025-04-10T09:00:00Z,Staking Income,ETH,0.00100000,EUR,3200.00,3.20,3.20,0.00,Staked ETH reward
+2025-04-15T11:00:00Z,Convert,BTC,0.00050000,EUR,64000.00,32.00,32.00,0.00,Converted 0.0005 BTC to ETH
+2025-04-20T16:00:00Z,Withdrawal,EUR,200.00,EUR,,,,,Withdrew 200.00 EUR
+2025-05-01T08:30:00Z,Buy,GRT,100.00000000,EUR,0.18,18.00,18.54,0.54,Bought 100 GRT for 18.54 EUR
