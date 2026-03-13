@@ -64,8 +64,8 @@
   >
     <div class="col-span-3">Filename</div>
     <div class="col-span-2">Source</div>
-    <div class="col-span-2 text-right">Trades</div>
-    <div class="col-span-2">Date Range</div>
+    <div class="col-span-1 text-right">Trades</div>
+    <div class="col-span-3">Date Range</div>
     <div class="col-span-2 text-right">Imported</div>
     <div class="col-span-1 text-center">Actions</div>
   </div>
@@ -98,12 +98,12 @@
         </div>
 
         <!-- Trades -->
-        <div class="col-span-2 text-right font-mono text-sm text-foreground">
+        <div class="col-span-1 text-right font-mono text-sm text-foreground">
           {file.trade_count.toLocaleString()}
         </div>
 
         <!-- Date Range -->
-        <div class="col-span-2 font-mono text-sm text-foreground">
+        <div class="col-span-3 font-mono text-sm text-foreground">
           {formatDateRange(file.date_from, file.date_to)}
         </div>
 
