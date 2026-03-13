@@ -60,7 +60,7 @@
 <div class="glass-panel overflow-hidden rounded-xl">
   <!-- Header -->
   <div
-    class="grid h-10 grid-cols-12 items-center gap-6 border-b border-white/[0.06] bg-white/[0.03] px-4 text-sm font-medium text-muted-foreground"
+    class="grid h-10 grid-cols-12 items-center gap-6 border-b border-white/6 bg-white/3 px-4 text-sm font-medium text-muted-foreground"
   >
     <div class="col-span-3">Filename</div>
     <div class="col-span-2">Source</div>
@@ -75,7 +75,7 @@
     {#each files as file (file.id)}
       {@const provider = providerMeta[file.provider]}
       <div
-        class="grid grid-cols-12 items-center gap-6 border-b border-white/[0.04] px-4 py-3 transition-colors last:border-b-0 hover:bg-white/[0.02]"
+        class="grid grid-cols-12 items-center gap-6 border-b border-white/4 px-4 py-3 transition-colors last:border-b-0 hover:bg-white/2"
       >
         <!-- Filename -->
         <div class="col-span-3 flex min-w-0 items-center gap-2.5">

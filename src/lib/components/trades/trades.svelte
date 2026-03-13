@@ -219,7 +219,9 @@
           {#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
             <Table.Row class="border-b border-white/5 hover:bg-transparent">
               {#each headerGroup.headers as header (header.id)}
-                <Table.Head>
+                <Table.Head
+                  class={`first:pl-4 ${header.column.getCanSort() ? "px-0" : ""} ${(header.column.columnDef.meta as Record<string, string>)?.align === "right" ? "text-end" : ""}`}
+                >
                   {#if !header.isPlaceholder}
                     <FlexRender
                       content={header.column.columnDef.header}
@@ -245,7 +247,7 @@
             {#each table.getRowModel().rows as row (row.id)}
               <Table.Row class="border-b border-white/5">
                 {#each row.getVisibleCells() as cell (cell.id)}
-                  <Table.Cell class="last:pr-6">
+                  <Table.Cell class="first:pl-6 last:pr-6">
                     <FlexRender
                       content={cell.column.columnDef.cell}
                       context={cell.getContext()}

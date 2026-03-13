@@ -120,6 +120,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
   {
     id: "amount",
     accessorFn: (row) => parseFloat(baseAmount(row)),
+    meta: { align: "right" },
     header: ({ column }) =>
       renderComponent(SortButton, {
         label: "Amount (BTC)",
@@ -140,6 +141,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
   {
     id: "price",
     accessorFn: (row) => pricePerUnit(row),
+    meta: { align: "right" },
     header: ({ column }) =>
       renderComponent(SortButton, {
         label: "Price/BTC",
@@ -160,6 +162,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
   {
     id: "fees",
     accessorFn: (row) => parseFloat(row.fee.amount),
+    meta: { align: "right" },
     header: ({ column }) =>
       renderComponent(SortButton, {
         label: "Fees",
@@ -180,6 +183,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
   {
     id: "total",
     accessorFn: (row) => parseFloat(quoteAmount(row)),
+    meta: { align: "right" },
     header: ({ column }) =>
       renderComponent(SortButton, {
         label: "Total",
@@ -200,6 +204,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
   {
     id: "bep",
     accessorFn: (row) => (row.bep ? parseFloat(row.bep.amount) : null),
+    meta: { align: "right" },
     header: ({ column }) =>
       renderComponent(SortButton, {
         label: "Running BEP",
@@ -225,6 +230,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
   {
     id: "pnl",
     accessorFn: (row) => (row.pnl ? parseFloat(row.pnl.amount) : null),
+    meta: { align: "right" },
     header: ({ column }) =>
       renderComponent(SortButton, {
         label: "Realized P&L",
