@@ -108,7 +108,7 @@
   {#if loading}
     <div class="flex flex-1 flex-col items-center justify-center gap-3">
       <Spinner class="size-8 text-primary" />
-      <p class="text-sm text-muted-foreground">Parsing file...</p>
+      <p class="text-sm text-muted-foreground">Reading file...</p>
     </div>
   {:else if hasFiles}
     <div class="flex h-8 items-center px-6">

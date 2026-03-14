@@ -1,9 +1,10 @@
 <script lang="ts">
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { open } from "@tauri-apps/plugin-dialog";
-  import { UploadIcon, FileSpreadsheetIcon } from "@lucide/svelte";
+  import { UploadIcon } from "@lucide/svelte";
   import * as Card from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge";
+  import { providerMeta } from "$lib/utils/provider";
   import InfoCards from "./info-cards.svelte";
 
   interface Props {
@@ -23,8 +24,7 @@
 
   function handleFile(path: string) {
     if (!isValidCsv(path)) {
-      validationError =
-        "Only .csv files are supported. Please select a Kraken CSV export.";
+      validationError = "Only .csv files are supported.";
       return;
     }
     validationError = null;
@@ -86,18 +86,22 @@
       </div>
       <div class="text-left">
         <p class="font-semibold text-foreground">
-          {dragging ? "Drop your file here" : "Drop your Kraken CSV here"}
+          {dragging ? "Drop your file here" : "Import your exchange CSV"}
         </p>
         <p class="text-sm text-muted-foreground">
-          or <span class="text-primary underline underline-offset-2"
+          drop a file or <span class="text-primary underline underline-offset-2"
             >browse</span
-          > to select a file
+          >
         </p>
       </div>
-      <Badge variant="outline" class="ml-auto shrink-0 text-muted-foreground">
-        <FileSpreadsheetIcon class="size-4" />
-        Supports .csv files
-      </Badge>
+      <div class="ml-auto flex shrink-0 items-center gap-1.5">
+        <span class="text-xs text-muted-foreground">Supports</span>
+        {#each Object.values(providerMeta) as provider}
+          <Badge variant="outline" class={provider.classes}
+            >{provider.label}</Badge
+          >
+        {/each}
+      </div>
     </button>
     {#if validationError}
       <p class="px-4 py-1.5 text-sm text-destructive">{validationError}</p>
@@ -131,20 +135,23 @@
 
           <div class="text-center">
             <p class="text-lg font-medium text-foreground">
-              {dragging ? "Drop your file here" : "Drop your Kraken CSV here"}
+              {dragging ? "Drop your file here" : "Import your exchange CSV"}
             </p>
             <p class="mt-1 text-sm text-muted-foreground">
-              or <span class="text-primary underline underline-offset-2"
+              drop a file or <span class="text-primary underline underline-offset-2"
                 >browse</span
               >
-              to select a file
             </p>
           </div>
 
-          <Badge variant="outline" class="text-muted-foreground">
-            <FileSpreadsheetIcon class="size-4" />
-            Supports .csv files
-          </Badge>
+          <div class="flex items-center gap-1.5">
+            <span class="text-xs text-muted-foreground">Supports</span>
+            {#each Object.values(providerMeta) as provider}
+              <Badge variant="outline" class={provider.classes}
+                >{provider.label}</Badge
+              >
+            {/each}
+          </div>
 
           {#if validationError}
             <p class="text-sm text-destructive">{validationError}</p>

@@ -13,6 +13,7 @@
   import { Spinner } from "$lib/components/ui/spinner";
   import { displayAmount } from "$lib/utils";
   import type { ImportPreview } from "$lib/types/bindings";
+  import { providerMeta } from "$lib/utils/provider";
 
   interface Props {
     path: string;
@@ -46,13 +47,13 @@
 <Dialog.Header>
   <Dialog.Title class="flex items-center gap-2">
     <TableIcon class="size-4" />
-    Import Preview
+    Review import
   </Dialog.Title>
   <Dialog.Description class="flex items-center gap-2">
     {filename}
-    <Badge variant="outline" class="text-muted-foreground">
+    <Badge variant="outline" class={providerMeta[preview.provider].classes}>
       <ShieldCheckIcon class="size-3" />
-      Verified Kraken Format
+      {providerMeta[preview.provider].label}
     </Badge>
   </Dialog.Description>
 </Dialog.Header>
@@ -68,9 +69,9 @@
       <Card.Title class={statValue}>
         {summary.total_trades}
         <span class="text-sm font-normal">
-          (<span class="text-success">{summary.buys}</span>
+          (<span class="text-success">{summary.buys} buy{summary.buys !== 1 ? "s" : ""}</span>
           /
-          <span class="text-foreground">{summary.sells}</span>)
+          <span class="text-foreground">{summary.sells} sell{summary.sells !== 1 ? "s" : ""}</span>)
         </span>
       </Card.Title>
     </Card.Header>
@@ -129,10 +130,10 @@
   >
     <InfoIcon class="mt-0.5 size-5 shrink-0 text-blue-500" />
     <div class="text-sm">
-      <p class="font-medium text-blue-500">Partial overlap detected</p>
+      <p class="font-medium text-blue-500">Some trades already imported</p>
       <p class="mt-1 text-muted-foreground">
         {preview.duplicate_trades} of {summary.total_trades} trades already exist
-        and will be skipped. {newTradeCount} new trades will be imported.
+        and will be skipped. Only {newTradeCount} new trades will be added.
       </p>
     </div>
   </div>
@@ -147,10 +148,11 @@
     <Button onclick={onconfirm} disabled={confirming} class="flex-1">
       {#if confirming}
         <Spinner />
-        Processing...
+        Importing...
       {:else}
         <SparklesIcon class="size-4" />
-        Process Data
+        Import {newTradeCount}
+        {newTradeCount === 1 ? "trade" : "trades"}
       {/if}
     </Button>
   </div>

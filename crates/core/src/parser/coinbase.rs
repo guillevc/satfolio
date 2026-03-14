@@ -53,11 +53,7 @@ mod csv_option {
         D: Deserializer<'de>,
     {
         let s: String = Deserialize::deserialize(deserializer)?;
-        if s.is_empty() {
-            Ok(None)
-        } else {
-            Ok(Some(s))
-        }
+        if s.is_empty() { Ok(None) } else { Ok(Some(s)) }
     }
 }
 
@@ -127,7 +123,7 @@ fn parse_csv_rows(path: &Path) -> ParseResult<Vec<CoinbaseRow>> {
     let offset = find_header_offset(&content).ok_or_else(|| {
         ParseError::UnrecognizedFormat(content.lines().next().unwrap_or_default().to_string())
     })?;
-    let mut reader = csv::Reader::from_reader(content[offset..].as_bytes());
+    let mut reader = csv::Reader::from_reader(&content.as_bytes()[offset..]);
     Ok(reader
         .deserialize()
         .collect::<Result<Vec<_>, csv::Error>>()?)
@@ -386,7 +382,14 @@ mod tests {
         #[test]
         fn non_trade_types_excluded() {
             let rows = vec![
-                make_row("Deposit", Asset::Eur, Some(dec!(500.00)), Some("EUR"), None, None),
+                make_row(
+                    "Deposit",
+                    Asset::Eur,
+                    Some(dec!(500.00)),
+                    Some("EUR"),
+                    None,
+                    None,
+                ),
                 make_row("Receive", Asset::Btc, Some(dec!(0.0005)), None, None, None),
                 make_row("Send", Asset::Btc, Some(dec!(0.001)), None, None, None),
                 make_row(
@@ -413,7 +416,14 @@ mod tests {
                     Some(dec!(32.00)),
                     Some(dec!(0.00)),
                 ),
-                make_row("Withdrawal", Asset::Eur, Some(dec!(200.00)), Some("EUR"), None, None),
+                make_row(
+                    "Withdrawal",
+                    Asset::Eur,
+                    Some(dec!(200.00)),
+                    Some("EUR"),
+                    None,
+                    None,
+                ),
             ];
             let trades = find_trades(&rows);
             assert!(trades.is_empty());
@@ -482,8 +492,7 @@ mod tests {
 
         #[test]
         fn parse_fixture() {
-            let path =
-                Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/coinbase_sample.csv");
+            let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/coinbase_sample.csv");
             let trades = parse(&path).unwrap();
             assert_eq!(trades.len(), 7);
 

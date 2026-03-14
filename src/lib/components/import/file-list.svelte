@@ -2,7 +2,8 @@
   import { FileSpreadsheetIcon, Trash2Icon } from "@lucide/svelte";
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
   import { Button } from "$lib/components/ui/button";
-  import type { ImportRecord, Provider } from "$lib/types/bindings";
+  import type { ImportRecord } from "$lib/types/bindings";
+  import { providerMeta } from "$lib/utils/provider";
 
   interface Props {
     files: ImportRecord[];
@@ -10,22 +11,6 @@
   }
 
   let { files, onremove }: Props = $props();
-
-  const providerMeta: Record<
-    Provider,
-    { label: string; initial: string; classes: string }
-  > = {
-    kraken: {
-      label: "Kraken",
-      initial: "K",
-      classes: "bg-purple-500/20 text-purple-400 border border-purple-500/30",
-    },
-    coinbase: {
-      label: "Coinbase",
-      initial: "C",
-      classes: "bg-blue-500/20 text-blue-400 border border-blue-500/30",
-    },
-  };
 
   function formatDate(iso: string): string {
     return new Date(iso).toLocaleDateString(undefined, {

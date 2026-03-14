@@ -541,8 +541,16 @@ mod tests {
     ) -> ImportRecord {
         let hashes = make_hashes(trades);
         let existing = existing_trade_hashes(conn).unwrap();
-        save_import_with_trades(conn, &Provider::Kraken, filename, file_hash, trades, &hashes, &existing)
-            .unwrap()
+        save_import_with_trades(
+            conn,
+            &Provider::Kraken,
+            filename,
+            file_hash,
+            trades,
+            &hashes,
+            &existing,
+        )
+        .unwrap()
     }
 
     #[test]
@@ -696,8 +704,16 @@ mod tests {
     #[test]
     fn two_imports_partial_overlap() {
         let conn = test_conn();
-        let a = vec![sample_trade(2025, 1, 15), sample_trade(2025, 2, 15), sample_trade(2025, 3, 15)];
-        let b = vec![sample_trade(2025, 2, 15), sample_trade(2025, 3, 15), sample_trade(2025, 4, 15)];
+        let a = vec![
+            sample_trade(2025, 1, 15),
+            sample_trade(2025, 2, 15),
+            sample_trade(2025, 3, 15),
+        ];
+        let b = vec![
+            sample_trade(2025, 2, 15),
+            sample_trade(2025, 3, 15),
+            sample_trade(2025, 4, 15),
+        ];
 
         let rec_a = do_import(&conn, &a, "a.csv", "hash_a");
         let rec_b = do_import(&conn, &b, "b.csv", "hash_b");
@@ -711,7 +727,11 @@ mod tests {
     #[test]
     fn two_imports_full_overlap() {
         let conn = test_conn();
-        let a = vec![sample_trade(2025, 1, 15), sample_trade(2025, 2, 15), sample_trade(2025, 3, 15)];
+        let a = vec![
+            sample_trade(2025, 1, 15),
+            sample_trade(2025, 2, 15),
+            sample_trade(2025, 3, 15),
+        ];
         let b = vec![sample_trade(2025, 1, 15), sample_trade(2025, 2, 15)];
 
         let rec_a = do_import(&conn, &a, "a.csv", "hash_a");
@@ -741,8 +761,16 @@ mod tests {
     #[test]
     fn two_imports_overlap_chronological_union() {
         let conn = test_conn();
-        let a = vec![sample_trade(2025, 1, 15), sample_trade(2025, 2, 15), sample_trade(2025, 3, 15)];
-        let b = vec![sample_trade(2025, 2, 15), sample_trade(2025, 3, 15), sample_trade(2025, 4, 15)];
+        let a = vec![
+            sample_trade(2025, 1, 15),
+            sample_trade(2025, 2, 15),
+            sample_trade(2025, 3, 15),
+        ];
+        let b = vec![
+            sample_trade(2025, 2, 15),
+            sample_trade(2025, 3, 15),
+            sample_trade(2025, 4, 15),
+        ];
 
         do_import(&conn, &a, "a.csv", "hash_a");
         do_import(&conn, &b, "b.csv", "hash_b");

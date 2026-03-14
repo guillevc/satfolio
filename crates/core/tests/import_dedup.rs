@@ -31,7 +31,10 @@ fn confirm_two_overlapping_csvs_deduplicates() {
     let outcome_b = confirm_import(&cfg, &fixture("kraken_overlap_b.csv")).unwrap();
     // 28 total in file B, 13 overlap with A → 15 new
     assert_eq!(outcome_b.import.trade_count, 15);
-    assert!(outcome_b.message.is_some(), "should report skipped duplicates");
+    assert!(
+        outcome_b.message.is_some(),
+        "should report skipped duplicates"
+    );
 
     let all_trades = trades(&cfg).unwrap();
     assert_eq!(all_trades.len(), 37);

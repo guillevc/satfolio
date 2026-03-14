@@ -105,5 +105,4 @@ mod tests {
             "expected UnrecognizedFormat, got: {err}"
         );
     }
-
 }

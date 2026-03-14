@@ -14,13 +14,7 @@
   <Dialog.Title>
     {mode === "file" ? "Duplicate File" : "No New Data"}
   </Dialog.Title>
-  <Dialog.Description>
-    {#if mode === "file"}
-      This exact file has already been imported.
-    {:else}
-      All trades in this file already exist in the database.
-    {/if}
-  </Dialog.Description>
+  <Dialog.Description>Nothing new to import.</Dialog.Description>
 </Dialog.Header>
 
 <div
@@ -33,16 +27,14 @@
         &ldquo;{filename}&rdquo; already imported
       </p>
       <p class="mt-1 text-muted-foreground">
-        This exact file has already been imported (verified by content hash).
-        There&rsquo;s nothing new to import.
+        This file has already been imported (verified by content hash).
       </p>
     {:else}
       <p class="font-medium text-yellow-500">
         All {count} trades already exist
       </p>
       <p class="mt-1 text-muted-foreground">
-        All {count} trades in this file already exist in the database. There&rsquo;s
-        nothing new to import.
+        All {count} trades in this file already exist in the database.
       </p>
     {/if}
   </div>
