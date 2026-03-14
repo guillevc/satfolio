@@ -38,3 +38,7 @@ export async function listImports(): Promise<ImportRecord[]> {
 export async function removeImport(importId: number): Promise<void> {
   await invoke("remove_import", { importId });
 }
+
+export async function nukeAllData(): Promise<void> {
+  await invoke("nuke_all_data");
+}

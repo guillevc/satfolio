@@ -141,7 +141,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
     meta: { align: "right" },
     header: ({ column }) =>
       renderComponent(SortButton, {
-        label: "Amount",
+        label: "Amount (BTC)",
         sorted: column.getIsSorted(),
         onclick: column.getToggleSortingHandler()!,
       }),

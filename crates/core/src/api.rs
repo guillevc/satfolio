@@ -118,6 +118,12 @@ pub fn remove_import(cfg: &AppConfig, import_id: i64) -> CoreResult<()> {
     Ok(db::remove_import(&conn, import_id)?)
 }
 
+/// Delete all user data (trades, imports, candles).
+pub fn nuke_all_data(cfg: &AppConfig) -> CoreResult<()> {
+    let conn = db::open(&cfg.db_path)?;
+    Ok(db::nuke_all_data(&conn)?)
+}
+
 /// Build dashboard stats from all trades + candle history. Computes position, BEP, and P&L.
 pub fn dashboard_stats(cfg: &AppConfig) -> CoreResult<DashboardStats> {
     let conn = db::open(&cfg.db_path)?;

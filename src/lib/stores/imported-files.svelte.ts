@@ -25,3 +25,7 @@ export async function deleteImport(id: number): Promise<void> {
   await removeImport(id);
   importedFiles.list = importedFiles.list.filter((f) => f.id !== id);
 }
+
+export function clearAll(): void {
+  importedFiles.list = [];
+}

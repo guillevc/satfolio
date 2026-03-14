@@ -282,6 +282,18 @@ pub(crate) fn remove_import(conn: &Connection, import_id: i64) -> DbResult<()> {
     Ok(())
 }
 
+/// Delete all rows from every table.
+pub(crate) fn nuke_all_data(conn: &Connection) -> DbResult<()> {
+    let tx = conn.unchecked_transaction()?;
+    tx.execute_batch(
+        "DELETE FROM trades;
+         DELETE FROM imports;
+         DELETE FROM candles;",
+    )?;
+    tx.commit()?;
+    Ok(())
+}
+
 pub(crate) fn load_trades(conn: &Connection) -> DbResult<Vec<Trade>> {
     let mut stmt = conn.prepare(
         "\

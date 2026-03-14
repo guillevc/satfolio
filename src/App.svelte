@@ -6,6 +6,7 @@
   import { Dashboard } from "$lib/components/dashboard";
   import { Trades } from "$lib/components/trades";
   import { ImportPage } from "$lib/components/import";
+  import { Settings } from "$lib/components/settings";
   import { type View, viewTitles } from "$lib/types";
   import { loadSample } from "$lib/api";
   import { loadDashboard } from "$lib/stores/dashboard.svelte";
@@ -51,10 +52,8 @@
         <Trades />
       {:else if view === "import"}
         <ImportPage />
-      {:else}
-        <div class="flex h-full items-center justify-center">
-          <p class="text-muted-foreground">Coming soon</p>
-        </div>
+      {:else if view === "settings"}
+        <Settings />
       {/if}
     </main>
   </div>

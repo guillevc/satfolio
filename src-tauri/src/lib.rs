@@ -88,6 +88,13 @@ async fn sync_candles(state: State<'_, AppState>) -> Result<(), AppError> {
 
 #[tauri::command]
 #[allow(clippy::unused_async)]
+async fn nuke_all_data(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), AppError> {
+    app_core::api::nuke_all_data(&state.cfg)?;
+    app.restart()
+}
+
+#[tauri::command]
+#[allow(clippy::unused_async)]
 async fn load_sample(state: State<'_, AppState>) -> Result<(), AppError> {
     if cfg!(debug_assertions) {
         let trades = app_core::api::trades(&state.cfg)?;
@@ -140,6 +147,7 @@ pub fn run() {
             confirm_import,
             list_imports,
             remove_import,
+            nuke_all_data,
             dashboard_stats,
             trades,
             sync_candles,
