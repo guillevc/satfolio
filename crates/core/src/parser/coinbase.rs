@@ -5,7 +5,7 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 
 use crate::errors::{ParseError, ParseResult};
-use crate::models::{Asset, AssetAmount, Trade};
+use crate::models::{Asset, AssetAmount, Provider, Trade};
 
 /// Expected Coinbase transaction history CSV columns.
 const COINBASE_HEADERS: &[&str] = &[
@@ -155,6 +155,7 @@ fn find_trades(rows: &[CoinbaseRow]) -> Vec<Trade> {
                     spent: AssetAmount::new(subtotal, fiat.clone()),
                     received: AssetAmount::new(quantity, row.asset.clone()),
                     fee: AssetAmount::new(fees, fiat),
+                    provider: Provider::Coinbase,
                 })
             } else {
                 Some(Trade {
@@ -162,6 +163,7 @@ fn find_trades(rows: &[CoinbaseRow]) -> Vec<Trade> {
                     spent: AssetAmount::new(quantity, row.asset.clone()),
                     received: AssetAmount::new(subtotal, fiat.clone()),
                     fee: AssetAmount::new(fees, fiat),
+                    provider: Provider::Coinbase,
                 })
             }
         })

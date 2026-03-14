@@ -69,9 +69,13 @@
       <Card.Title class={statValue}>
         {summary.total_trades}
         <span class="text-sm font-normal">
-          (<span class="text-success">{summary.buys} buy{summary.buys !== 1 ? "s" : ""}</span>
+          (<span class="text-success"
+            >{summary.buys} buy{summary.buys !== 1 ? "s" : ""}</span
+          >
           /
-          <span class="text-foreground">{summary.sells} sell{summary.sells !== 1 ? "s" : ""}</span>)
+          <span class="text-foreground"
+            >{summary.sells} sell{summary.sells !== 1 ? "s" : ""}</span
+          >)
         </span>
       </Card.Title>
     </Card.Header>

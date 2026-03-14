@@ -5,6 +5,7 @@ import {
   renderSnippet,
 } from "$lib/components/ui/data-table/index.js";
 import type { EnrichedTrade } from "$lib/types/bindings";
+import { providerMeta } from "$lib/utils/provider";
 import SortButton from "./sort-button.svelte";
 import TypeCell from "./type-cell.svelte";
 
@@ -104,6 +105,23 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
     },
   },
 
+  // Exchange
+  {
+    id: "exchange",
+    accessorFn: (row) => row.provider,
+    enableSorting: false,
+    header: "Exchange",
+    cell: ({ row }) => {
+      const p = row.original.provider;
+      const meta = providerMeta[p];
+      const snippet = createRawSnippet(() => ({
+        render: () =>
+          `<span class="inline-flex size-5 items-center justify-center rounded-full text-[10px] font-bold ${meta.classes}" title="${meta.label}">${meta.initial}</span>`,
+      }));
+      return renderSnippet(snippet);
+    },
+  },
+
   // Type
   {
     id: "type",
@@ -123,7 +141,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
     meta: { align: "right" },
     header: ({ column }) =>
       renderComponent(SortButton, {
-        label: "Amount (BTC)",
+        label: "Amount",
         sorted: column.getIsSorted(),
         onclick: column.getToggleSortingHandler()!,
       }),
@@ -233,7 +251,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
     meta: { align: "right" },
     header: ({ column }) =>
       renderComponent(SortButton, {
-        label: "Realized P&L",
+        label: "P&L",
         sorted: column.getIsSorted(),
         onclick: column.getToggleSortingHandler()!,
       }),

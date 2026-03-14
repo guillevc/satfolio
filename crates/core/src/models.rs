@@ -190,6 +190,7 @@ pub(crate) struct Trade {
     pub(crate) spent: AssetAmount,
     pub(crate) received: AssetAmount,
     pub(crate) fee: AssetAmount,
+    pub(crate) provider: Provider,
 }
 
 /// Trade enriched with computed analytics for display.
@@ -198,6 +199,7 @@ pub(crate) struct Trade {
 #[cfg_attr(test, ts(export))]
 pub struct EnrichedTrade {
     pub date: DateTime<Utc>,
+    pub provider: Provider,
     pub spent: AssetAmount,
     pub received: AssetAmount,
     pub fee: AssetAmount,

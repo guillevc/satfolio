@@ -187,6 +187,7 @@ pub(crate) fn enrich_trades(
             None => {
                 enriched.push(EnrichedTrade {
                     date: trade.date,
+                    provider: trade.provider,
                     spent: trade.spent,
                     received: trade.received,
                     fee: trade.fee,
@@ -212,6 +213,7 @@ pub(crate) fn enrich_trades(
 
         enriched.push(EnrichedTrade {
             date: trade.date,
+            provider: trade.provider,
             spent: trade.spent,
             received: trade.received,
             fee: trade.fee,
@@ -270,7 +272,7 @@ pub(crate) fn dashboard_stats(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::Asset;
+    use crate::models::{Asset, Provider};
     use chrono::TimeZone;
     use rust_decimal::Decimal;
     use rust_decimal_macros::dec;
@@ -288,6 +290,7 @@ mod tests {
             spent: AssetAmount::new(eur, Asset::Eur),
             received: AssetAmount::new(btc, Asset::Btc),
             fee: AssetAmount::new(fee, Asset::Eur),
+            provider: Provider::Kraken,
         }
     }
 
@@ -297,6 +300,7 @@ mod tests {
             spent: AssetAmount::new(btc, Asset::Btc),
             received: AssetAmount::new(eur, Asset::Eur),
             fee: AssetAmount::new(fee, Asset::Eur),
+            provider: Provider::Kraken,
         }
     }
 
@@ -313,6 +317,7 @@ mod tests {
             spent: AssetAmount::new(spent, Asset::Eur),
             received: AssetAmount::new(received, Asset::Btc),
             fee: AssetAmount::new(fee, Asset::Eur),
+            provider: Provider::Kraken,
         }
     }
 
@@ -452,6 +457,7 @@ mod tests {
             spent: AssetAmount::new(dec!(100), Asset::Usd),
             received: AssetAmount::new(dec!(0.05), Asset::Other("ETH".into())),
             fee: AssetAmount::new(dec!(0.5), Asset::Usd),
+            provider: Provider::Kraken,
         };
         let summary = trades_summary(&btc_eur(), &[trade]).unwrap();
 
@@ -470,6 +476,7 @@ mod tests {
             spent: AssetAmount::new(dec!(200), Asset::Usd),
             received: AssetAmount::new(dec!(0.002), Asset::Btc),
             fee: AssetAmount::new(dec!(1), Asset::Usd),
+            provider: Provider::Kraken,
         };
         let summary = trades_summary(&btc_eur(), &[trade]).unwrap();
 
@@ -485,6 +492,7 @@ mod tests {
             spent: AssetAmount::new(dec!(0.005), Asset::Btc),
             received: AssetAmount::new(dec!(300), Asset::Eur),
             fee: AssetAmount::new(dec!(1.2), Asset::Eur),
+            provider: Provider::Kraken,
         };
         let summary = trades_summary(&btc_eur(), &[trade]).unwrap();
 
@@ -551,6 +559,7 @@ mod tests {
                 spent: AssetAmount::new(dec!(0.005), Asset::Btc),
                 received: AssetAmount::new(dec!(600), Asset::Eur),
                 fee: AssetAmount::new(dec!(0.00005), Asset::Btc), // BTC fee!
+                provider: Provider::Kraken,
             },
         ];
         let enriched = enrich_trades(&btc_eur(), trades).unwrap();

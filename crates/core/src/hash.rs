@@ -34,7 +34,7 @@ pub(crate) fn trade_hash(source: &str, trade: &Trade) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::models::{Asset, AssetAmount};
+    use crate::models::{Asset, AssetAmount, Provider};
     use chrono::{TimeZone, Utc};
     use rust_decimal_macros::dec;
     use std::io::Write;
@@ -46,6 +46,7 @@ mod tests {
             spent: AssetAmount::new(dec!(187.2514), Asset::Eur),
             received: AssetAmount::new(dec!(0.0020104289), Asset::Btc),
             fee: AssetAmount::new(dec!(0.749), Asset::Eur),
+            provider: Provider::Kraken,
         }
     }
 

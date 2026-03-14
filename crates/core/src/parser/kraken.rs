@@ -7,7 +7,7 @@ use rust_decimal::Decimal;
 use serde::Deserialize;
 
 use crate::errors::ParseResult;
-use crate::models::{Asset, AssetAmount, Trade};
+use crate::models::{Asset, AssetAmount, Provider, Trade};
 
 /// Expected Kraken ledger CSV columns (12 fields).
 const KRAKEN_HEADERS: &[&str] = &[
@@ -143,6 +143,7 @@ fn find_trades(entries: &[LedgerEntry]) -> Vec<Trade> {
                 spent: AssetAmount::new(sell.amount.abs(), sell.asset.clone()),
                 received: AssetAmount::new(buy.amount.abs(), buy.asset.clone()),
                 fee: AssetAmount::new(fee_amount, fee_asset),
+                provider: Provider::Kraken,
             }
         })
         .collect()

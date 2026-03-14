@@ -48,7 +48,7 @@ pub(crate) fn migrate(conn: &Connection) -> DbResult<()> {
             received_asset   TEXT NOT NULL,
             fee_amount       TEXT NOT NULL,
             fee_asset        TEXT NOT NULL,
-            import_id        INTEGER,
+            import_id        INTEGER NOT NULL REFERENCES imports(id) ON DELETE CASCADE,
             trade_hash       TEXT
         );
         CREATE UNIQUE INDEX IF NOT EXISTS idx_trades_hash ON trades(trade_hash);
@@ -82,12 +82,20 @@ pub(crate) fn migrate(conn: &Connection) -> DbResult<()> {
     Ok(())
 }
 
+/// Test helper: creates a dummy import record and links all trades to it,
+/// so tests don't need to set up imports manually.
 #[cfg(test)]
-pub(crate) fn save_trades(conn: &Connection, trades: &[Trade]) -> DbResult<()> {
+pub(crate) fn save_test_trades(conn: &Connection, trades: &[Trade]) -> DbResult<()> {
     let tx = conn.unchecked_transaction()?;
+    tx.execute(
+        "INSERT INTO imports (provider, filename, file_hash, trade_count, imported_at) \
+         VALUES ('kraken', '_test.csv', hex(randomblob(16)), ?1, datetime('now'))",
+        params![trades.len() as i64],
+    )?;
+    let import_id = tx.last_insert_rowid();
     let mut stmt = tx.prepare_cached("\
-        INSERT INTO trades (date, spent_amount, spent_asset, received_amount, received_asset, fee_amount, fee_asset) \
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7)\
+        INSERT INTO trades (date, spent_amount, spent_asset, received_amount, received_asset, fee_amount, fee_asset, import_id) \
+        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)\
     ")?;
     for trade in trades {
         stmt.execute(params![
@@ -98,6 +106,7 @@ pub(crate) fn save_trades(conn: &Connection, trades: &[Trade]) -> DbResult<()> {
             trade.received.asset().as_str(),
             trade.fee.amount().to_string(),
             trade.fee.asset().as_str(),
+            import_id,
         ])?;
     }
     drop(stmt);
@@ -274,10 +283,15 @@ pub(crate) fn remove_import(conn: &Connection, import_id: i64) -> DbResult<()> {
 }
 
 pub(crate) fn load_trades(conn: &Connection) -> DbResult<Vec<Trade>> {
-    let mut stmt = conn.prepare("\
-        SELECT date, spent_amount, spent_asset, received_amount, received_asset, fee_amount, fee_asset \
-        FROM trades ORDER BY date ASC\
-    ")?;
+    let mut stmt = conn.prepare(
+        "\
+        SELECT t.date, t.spent_amount, t.spent_asset, t.received_amount, t.received_asset, \
+               t.fee_amount, t.fee_asset, i.provider \
+        FROM trades t \
+        INNER JOIN imports i ON i.id = t.import_id \
+        ORDER BY t.date ASC\
+    ",
+    )?;
     let rows = stmt.query_map([], |row| {
         let date = row.get::<_, String>(0)?;
         let spent_amount = row.get::<_, String>(1)?;
@@ -286,6 +300,7 @@ pub(crate) fn load_trades(conn: &Connection) -> DbResult<Vec<Trade>> {
         let received_asset = row.get::<_, String>(4)?;
         let fee_amount = row.get::<_, String>(5)?;
         let fee_asset: String = row.get(6)?;
+        let provider_str: String = row.get(7)?;
         Ok(Trade {
             date: parse_col::<DateTime<chrono::FixedOffset>>(&date, "trade.date")?
                 .with_timezone(&Utc),
@@ -301,6 +316,7 @@ pub(crate) fn load_trades(conn: &Connection) -> DbResult<Vec<Trade>> {
                 parse_col(&fee_amount, "trade.fee_amount")?,
                 Asset::from(fee_asset),
             ),
+            provider: parse_col(&provider_str, "imports.provider")?,
         })
     })?;
     let trades = rows.collect::<Result<Vec<_>, _>>()?;
@@ -377,6 +393,7 @@ mod tests {
             spent: AssetAmount::new(dec!(187.2514), Asset::Eur),
             received: AssetAmount::new(dec!(0.0020104289), Asset::Btc),
             fee: AssetAmount::new(dec!(0.749), Asset::Eur),
+            provider: Provider::Kraken,
         }
     }
 
@@ -400,7 +417,7 @@ mod tests {
     fn save_and_load_roundtrip() {
         let conn = test_conn();
         let trades = vec![sample_trade(2024, 1, 15), sample_trade(2024, 3, 20)];
-        save_trades(&conn, &trades).unwrap();
+        save_test_trades(&conn, &trades).unwrap();
         let loaded = load_trades(&conn).unwrap();
         assert_eq!(loaded, trades);
     }
@@ -415,7 +432,7 @@ mod tests {
     #[test]
     fn save_empty() {
         let conn = test_conn();
-        save_trades(&conn, &[]).unwrap();
+        save_test_trades(&conn, &[]).unwrap();
         let trades = load_trades(&conn).unwrap();
         assert!(trades.is_empty());
     }
@@ -506,7 +523,7 @@ mod tests {
             sample_trade(2024, 1, 1),
             sample_trade(2024, 6, 15),
         ];
-        save_trades(&conn, &trades).unwrap();
+        save_test_trades(&conn, &trades).unwrap();
         let loaded = load_trades(&conn).unwrap();
         assert_eq!(
             loaded[0].date,

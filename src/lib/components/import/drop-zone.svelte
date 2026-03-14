@@ -138,8 +138,8 @@
               {dragging ? "Drop your file here" : "Import your exchange CSV"}
             </p>
             <p class="mt-1 text-sm text-muted-foreground">
-              drop a file or <span class="text-primary underline underline-offset-2"
-                >browse</span
+              drop a file or <span
+                class="text-primary underline underline-offset-2">browse</span
               >
             </p>
           </div>

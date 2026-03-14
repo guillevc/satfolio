@@ -47,6 +47,7 @@
         return (
           date.includes(q) ||
           time.includes(q) ||
+          r.provider.includes(q) ||
           baseAmount(r).includes(q) ||
           String(pricePerUnit(r)).includes(q)
         );
@@ -207,7 +208,7 @@
       class="glass-panel mx-6 flex min-h-0 flex-1 flex-col **:data-[slot=table-container]:overflow-visible"
     >
       {#snippet colgroup()}
-        {#each ["15%", "7%", "12%", "12%", "9%", "11%", "14%", "14%"] as w, i (i)}
+        {#each ["18%", "8%", "8%", "12%", "12%", "10%", "10%", "12%", "10%"] as w, i (i)}
           <col style:width={w} />
         {/each}
       {/snippet}
