@@ -1,5 +1,5 @@
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig } from "vite";
+import { defineConfig } from "vitest/config";
 import { svelte } from "@sveltejs/vite-plugin-svelte";
 import path from "path";
 
@@ -26,6 +26,11 @@ export default defineConfig({
   resolve: {
     alias: {
       $lib: path.resolve("./src/lib"),
+    },
+  },
+  test: {
+    resolve: {
+      conditions: ["browser"],
     },
   },
 });

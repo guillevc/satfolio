@@ -8,7 +8,7 @@ satfolio — Tauri 2 desktop app. Frontend: `src/` (Svelte 5 + TypeScript). Back
 
 - Svelte 5 with `$state` runes, Vite 7, Tailwind CSS v4, TypeScript
 - Tauri 2 with `tauri-plugin-log`
-- shadcn/svelte for UI (components in `src/lib/components/ui/`, add via `pnpm dlx shadcn-svelte@next add <name>`)
+- shadcn/svelte for UI (components in `src/lib/components/ui/`, add via `pnpm dlx shadcn-svelte@latest add <name>`)
 - `tailwind-variants` for variant styling, `cn()` from `$lib/utils` for class merging
 - `@lucide/svelte` for icons
 - Path alias: `$lib` → `src/lib`
@@ -34,14 +34,12 @@ Available recipes:
     dev          # Run full Tauri desktop app [alias: d]
     dev-web      # Run Vite dev server only (:5173) [alias: dw]
 
-    [examples]
-    example name # Run a core example by name (e.g. just example parse_csv)
-
     [format]
     fmt          # Format all [alias: f]
     fmt-check    # Check formatting (no write)
 
     [gen]
+    gen-icons    # Generate app icons from SVG source
     gen-types    # Generate TS types from Rust models
 
     [lint]

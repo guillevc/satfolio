@@ -127,7 +127,7 @@ test-rust:
 [group('test')]
 [private]
 test-web:
-    @echo "test-web: not configured yet"
+    pnpm test
 
 # Gen
 [group('gen')]
