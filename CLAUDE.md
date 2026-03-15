@@ -2,7 +2,7 @@
 
 ## Project
 
-betc — Tauri 2 desktop app. Frontend: `src/` (Svelte 5 + TypeScript). Backend: `src-tauri/` (Rust).
+satfolio — Tauri 2 desktop app. Frontend: `src/` (Svelte 5 + TypeScript). Backend: `src-tauri/` (Rust).
 
 ## Stack
 

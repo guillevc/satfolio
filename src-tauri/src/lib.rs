@@ -126,7 +126,7 @@ pub fn run() {
             std::fs::create_dir_all(&data_dir)?;
 
             let cfg = AppConfig {
-                db_path: data_dir.join("betc.db"),
+                db_path: data_dir.join("satfolio.db"),
                 quote: Asset::Eur,
             };
 

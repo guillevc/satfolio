@@ -1,8 +1,8 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "betc",
+  "productName": "satfolio",
   "version": "0.1.0",
-  "identifier": "xyz.guillevc.betc",
+  "identifier": "dev.guillevc.satfolio",
   "build": {
     "frontendDist": "../dist",
     "devUrl": "http://localhost:5173",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "betc",
+        "title": "satfolio",
         "minWidth": 960,
         "minHeight": 640,
         "width": 1280,

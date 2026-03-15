@@ -31,7 +31,7 @@
 </script>
 
 <svelte:head>
-  <title>betc — {viewTitles[view]}</title>
+  <title>satfolio — {viewTitles[view]}</title>
 </svelte:head>
 
 <div

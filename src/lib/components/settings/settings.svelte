@@ -26,7 +26,7 @@
   onMount(async () => {
     try {
       const dir = await appDataDir();
-      dbPath = await join(dir, "betc.db");
+      dbPath = await join(dir, "satfolio.db");
     } catch {
       dbPath = "Unknown";
     }
@@ -116,7 +116,10 @@
       <div
         class="divide-y divide-border overflow-hidden rounded-xl border bg-card"
       >
-        <Row label="Database location" description="SQLite file used by betc.">
+        <Row
+          label="Database location"
+          description="SQLite file used by satfolio."
+        >
           <div class="flex items-center gap-2">
             <Input
               disabled
