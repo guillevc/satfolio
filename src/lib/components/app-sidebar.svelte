@@ -1,7 +1,7 @@
 <script lang="ts">
   import {
     ChartLineIcon,
-    UploadIcon,
+    ImportIcon,
     SettingsIcon,
     ArrowLeftRightIcon,
   } from "@lucide/svelte";
@@ -21,7 +21,7 @@
     [
       { view: "dashboard", icon: ChartLineIcon, label: "Dashboard" },
       { view: "trades", icon: ArrowLeftRightIcon, label: "Trades" },
-      { view: "import", icon: UploadIcon, label: "Import" },
+      { view: "import", icon: ImportIcon, label: "Import" },
     ];
 </script>
 

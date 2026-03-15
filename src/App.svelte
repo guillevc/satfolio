@@ -37,7 +37,7 @@
 <div
   class="flex h-screen flex-col overflow-hidden bg-background text-foreground"
 >
-  <TitleBar title={viewTitles[view]} />
+  <TitleBar />
 
   <div class="flex flex-1 overflow-hidden">
     <AppSidebar active={view} onnavigate={(v) => (view = v)} {hasImports} />

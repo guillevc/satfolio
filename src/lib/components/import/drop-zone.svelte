@@ -1,7 +1,7 @@
 <script lang="ts">
   import { getCurrentWebview } from "@tauri-apps/api/webview";
   import { open } from "@tauri-apps/plugin-dialog";
-  import { UploadIcon } from "@lucide/svelte";
+  import { ImportIcon } from "@lucide/svelte";
   import * as Card from "$lib/components/ui/card";
   import { Badge } from "$lib/components/ui/badge";
   import { providerMeta } from "$lib/utils/provider";
@@ -82,7 +82,7 @@
           dragging ? "bg-primary/20" : "bg-primary/10",
         ]}
       >
-        <UploadIcon class="size-5" />
+        <ImportIcon class="size-5" />
       </div>
       <div class="text-left">
         <p class="font-semibold text-foreground">
@@ -130,7 +130,7 @@
               dragging ? "bg-primary/20" : "bg-primary/10",
             ]}
           >
-            <UploadIcon class="size-7" />
+            <ImportIcon class="size-7" />
           </div>
 
           <div class="text-center">
