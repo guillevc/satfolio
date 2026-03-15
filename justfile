@@ -131,6 +131,12 @@ test-web:
 
 # Gen
 [group('gen')]
+[doc("Generate app icons from src-tauri/app-icon.svg")]
+gen-icons:
+    pnpm tauri icon src-tauri/app-icon.svg
+    rm -rf src-tauri/icons/ios src-tauri/icons/android
+
+[group('gen')]
 [doc("Generate TS types from Rust models")]
 gen-types:
     TS_RS_EXPORT_DIR="$(pwd)/src/lib/types/bindings" cargo test -p app-core export_bindings
