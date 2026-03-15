@@ -117,7 +117,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
       const meta = providerMeta[p];
       const snippet = createRawSnippet(() => ({
         render: () =>
-          `<span class="inline-flex size-5 items-center justify-center rounded-full text-[10px] font-bold ${meta.classes}" title="${meta.label}">${meta.initial}</span>`,
+          `<span class="inline-flex items-center rounded-full px-2.5 py-0.5 text-xs font-medium ${meta.classes}">${meta.label}</span>`,
       }));
       return renderSnippet(snippet);
     },
@@ -142,7 +142,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
     meta: { align: "right" },
     header: ({ column }) =>
       renderComponent(SortButton, {
-        label: "Amount (BTC)",
+        label: "BTC",
         sorted: column.getIsSorted(),
         onclick: column.getToggleSortingHandler()!,
       }),

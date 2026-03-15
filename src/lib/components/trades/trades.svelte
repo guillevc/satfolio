@@ -14,7 +14,6 @@
   } from "@tanstack/table-core";
   import { createSvelteTable, FlexRender } from "$lib/components/ui/data-table";
   import * as Table from "$lib/components/ui/table";
-  import { ScrollArea } from "$lib/components/ui/scroll-area";
   import { Input } from "$lib/components/ui/input";
   import { Button } from "$lib/components/ui/button";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
@@ -208,67 +207,69 @@
       class="glass-panel mx-6 flex min-h-0 flex-1 flex-col **:data-[slot=table-container]:overflow-visible"
     >
       {#snippet colgroup()}
-        {#each ["18%", "8%", "6%", "12%", "12%", "12%", "10%", "12%", "10%"] as w, i (i)}
+        {#each ["16%", "8%", "6%", "12%", "12%", "12%", "10%", "12%", "12%"] as w, i (i)}
           <col style:width={w} />
         {/each}
       {/snippet}
 
-      <!-- Fixed header -->
-      <Table.Root class="table-fixed">
-        {@render colgroup()}
-        <Table.Header>
-          {#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
-            <Table.Row class="border-b border-white/5 hover:bg-transparent">
-              {#each headerGroup.headers as header (header.id)}
-                <Table.Head
-                  class={`first:pl-4 ${header.column.getCanSort() ? "px-0" : ""} ${(header.column.columnDef.meta as Record<string, string>)?.align === "right" ? "text-end" : ""}`}
-                >
-                  {#if !header.isPlaceholder}
-                    <FlexRender
-                      content={header.column.columnDef.header}
-                      context={header.getContext()}
-                    />
-                  {/if}
-                </Table.Head>
+      <!-- Horizontal scroll wrapper (header + body only, footer stays outside) -->
+      <div class="min-h-0 flex-1 overflow-x-auto">
+        <div class="flex h-full min-w-[1100px] flex-col">
+          <!-- Fixed header -->
+          <Table.Root class="min-w-[1100px] table-fixed">
+            {@render colgroup()}
+            <Table.Header>
+              {#each table.getHeaderGroups() as headerGroup (headerGroup.id)}
+                <Table.Row class="border-b border-white/5 hover:bg-transparent">
+                  {#each headerGroup.headers as header (header.id)}
+                    <Table.Head
+                      class={`first:pl-4 ${header.column.getCanSort() ? "px-0" : ""} ${(header.column.columnDef.meta as Record<string, string>)?.align === "right" ? "text-end" : ""}`}
+                    >
+                      {#if !header.isPlaceholder}
+                        <FlexRender
+                          content={header.column.columnDef.header}
+                          context={header.getContext()}
+                        />
+                      {/if}
+                    </Table.Head>
+                  {/each}
+                </Table.Row>
               {/each}
-            </Table.Row>
-          {/each}
-        </Table.Header>
-      </Table.Root>
+            </Table.Header>
+          </Table.Root>
 
-      <!-- Scrollable body -->
-      <ScrollArea
-        bind:ref={scrollRef}
-        class="min-h-0 flex-1"
-        orientation="vertical"
-      >
-        <Table.Root class="table-fixed">
-          {@render colgroup()}
-          <Table.Body>
-            {#each table.getRowModel().rows as row (row.id)}
-              <Table.Row class="border-b border-white/5">
-                {#each row.getVisibleCells() as cell (cell.id)}
-                  <Table.Cell class="first:pl-6 last:pr-6">
-                    <FlexRender
-                      content={cell.column.columnDef.cell}
-                      context={cell.getContext()}
-                    />
-                  </Table.Cell>
+          <!-- Scrollable body -->
+          <!-- Body (page size auto-fits, no vertical scroll needed) -->
+          <div bind:this={scrollRef} class="min-h-0 flex-1 overflow-hidden">
+            <Table.Root class="min-w-[1100px] table-fixed">
+              {@render colgroup()}
+              <Table.Body>
+                {#each table.getRowModel().rows as row (row.id)}
+                  <Table.Row class="border-b border-white/5">
+                    {#each row.getVisibleCells() as cell (cell.id)}
+                      <Table.Cell class="first:pl-6 last:pr-6">
+                        <FlexRender
+                          content={cell.column.columnDef.cell}
+                          context={cell.getContext()}
+                        />
+                      </Table.Cell>
+                    {/each}
+                  </Table.Row>
+                {:else}
+                  <Table.Row>
+                    <Table.Cell
+                      colspan={columns.length}
+                      class="text-muted-foreground py-8 text-center"
+                    >
+                      No trades match your search.
+                    </Table.Cell>
+                  </Table.Row>
                 {/each}
-              </Table.Row>
-            {:else}
-              <Table.Row>
-                <Table.Cell
-                  colspan={columns.length}
-                  class="text-muted-foreground py-8 text-center"
-                >
-                  No trades match your search.
-                </Table.Cell>
-              </Table.Row>
-            {/each}
-          </Table.Body>
-        </Table.Root>
-      </ScrollArea>
+              </Table.Body>
+            </Table.Root>
+          </div>
+        </div>
+      </div>
 
       <!-- Footer (outside scroll area so it sticks to the bottom) -->
       {#if total > 0}
