@@ -135,6 +135,15 @@ test-web:
 gen-types:
     TS_RS_EXPORT_DIR="$(pwd)/src/lib/types/bindings" cargo test -p app-core export_bindings
 
+# Release
+[group('release')]
+[doc("Bump version everywhere (e.g. just version 1.0.0)")]
+version v:
+    node -e "let p='package.json',j=JSON.parse(require('fs').readFileSync(p));j.version='{{v}}';require('fs').writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
+    sed -i '' '3s/version = "[^"]*"/version = "{{v}}"/' src-tauri/Cargo.toml
+    sed -i '' '3s/version = "[^"]*"/version = "{{v}}"/' crates/core/Cargo.toml
+    @echo "v{{v}}"
+
 # Dev utilities
 [group('dev')]
 [doc("Open local SQLite database in VS Code")]
