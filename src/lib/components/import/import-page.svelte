@@ -112,7 +112,7 @@
     </div>
   {:else if hasFiles}
     <div class="flex h-8 items-center px-6">
-      <h2 class="text-xl font-semibold">Import Transactions</h2>
+      <h2 class="text-xl font-semibold">Import</h2>
     </div>
 
     <Separator class="mt-4 mb-6" />

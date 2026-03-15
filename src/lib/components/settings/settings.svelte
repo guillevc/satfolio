@@ -1,22 +1,32 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import { appDataDir } from "@tauri-apps/api/path";
-  import { Trash2Icon } from "@lucide/svelte";
+  import { appDataDir, join } from "@tauri-apps/api/path";
+  import { revealItemInDir } from "@tauri-apps/plugin-opener";
+  import {
+    CheckIcon,
+    CopyIcon,
+    FolderOpenIcon,
+    Trash2Icon,
+  } from "@lucide/svelte";
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
   import { Button } from "$lib/components/ui/button";
-  import * as Card from "$lib/components/ui/card";
   import { Input } from "$lib/components/ui/input";
-  import { Label } from "$lib/components/ui/label";
   import { Separator } from "$lib/components/ui/separator";
+  import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import { nukeAllData } from "$lib/api";
+  import Row from "./settings-row.svelte";
 
   let dbPath = $state("Loading\u2026");
   let nukeDialogOpen = $state(false);
+  let copied = $state(false);
+
+  let baseCurrency = $state("EUR");
+  let bitcoinUnit = $state("BTC");
 
   onMount(async () => {
     try {
       const dir = await appDataDir();
-      dbPath = `${dir}betc.db`;
+      dbPath = await join(dir, "betc.db");
     } catch {
       dbPath = "Unknown";
     }
@@ -29,93 +39,134 @@
 </script>
 
 <div class="flex flex-1 flex-col overflow-auto py-4">
-  <div class="flex h-8 items-center px-6">
-    <h2 class="text-xl font-semibold">Settings</h2>
+  <div class="flex items-center px-6">
+    <h2 class="h-8 text-xl font-semibold">Settings</h2>
   </div>
 
   <Separator class="mt-4 mb-6" />
 
-  <div class="flex flex-col gap-6 px-6">
-    <Card.Root>
-      <Card.Header>
-        <Card.Title>Trading Pair</Card.Title>
-        <Card.Description>
-          The base asset and quote currency used for tracking trades.
-        </Card.Description>
-      </Card.Header>
-      <Card.Content class="grid gap-4 sm:grid-cols-2">
-        <div class="flex flex-col gap-2">
-          <Label>Base asset</Label>
-          <Input disabled value="BTC" />
-          <p class="text-xs text-muted-foreground">
-            Configurable in a future release.
-          </p>
-        </div>
-        <div class="flex flex-col gap-2">
-          <Label>Quote currency</Label>
-          <Input disabled value="EUR" />
-          <p class="text-xs text-muted-foreground">
-            Configurable in a future release.
-          </p>
-        </div>
-      </Card.Content>
-    </Card.Root>
+  <div class="flex flex-col gap-8 px-6">
+    <!-- Currency -->
+    <section>
+      <h3 class="mb-3 text-lg font-semibold">Currency</h3>
+      <div
+        class="divide-y divide-border overflow-hidden rounded-xl border bg-card"
+      >
+        <Row label="Currency" description="Quote currency for all price data.">
+          <ToggleGroup.Root
+            type="single"
+            value={baseCurrency}
+            onValueChange={(v) => {
+              if (v) baseCurrency = v;
+            }}
+            variant="outline"
+            size="sm"
+            disabled
+          >
+            <ToggleGroup.Item
+              value="EUR"
+              class="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              >EUR</ToggleGroup.Item
+            >
+            <ToggleGroup.Item
+              value="USD"
+              class="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              >USD</ToggleGroup.Item
+            >
+            <ToggleGroup.Item
+              value="GBP"
+              class="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              >GBP</ToggleGroup.Item
+            >
+          </ToggleGroup.Root>
+        </Row>
 
-    <Card.Root>
-      <Card.Header>
-        <Card.Title>Display</Card.Title>
-        <Card.Description>
-          How dates and times are shown throughout the app.
-        </Card.Description>
-      </Card.Header>
-      <Card.Content class="grid gap-4 sm:grid-cols-2">
-        <div class="flex flex-col gap-2">
-          <Label>Date format</Label>
-          <Input disabled value="YYYY-MM-DD" />
-          <p class="text-xs text-muted-foreground">
-            Configurable in a future release.
-          </p>
-        </div>
-        <div class="flex flex-col gap-2">
-          <Label>Timezone</Label>
-          <Input disabled value="UTC" />
-          <p class="text-xs text-muted-foreground">
-            Configurable in a future release.
-          </p>
-        </div>
-      </Card.Content>
-    </Card.Root>
+        <Row
+          label="Bitcoin Units"
+          description="Display amounts in whole BTC or satoshis."
+        >
+          <ToggleGroup.Root
+            type="single"
+            value={bitcoinUnit}
+            onValueChange={(v) => {
+              if (v) bitcoinUnit = v;
+            }}
+            variant="outline"
+            size="sm"
+            disabled
+          >
+            <ToggleGroup.Item
+              value="BTC"
+              class="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              >BTC</ToggleGroup.Item
+            >
+            <ToggleGroup.Item
+              value="sats"
+              class="data-[state=on]:bg-primary data-[state=on]:text-primary-foreground"
+              >sats</ToggleGroup.Item
+            >
+          </ToggleGroup.Root>
+        </Row>
+      </div>
+    </section>
 
-    <Card.Root>
-      <Card.Header>
-        <Card.Title>Data</Card.Title>
-        <Card.Description>
-          Where your trade data is stored on disk.
-        </Card.Description>
-      </Card.Header>
-      <Card.Content>
-        <div class="flex flex-col gap-2">
-          <Label>Database location</Label>
-          <Input disabled value={dbPath} />
-          <p class="text-xs text-muted-foreground">
-            The SQLite database file used by betc.
-          </p>
-        </div>
-      </Card.Content>
-    </Card.Root>
+    <!-- Data -->
+    <section>
+      <h3 class="mb-3 text-lg font-semibold">Data</h3>
+      <div
+        class="divide-y divide-border overflow-hidden rounded-xl border bg-card"
+      >
+        <Row label="Database location" description="SQLite file used by betc.">
+          <div class="flex items-center gap-2">
+            <Input
+              disabled
+              value={dbPath}
+              size={dbPath.length}
+              class="font-mono text-xs"
+            />
+            <Button
+              variant="outline"
+              size="icon"
+              class="size-9"
+              disabled={dbPath === "Loading\u2026" || dbPath === "Unknown"}
+              onclick={() => {
+                navigator.clipboard.writeText(dbPath);
+                copied = true;
+                setTimeout(() => (copied = false), 2000);
+              }}
+            >
+              {#if copied}
+                <CheckIcon class="size-4" />
+              {:else}
+                <CopyIcon class="size-4" />
+              {/if}
+            </Button>
+            <Button
+              variant="outline"
+              size="icon"
+              class="size-9"
+              disabled={dbPath === "Loading\u2026" || dbPath === "Unknown"}
+              onclick={() => revealItemInDir(dbPath)}
+            >
+              <FolderOpenIcon class="size-4" />
+            </Button>
+          </div>
+        </Row>
+      </div>
+    </section>
 
-    <Card.Root class="border-destructive/30">
-      <Card.Header>
-        <Card.Title>Danger Zone</Card.Title>
-        <Card.Description>
-          Irreversible actions that affect all your data.
-        </Card.Description>
-      </Card.Header>
-      <Card.Content>
+    <!-- Danger Zone -->
+    <section>
+      <h3 class="mb-3 text-lg font-semibold text-destructive">Danger Zone</h3>
+      <div
+        class="overflow-hidden rounded-xl border border-destructive/30 bg-destructive/5 p-5"
+      >
         <div class="flex items-center justify-between gap-4">
-          <div>
-            <p class="text-sm font-medium">Delete all data</p>
-            <p class="text-xs text-muted-foreground">
+          <div class="space-y-1">
+            <p class="text-sm font-semibold text-destructive">
+              Delete all data
+            </p>
+            <p class="max-w-md text-xs text-destructive/70">
               Permanently remove all imports, trades, and price history. You
               will need to re-import your CSV files to restore data.
             </p>
@@ -147,7 +198,7 @@
             </AlertDialog.Content>
           </AlertDialog.Root>
         </div>
-      </Card.Content>
-    </Card.Root>
+      </div>
+    </section>
   </div>
 </div>

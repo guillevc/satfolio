@@ -13,6 +13,3 @@ src/lib/components/ui
 src/lib/types/bindings
 pnpm-lock.yaml
 skills-lock.json
-
-# Data files
-*.csv
