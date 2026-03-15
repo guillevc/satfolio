@@ -7,68 +7,67 @@
   import * as Card from "$lib/components/ui/card";
 </script>
 
-<div class="grid grid-cols-3 gap-4">
-  <!-- Kraken -->
+<div class="grid grid-cols-2 gap-4">
+  <!-- How to export -->
   <Card.Root class="glass-panel gap-3 py-5 shadow-none">
     <Card.Header class="gap-1 px-5">
       <div class="flex items-center gap-2 text-muted-foreground">
         <div
-          class="flex size-8 shrink-0 items-center justify-center rounded-full bg-purple-500/10 text-purple-400"
+          class="flex size-8 shrink-0 items-center justify-center rounded-full bg-muted text-muted-foreground"
         >
           <FileQuestionMarkIcon class="size-4" />
         </div>
         <Card.Description class="tracking-wide text-foreground">
-          Export from Kraken
+          How to export your data
         </Card.Description>
       </div>
     </Card.Header>
-    <Card.Content class="px-5">
-      <p class="text-sm leading-relaxed text-muted-foreground">
-        Go to History, click Export, and select
-        <span class="text-foreground">Ledgers</span> as the export type. Export as
-        CSV.
-      </p>
-      <a
-        href="https://support.kraken.com/articles/208267878-how-to-export-your-account-history"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
-      >
-        Export guide
-        <ExternalLinkIcon class="size-3" />
-      </a>
-    </Card.Content>
-  </Card.Root>
-
-  <!-- Coinbase -->
-  <Card.Root class="glass-panel gap-3 py-5 shadow-none">
-    <Card.Header class="gap-1 px-5">
-      <div class="flex items-center gap-2 text-muted-foreground">
+    <Card.Content class="flex flex-col gap-4 px-5">
+      <div class="flex items-start gap-3">
         <div
-          class="flex size-8 shrink-0 items-center justify-center rounded-full bg-blue-500/10 text-blue-400"
+          class="flex size-7 shrink-0 items-center justify-center rounded-md bg-purple-500/20 text-xs font-bold text-purple-400"
         >
-          <FileQuestionMarkIcon class="size-4" />
+          K
         </div>
-        <Card.Description class="tracking-wide text-foreground">
-          Export from Coinbase
-        </Card.Description>
+        <div>
+          <p class="text-sm leading-relaxed text-muted-foreground">
+            <span class="font-medium text-foreground">Kraken</span> — Go to
+            History, click Export, select Ledgers, and export as CSV.
+            <a
+              href="https://support.kraken.com/articles/208267878-how-to-export-your-account-history"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-0.5 text-primary hover:underline"
+            >
+              Guide
+              <ExternalLinkIcon class="size-3" />
+            </a>
+          </p>
+        </div>
       </div>
-    </Card.Header>
-    <Card.Content class="px-5">
-      <p class="text-sm leading-relaxed text-muted-foreground">
-        Open the Taxes section, go to Transaction history, and click
-        <span class="text-foreground">Generate report</span>. Download the CSV
-        file.
-      </p>
-      <a
-        href="https://help.coinbase.com/en/coinbase/taxes/tools/transaction-history"
-        target="_blank"
-        rel="noopener noreferrer"
-        class="mt-2 inline-flex items-center gap-1 text-sm text-primary hover:underline"
-      >
-        Export guide
-        <ExternalLinkIcon class="size-3" />
-      </a>
+      <div class="flex items-start gap-3">
+        <div
+          class="flex size-7 shrink-0 items-center justify-center rounded-md bg-blue-500/20 text-xs font-bold text-blue-400"
+        >
+          C
+        </div>
+        <div>
+          <p class="text-sm leading-relaxed text-muted-foreground">
+            <span class="font-medium text-foreground">Coinbase</span> — Open
+            Taxes, go to Transaction history, click Generate report, and
+            download the CSV.
+            <a
+              href="https://help.coinbase.com/en/coinbase/taxes/tools/transaction-history"
+              target="_blank"
+              rel="noopener noreferrer"
+              class="inline-flex items-center gap-0.5 text-primary hover:underline"
+            >
+              Guide
+              <ExternalLinkIcon class="size-3" />
+            </a>
+          </p>
+        </div>
+      </div>
     </Card.Content>
   </Card.Root>
 
@@ -88,11 +87,8 @@
     </Card.Header>
     <Card.Content class="px-5">
       <p class="text-sm leading-relaxed text-muted-foreground">
-        Your data is processed <span class="text-foreground"
-          >entirely locally</span
-        >
-        on your machine. No financial information is ever sent to external servers
-        or cloud storage.
+        Your data is processed entirely locally on your machine. No financial
+        information is ever sent to external servers or cloud storage.
       </p>
     </Card.Content>
   </Card.Root>

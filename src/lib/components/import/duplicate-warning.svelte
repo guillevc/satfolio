@@ -11,34 +11,25 @@
 </script>
 
 <Dialog.Header>
-  <Dialog.Title>
-    {mode === "file" ? "Duplicate File" : "No New Data"}
-  </Dialog.Title>
-  <Dialog.Description>Nothing new to import.</Dialog.Description>
-</Dialog.Header>
-
-<div
-  class="flex items-start gap-3 rounded-lg border border-yellow-500/20 bg-yellow-500/5 px-4 py-3"
->
-  <AlertTriangleIcon class="mt-0.5 size-5 shrink-0 text-yellow-500" />
-  <div class="text-sm">
-    {#if mode === "file"}
-      <p class="font-medium text-yellow-500">
-        &ldquo;{filename}&rdquo; already imported
-      </p>
-      <p class="mt-1 text-muted-foreground">
-        This file has already been imported (verified by content hash).
-      </p>
-    {:else}
-      <p class="font-medium text-yellow-500">
-        All {count} trades already exist
-      </p>
-      <p class="mt-1 text-muted-foreground">
-        All {count} trades in this file already exist in the database.
-      </p>
-    {/if}
+  <div class="flex items-center gap-3">
+    <div
+      class="flex size-9 shrink-0 items-center justify-center rounded-full bg-yellow-500/10"
+    >
+      <AlertTriangleIcon class="size-5 text-yellow-500" />
+    </div>
+    <Dialog.Title>
+      {mode === "file" ? "Duplicate File" : "No New Data"}
+    </Dialog.Title>
   </div>
-</div>
+  <Dialog.Description class="mt-2">
+    {#if mode === "file"}
+      &ldquo;{filename}&rdquo; has already been imported (verified by content
+      hash).
+    {:else}
+      All {count} trades in this file already exist in the database.
+    {/if}
+  </Dialog.Description>
+</Dialog.Header>
 
 <Dialog.Footer>
   <Button variant="outline" onclick={onclose}>Close</Button>

@@ -26,7 +26,7 @@
 </script>
 
 {#snippet navItem(view: View, Icon: typeof ChartLineIcon, label: string)}
-  {@const disabled = !hasImports && view !== "import"}
+  {@const disabled = !hasImports && view !== "import" && view !== "settings"}
   <Tooltip.Root>
     <Tooltip.Trigger>
       <button

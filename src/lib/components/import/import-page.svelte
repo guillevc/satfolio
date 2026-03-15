@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { AlertCircleIcon, RotateCcwIcon } from "@lucide/svelte";
+  import { AlertCircleIcon } from "@lucide/svelte";
   import { Spinner } from "$lib/components/ui/spinner";
   import { previewImport, confirmImport } from "$lib/api";
   import { loadDashboard } from "$lib/stores/dashboard.svelte";
@@ -170,24 +170,20 @@
       />
     {:else if dialogState.step === "error"}
       <Dialog.Header>
-        <Dialog.Title>Import Failed</Dialog.Title>
-        <Dialog.Description>{dialogState.message}</Dialog.Description>
+        <div class="flex items-center gap-3">
+          <div
+            class="flex size-9 shrink-0 items-center justify-center rounded-full bg-destructive/10"
+          >
+            <AlertCircleIcon class="size-5 text-destructive" />
+          </div>
+          <Dialog.Title>Import Failed</Dialog.Title>
+        </div>
+        <Dialog.Description class="mt-2">
+          {dialogState.message}
+        </Dialog.Description>
       </Dialog.Header>
-      <div class="flex flex-col items-center gap-4 py-4">
-        <AlertCircleIcon class="size-12 text-destructive" />
-      </div>
       <Dialog.Footer>
-        <Button
-          variant="outline"
-          onclick={() => {
-            if (dialogState.step === "error")
-              handleFileSelected(dialogState.path);
-          }}
-        >
-          <RotateCcwIcon class="size-4" />
-          Try Again
-        </Button>
-        <Button variant="ghost" onclick={handleCancel}>Cancel</Button>
+        <Button variant="outline" onclick={handleCancel}>Close</Button>
       </Dialog.Footer>
     {/if}
   </Dialog.Content>
