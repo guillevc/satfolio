@@ -35,7 +35,7 @@
 
   let filteredData = $derived.by(() => {
     if (!trades.rows) return [];
-    let rows = trades.rows;
+    let rows = trades.rows.filter((r) => r.side !== null);
 
     if (activeFilter === "buy") rows = rows.filter((r) => isBuy(r));
     else if (activeFilter === "sell") rows = rows.filter((r) => !isBuy(r));
@@ -121,7 +121,7 @@
   // ── Summary stats (from raw data, not filtered) ──────────
 
   let summaryStats = $derived.by(() => {
-    const rows = trades.rows;
+    const rows = trades.rows?.filter((r) => r.side !== null);
     if (!rows || rows.length === 0) return null;
     const buys = rows.filter((r) => isBuy(r)).length;
     const sells = rows.filter((r) => !isBuy(r)).length;
@@ -208,7 +208,7 @@
       class="glass-panel mx-6 flex min-h-0 flex-1 flex-col **:data-[slot=table-container]:overflow-visible"
     >
       {#snippet colgroup()}
-        {#each ["18%", "8%", "8%", "12%", "12%", "10%", "10%", "12%", "10%"] as w, i (i)}
+        {#each ["18%", "8%", "6%", "12%", "12%", "12%", "10%", "12%", "10%"] as w, i (i)}
           <col style:width={w} />
         {/each}
       {/snippet}

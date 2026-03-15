@@ -12,6 +12,7 @@ import TypeCell from "./type-cell.svelte";
 // ── Constants & helpers (shared with trades.svelte) ─────────
 
 const QUOTE_ASSET = "EUR";
+const FIAT_ASSETS = new Set(["EUR", "USD", "GBP"]);
 
 export function isBuy(t: EnrichedTrade): boolean {
   return t.spent.asset === QUOTE_ASSET;
@@ -188,7 +189,10 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
         onclick: column.getToggleSortingHandler()!,
       }),
     cell: ({ row }) => {
-      const text = formatFiat(row.getValue("fees") as number);
+      const fee = row.original.fee;
+      const text = FIAT_ASSETS.has(fee.asset)
+        ? formatFiat(fee.amount)
+        : `${parseFloat(fee.amount).toFixed(8)} ${fee.asset}`;
       const snippet = createRawSnippet(() => ({
         render: () =>
           `<div class="text-muted-foreground text-right font-mono tabular-nums">${text}</div>`,

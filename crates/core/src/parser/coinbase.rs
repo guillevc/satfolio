@@ -204,7 +204,7 @@ mod tests {
                 "You can use this transaction report\n\
                  \n\
                  {CSV_HEADER}\n\
-                 2025-01-15T10:30:00Z,Buy,BTC,0.00150000,EUR,62000.00,93.00,95.79,2.79,Bought BTC"
+                 2025-01-15T10:30:00Z,Buy,BTC,0.00150000,EUR,97500.00,146.25,150.64,4.39,Bought BTC"
             );
             let f = csv_tempfile(&csv);
             let rows = parse_csv_rows(f.path()).unwrap();
@@ -216,7 +216,7 @@ mod tests {
         fn no_preamble() {
             let csv = format!(
                 "{CSV_HEADER}\n\
-                 2025-01-15T10:30:00Z,Buy,BTC,0.00150000,EUR,62000.00,93.00,95.79,2.79,Bought BTC"
+                 2025-01-15T10:30:00Z,Buy,BTC,0.00150000,EUR,97500.00,146.25,150.64,4.39,Bought BTC"
             );
             let f = csv_tempfile(&csv);
             let rows = parse_csv_rows(f.path()).unwrap();
@@ -504,35 +504,35 @@ mod tests {
             }
 
             // Trade 1: Buy BTC 2025-01-15
-            assert_eq!(trades[0].spent.amount(), dec!(93.00));
+            assert_eq!(trades[0].spent.amount(), dec!(146.25));
             assert_eq!(*trades[0].spent.asset(), Asset::Eur);
             assert_eq!(trades[0].received.amount(), dec!(0.00150000));
             assert_eq!(*trades[0].received.asset(), Asset::Btc);
-            assert_eq!(trades[0].fee.amount(), dec!(2.79));
+            assert_eq!(trades[0].fee.amount(), dec!(4.39));
 
             // Trade 2: Buy BTC 2025-02-01
-            assert_eq!(trades[1].spent.amount(), dec!(123.00));
+            assert_eq!(trades[1].spent.amount(), dec!(194.72));
             assert_eq!(trades[1].received.amount(), dec!(0.00200000));
 
             // Trade 3: Sell BTC 2025-02-10
             assert_eq!(trades[2].spent.amount(), dec!(0.00100000));
             assert_eq!(*trades[2].spent.asset(), Asset::Btc);
-            assert_eq!(trades[2].received.amount(), dec!(63.00));
+            assert_eq!(trades[2].received.amount(), dec!(94.59));
             assert_eq!(*trades[2].received.asset(), Asset::Eur);
-            assert_eq!(trades[2].fee.amount(), dec!(1.89));
+            assert_eq!(trades[2].fee.amount(), dec!(2.84));
 
             // Trade 4: Advanced Trade Buy 2025-03-05
             assert_eq!(trades[3].received.amount(), dec!(0.00300000));
-            assert_eq!(trades[3].spent.amount(), dec!(180.00));
+            assert_eq!(trades[3].spent.amount(), dec!(251.97));
 
             // Trade 5: Advanced Trade Sell 2025-03-15
             assert_eq!(trades[4].spent.amount(), dec!(0.00200000));
             assert_eq!(*trades[4].spent.asset(), Asset::Btc);
-            assert_eq!(trades[4].received.amount(), dec!(128.00));
+            assert_eq!(trades[4].received.amount(), dec!(155.16));
 
             // Trade 6: Advance Trade Buy (typo variant) 2025-04-05
             assert_eq!(trades[5].received.amount(), dec!(0.00100000));
-            assert_eq!(trades[5].fee.amount(), dec!(1.95));
+            assert_eq!(trades[5].fee.amount(), dec!(2.28));
 
             // Trade 7: Buy GRT 2025-05-01 (non-BTC asset → Asset::Other)
             assert_eq!(*trades[6].received.asset(), Asset::Other("GRT".into()));
