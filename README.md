@@ -1,47 +1,92 @@
-# Svelte + TS + Vite
+# Satfolio
 
-This template should help get you started developing with Svelte and TypeScript in Vite.
+A desktop app for tracking Bitcoin trades and portfolio performance. Import CSV ledgers from Kraken or Coinbase, visualize price history with your trades overlaid, and see your position, break-even price, and P&L at a glance.
 
-## Recommended IDE Setup
+Built with [Tauri 2](https://v2.tauri.app), Svelte 5, and Rust.
 
-[VS Code](https://code.visualstudio.com/) + [Svelte](https://marketplace.visualstudio.com/items?itemName=svelte.svelte-vscode).
+## Features
 
-## Need an official Svelte framework?
+- **Import trades** from Kraken and Coinbase CSV exports, with automatic duplicate detection
+- **Dashboard** with current BTC price, break-even price, position value, and unrealized P&L
+- **Price chart** with daily candles and trade history overlay
+- **Trade history** table with per-trade break-even price and realized P&L
+- **Multi-currency** support (EUR, USD, GBP)
+- **Local-only** — your data stays on your machine in a SQLite database
 
-Check out [SvelteKit](https://github.com/sveltejs/kit#readme), which is also powered by Vite. Deploy anywhere with its serverless-first approach and adapt to various platforms, with out of the box support for TypeScript, SCSS, and Less, and easily-added support for mdsvex, GraphQL, PostCSS, Tailwind CSS, and more.
+## Install
 
-## Technical considerations
+Download the latest release from the [Releases](https://github.com/guillevc/satfolio/releases) page:
 
-**Why use this over SvelteKit?**
+| Platform | File |
+|----------|------|
+| macOS (Apple Silicon) | `.dmg` |
+| macOS (Intel) | `.dmg` |
+| Linux (x64) | `.deb` or `.AppImage` |
 
-- It brings its own routing solution which might not be preferable for some users.
-- It is first and foremost a framework that just happens to use Vite under the hood, not a Vite app.
+### macOS installation note
 
-This template contains as little as possible to get started with Vite + TypeScript + Svelte, while taking into account the developer experience with regards to HMR and intellisense. It demonstrates capabilities on par with the other `create-vite` templates and is a good starting point for beginners dipping their toes into a Vite + Svelte project.
+Satfolio is not signed with an Apple Developer certificate, so macOS will show a security warning on first launch. This is normal for independent open-source software.
 
-Should you later need the extended capabilities and extensibility provided by SvelteKit, the template has been structured similarly to SvelteKit so that it is easy to migrate.
+1. Open the `.dmg` and drag Satfolio to Applications
+2. Try to open Satfolio — macOS will block it
+3. Go to **System Settings > Privacy & Security**
+4. Scroll to **Security** — you'll see a message about Satfolio being blocked
+5. Click **Open Anyway** and confirm with your password
+6. This is only needed once
 
-**Why `global.d.ts` instead of `compilerOptions.types` inside `jsconfig.json` or `tsconfig.json`?**
+Alternatively, for technical users:
 
-Setting `compilerOptions.types` shuts out all other types not explicitly listed in the configuration. Using triple-slash references keeps the default TypeScript setting of accepting type information from the entire workspace, while also adding `svelte` and `vite/client` type information.
-
-**Why include `.vscode/extensions.json`?**
-
-Other templates indirectly recommend extensions via the README, but this file allows VS Code to prompt the user to install the recommended extension upon opening the project.
-
-**Why enable `allowJs` in the TS template?**
-
-While `allowJs: false` would indeed prevent the use of `.js` files in the project, it does not prevent the use of JavaScript syntax in `.svelte` files. In addition, it would force `checkJs: false`, bringing the worst of both worlds: not being able to guarantee the entire codebase is TypeScript, and also having worse typechecking for the existing JavaScript. In addition, there are valid use cases in which a mixed codebase may be relevant.
-
-**Why is HMR not preserving my local component state?**
-
-HMR state preservation comes with a number of gotchas! It has been disabled by default in both `svelte-hmr` and `@sveltejs/vite-plugin-svelte` due to its often surprising behavior. You can read the details [here](https://github.com/rixo/svelte-hmr#svelte-hmr).
-
-If you have state that's important to retain within a component, consider creating an external store which would not be replaced by HMR.
-
-```ts
-// store.ts
-// An extremely simple external store
-import { writable } from "svelte/store";
-export default writable(0);
+```sh
+xattr -d com.apple.quarantine /Applications/Satfolio.app
 ```
+
+## Security & trust
+
+Satfolio is local-only. There are no analytics, no telemetry, and no network calls except fetching the current BTC price from Kraken's public API.
+
+### Why no Apple code signing?
+
+Apple's Developer Program costs $99/year and requires identity verification. Satfolio is a free, open-source tool. Instead of paying for a signature, every release is built transparently in public CI with cryptographic provenance you can verify yourself.
+
+### Verifying a release
+
+Every release artifact has:
+
+- **SHA-256 checksums** in `SHA256SUMS.txt` attached to the release
+- **Build provenance attestations** signed via Sigstore through GitHub Actions ([SLSA Build L2](https://slsa.dev))
+
+```sh
+# Check file integrity
+shasum -a 256 --check SHA256SUMS.txt
+
+# Verify build provenance (requires GitHub CLI)
+gh attestation verify <filename> --owner guillevc
+```
+
+## Build from source
+
+If you prefer not to trust pre-built binaries:
+
+```sh
+git clone https://github.com/guillevc/satfolio.git
+cd satfolio
+just install
+just build
+```
+
+Requires: Rust (see `rust-toolchain.toml`), Node.js, pnpm, and [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/).
+
+## Development
+
+```sh
+just install   # Install dependencies
+just dev       # Run Tauri desktop app
+just check     # Typecheck + lint + format check
+just test      # Run all tests
+```
+
+Run `just` to see all available recipes.
+
+## License
+
+MIT

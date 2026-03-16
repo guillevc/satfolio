@@ -65,6 +65,32 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: "Satfolio v__VERSION__"
+          releaseBody: |
+            See the [full changelog](https://github.com/guillevc/satfolio/compare/v...v__VERSION__) or edit this draft to add release notes before publishing.
+
+            ## Install
+
+            | Platform | File |
+            |----------|------|
+            | macOS (Apple Silicon) | `Satfolio_v__VERSION___aarch64.dmg` |
+            | macOS (Intel) | `Satfolio_v__VERSION___x64.dmg` |
+            | Linux (x64) | `.deb` or `.AppImage` |
+
+            ### macOS note
+
+            macOS will show a security warning on first launch since Satfolio is not signed with an Apple Developer certificate. Go to **System Settings > Privacy & Security** and click **Open Anyway**. This is only needed once. See the [README](https://github.com/guillevc/satfolio#macos-installation-note) for details.
+
+            ## Verify this release
+
+            Every artifact is built in public CI and attested with [GitHub Artifact Attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations) (SLSA Build L2).
+
+            ```sh
+            # Check file integrity
+            shasum -a 256 --check SHA256SUMS.txt
+
+            # Verify build provenance (requires GitHub CLI)
+            gh attestation verify <filename> --owner guillevc
+            ```
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
