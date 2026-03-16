@@ -1,5 +1,5 @@
 <h1>
-  satfolio <img src="https://img.shields.io/github/actions/workflow/status/guillevc/satfolio/ci.yaml?style=flat&labelColor=black&label=ci" alt="CI" /></a>
+  satfolio <img src="https://img.shields.io/github/actions/workflow/status/guillevc/satfolio/ci.yaml?style=flat&labelColor=black&label=ci" alt="CI" />
 </h1>
 
 A desktop app to track your Bitcoin portfolio. Import your trade history from Kraken or Coinbase, and see your position, break-even price, and P&L — all stored locally on your machine.
@@ -12,8 +12,9 @@ A desktop app to track your Bitcoin portfolio. Import your trade history from Kr
 - **Dashboard** showing current BTC price, break-even price, position value, and unrealized P&L
 - **Price chart** with daily candles and your trade history overlaid
 - **Trade history** table with per-trade cost basis, break-even price, and realized P&L
-- ~~**Multi-currency** — track in EUR, USD, or GBP~~
 - **Private by default** — no accounts, no analytics, no telemetry. Data stays in a local SQLite database. The only network call is fetching the current BTC price from Kraken's public API.
+
+**Planned:** multi-currency support (EUR, USD, GBP).
 
 ## Install
 
@@ -25,7 +26,10 @@ Download the latest release from the [Releases](https://github.com/guillevc/satf
 | macOS (Intel)         | `Satfolio_<version>_x64.dmg`     |
 | Linux (x64)           | `.deb`, `.rpm`, or `.AppImage`   |
 
-### macOS installation
+### macOS
+
+> [!NOTE]
+> macOS shows a warning because Satfolio isn't signed through Apple's paid developer program. The app is open source and every release is verifiably built from this repo — see [Security & trust](#security--trust).
 
 1. Open the `.dmg` and drag Satfolio to **Applications**
 2. Try to open Satfolio — macOS will show a warning and block it
@@ -43,15 +47,15 @@ xattr -d com.apple.quarantine /Applications/Satfolio.app
 
 ## Security & trust
 
-This project is free and open source. Apple's Developer Program costs 99€/year, so instead of paying for a code signature, every release is built transparently in public CI with cryptographic provenance you can verify yourself.
+This project is free and open source. Apple's Developer Program costs 99€/year, so instead of paying for a code signature, every release is built transparently in public CI and cryptographically signed via [Sigstore](https://www.sigstore.dev).
 
-Every release includes SHA-256 checksums (`SHA256SUMS.txt`) and [build provenance attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations) signed via Sigstore through GitHub Actions, achieving [SLSA Build Level 2](https://slsa.dev).
+Release artifacts include SHA-256 checksums and [build provenance attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations) so you can verify exactly how each binary was built.
 
 ```sh
-# Check file integrity
+# verify your download hasn't been tampered with
 shasum -a 256 --check SHA256SUMS.txt
 
-# Verify build provenance (requires GitHub CLI)
+# verify the binary was built from this repo's source code (requires GitHub CLI)
 gh attestation verify <filename> --owner guillevc
 ```
 
@@ -60,13 +64,16 @@ gh attestation verify <filename> --owner guillevc
 ```sh
 git clone https://github.com/guillevc/satfolio.git
 cd satfolio
-just install   # install frontend dependencies
-just build     # build the Tauri app
+mise install      # install toolchain (node, pnpm, rust, just)
+just install      # install frontend dependencies
+just build        # build the Tauri app
 ```
 
-Requires just, Rust (see `rust-toolchain.toml`), Node.js, pnpm, and [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/).
+Requires [mise](https://mise.jdx.dev) (or manually: just, Rust, Node.js, pnpm) and [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ## Development
+
+After cloning and running `mise install` and `just install` (see [Build from source](#build-from-source)):
 
 ```sh
 just dev       # run in development mode
