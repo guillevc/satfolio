@@ -19,21 +19,23 @@ A desktop app to track your Bitcoin portfolio. Import your trade history from Kr
 
 Download the latest release from the [Releases](https://github.com/guillevc/satfolio/releases) page.
 
-| Platform              | File                           |
-| --------------------- | ------------------------------ |
-| macOS (Apple Silicon) | `.dmg`                         |
-| macOS (Intel)         | `.dmg`                         |
-| Linux (x64)           | `.deb`, `.rpm`, or `.AppImage` |
+| Platform              | File                             |
+| --------------------- | -------------------------------- |
+| macOS (Apple Silicon) | `Satfolio_<version>_aarch64.dmg` |
+| macOS (Intel)         | `Satfolio_<version>_x64.dmg`     |
+| Linux (x64)           | `.deb`, `.rpm`, or `.AppImage`   |
 
 ### macOS installation
 
-1. Open the `.dmg` and drag Satfolio to Applications
-2. Try to open it — macOS will block it
-3. Go to **System Settings → Privacy & Security**
-4. Scroll down — you'll see a message about Satfolio being blocked
-5. Click **Open Anyway** and confirm with your password
+1. Open the `.dmg` and drag Satfolio to **Applications**
+2. Try to open Satfolio — macOS will show a warning and block it
+3. Open **System Settings → Privacy & Security**
+4. Under Security, click **Open Anyway**
+5. Enter your login password and click **OK**
 
-This is only needed once. Alternatively:
+This is only needed once — after that, Satfolio opens normally. See [Apple's support page](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac) for more details.
+
+Alternatively, run this in Terminal:
 
 ```sh
 xattr -d com.apple.quarantine /Applications/Satfolio.app
