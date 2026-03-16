@@ -19,11 +19,11 @@ A desktop app to track your Bitcoin portfolio. Import your trade history from Kr
 
 Download the latest release from the [Releases](https://github.com/guillevc/satfolio/releases) page.
 
-| Platform              | File                  |
-| --------------------- | --------------------- |
-| macOS (Apple Silicon) | `.dmg`                |
-| macOS (Intel)         | `.dmg`                |
-| Linux (x64)           | `.deb` or `.AppImage` |
+| Platform              | File                           |
+| --------------------- | ------------------------------ |
+| macOS (Apple Silicon) | `.dmg`                         |
+| macOS (Intel)         | `.dmg`                         |
+| Linux (x64)           | `.deb`, `.rpm`, or `.AppImage` |
 
 ### macOS installation
 
