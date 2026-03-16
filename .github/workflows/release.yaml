@@ -23,13 +23,13 @@ jobs:
         include:
           - platform: macos-latest
             args: --target aarch64-apple-darwin
-            bundle_base: src-tauri/target/aarch64-apple-darwin/release/bundle
+            bundle_base: target/aarch64-apple-darwin/release/bundle
           - platform: macos-latest
             args: --target x86_64-apple-darwin
-            bundle_base: src-tauri/target/x86_64-apple-darwin/release/bundle
+            bundle_base: target/x86_64-apple-darwin/release/bundle
           - platform: ubuntu-22.04
             args: ""
-            bundle_base: src-tauri/target/release/bundle
+            bundle_base: target/release/bundle
 
     runs-on: ${{ matrix.platform }}
 
@@ -95,13 +95,23 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
 
-      - name: Attest build provenance
-        uses: actions/attest-build-provenance@v3
+      - name: Attest DMG provenance
+        if: matrix.platform == 'macos-latest'
+        uses: actions/attest-build-provenance@v4
         with:
-          subject-path: |
-            ${{ matrix.bundle_base }}/dmg/*.dmg
-            ${{ matrix.bundle_base }}/deb/*.deb
-            ${{ matrix.bundle_base }}/appimage/*.AppImage
+          subject-path: ${{ matrix.bundle_base }}/dmg/*.dmg
+
+      - name: Attest DEB provenance
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ matrix.bundle_base }}/deb/*.deb
+
+      - name: Attest AppImage provenance
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ matrix.bundle_base }}/appimage/*.AppImage
 
       - name: Generate checksums
         env:
@@ -143,6 +153,6 @@ jobs:
         run: gh release upload "$TAG" SHA256SUMS.txt --clobber --repo "$GITHUB_REPOSITORY"
 
       - name: Attest checksums provenance
-        uses: actions/attest-build-provenance@v3
+        uses: actions/attest-build-provenance@v4
         with:
           subject-path: SHA256SUMS.txt
