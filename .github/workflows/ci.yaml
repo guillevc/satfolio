@@ -28,7 +28,7 @@ jobs:
             libwebkit2gtk-4.1-dev libappindicator3-dev \
             librsvg2-dev patchelf
 
-      - uses: dtolnay/rust-toolchain@master
+      - run: rustup component add clippy rustfmt
 
       - uses: jdx/mise-action@v3
         with:
