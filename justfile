@@ -150,12 +150,16 @@ gen-types-core:
 
 # Release
 [group('release')]
-[doc("Bump version everywhere (e.g. just version 1.0.0)")]
+[doc("Bump version, commit, and tag (e.g. just version 1.0.0)")]
 version v:
     node -e "let p='package.json',j=JSON.parse(require('fs').readFileSync(p));j.version='{{v}}';require('fs').writeFileSync(p,JSON.stringify(j,null,2)+'\n')"
     sed -i '' '3s/version = "[^"]*"/version = "{{v}}"/' src-tauri/Cargo.toml
     sed -i '' '3s/version = "[^"]*"/version = "{{v}}"/' crates/core/Cargo.toml
-    @echo "v{{v}}"
+    cargo generate-lockfile
+    git add package.json src-tauri/Cargo.toml crates/core/Cargo.toml Cargo.lock
+    git commit -m "chore: bump version to {{v}}"
+    git tag "v{{v}}"
+    @echo "Tagged v{{v}} — push with: git push && git push --tags"
 
 # Dev utilities
 [group('dev')]
