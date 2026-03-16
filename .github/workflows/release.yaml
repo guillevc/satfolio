@@ -72,36 +72,45 @@ jobs:
 
             | Platform | File |
             |----------|------|
-            | macOS (Apple Silicon) | `Satfolio_v__VERSION___aarch64.dmg` |
-            | macOS (Intel) | `Satfolio_v__VERSION___x64.dmg` |
-            | Linux (x64) | `.deb`, `.rpm`, or `.AppImage` |
+            | macOS (Apple Silicon) | `Satfolio___VERSION___aarch64.dmg` |
+            | macOS (Intel) | `Satfolio___VERSION___x64.dmg` |
+            | Linux (x64 .deb) | `Satfolio___VERSION___amd64.deb` |
+            | Linux (x64 .rpm) | `Satfolio-__VERSION__-1.x86_64.rpm` |
+            | Linux (x64 .AppImage) | `Satfolio___VERSION___amd64.AppImage` |
 
-            ### macOS installation
+            ### macOS
 
-            1. Open the `.dmg` and drag Satfolio to Applications
-            2. Try to open it — macOS will block it
-            3. Go to **System Settings → Privacy & Security**
-            4. Scroll down — you'll see a message about Satfolio being blocked
-            5. Click **Open Anyway** and confirm with your password
+            > [!NOTE]
+            > macOS shows a warning because Satfolio isn't signed through Apple's paid developer program. The app is open source and every release is verifiably built from this repo — see [Security & trust](https://github.com/guillevc/satfolio#security--trust).
 
-            This is only needed once. Alternatively:
+            1. Open the `.dmg` and drag Satfolio to **Applications**
+            2. Try to open Satfolio — macOS will show a warning and block it
+            3. Open **System Settings → Privacy & Security**
+            4. Under Security, click **Open Anyway**
+            5. Enter your login password and click **OK**
+
+            This is only needed once — after that, Satfolio opens normally. See [Apple's support page](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac) for more details.
+
+            Alternatively, run this in Terminal:
 
             ```sh
             xattr -d com.apple.quarantine /Applications/Satfolio.app
             ```
 
-            See the [README](https://github.com/guillevc/satfolio#macos-installation) for details.
-
             ## Verify this release
 
-            Every artifact is built in public CI and attested with [GitHub Artifact Attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations) (SLSA Build L2).
+            Every artifact is built in public CI and cryptographically signed via [Sigstore](https://www.sigstore.dev) through GitHub Actions. Release artifacts include SHA-256 checksums and [build provenance attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations) so you can verify exactly how each binary was built.
 
             ```sh
-            # Check file integrity
+            # verify your download hasn't been tampered with
             shasum -a 256 --check SHA256SUMS.txt
 
-            # Verify build provenance (requires GitHub CLI)
-            gh attestation verify <filename> --owner guillevc
+            # verify the binary was built from this repo's source code (requires GitHub CLI)
+            gh attestation verify Satfolio___VERSION___aarch64.dmg --owner guillevc
+            gh attestation verify Satfolio___VERSION___x64.dmg --owner guillevc
+            gh attestation verify Satfolio___VERSION___amd64.deb --owner guillevc
+            gh attestation verify Satfolio-__VERSION__-1.x86_64.rpm --owner guillevc
+            gh attestation verify Satfolio___VERSION___amd64.AppImage --owner guillevc
             ```
           releaseDraft: true
           prerelease: false
