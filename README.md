@@ -1,8 +1,16 @@
-# Satfolio
+<h1>
+  satfolio
+  <img src="https://img.shields.io/badge/Tauri-black?style=flat&logo=tauri&logoColor=FFC131" alt="Tauri" />
+  <a href="https://github.com/guillevc/satfolio/actions/workflows/ci.yaml"><img src="https://img.shields.io/github/actions/workflow/status/guillevc/satfolio/ci.yaml?style=flat&labelColor=black&label=ci" alt="CI" /></a>
+
+  <img src="docs/app-icon-transparent.svg" width="46" alt="" align="right" />
+</h1>
 
 A desktop app for tracking Bitcoin trades and portfolio performance. Import CSV ledgers from Kraken or Coinbase, visualize price history with your trades overlaid, and see your position, break-even price, and P&L at a glance.
 
-Built with [Tauri 2](https://v2.tauri.app), Svelte 5, and Rust.
+Built with [Tauri 2](https://v2.tauri.app), Svelte 5, and Rust. Supports Kraken and Coinbase ledger exports.
+
+<img src="docs/dashboard.png" alt="Satfolio dashboard" />
 
 ## Features
 
