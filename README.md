@@ -1,29 +1,23 @@
 <h1>
-  satfolio
-  <img src="https://img.shields.io/badge/Tauri-black?style=flat&logo=tauri&logoColor=FFC131" alt="Tauri" />
-  <a href="https://github.com/guillevc/satfolio/actions/workflows/ci.yaml"><img src="https://img.shields.io/github/actions/workflow/status/guillevc/satfolio/ci.yaml?style=flat&labelColor=black&label=ci" alt="CI" /></a>
-
-  <img src="docs/app-icon-transparent.svg" width="46" alt="" align="right" />
+  satfolio <img src="https://img.shields.io/github/actions/workflow/status/guillevc/satfolio/ci.yaml?style=flat&labelColor=black&label=ci" alt="CI" /></a>
 </h1>
 
-A desktop app for tracking Bitcoin trades and portfolio performance. Import CSV ledgers from Kraken or Coinbase, visualize price history with your trades overlaid, and see your position, break-even price, and P&L at a glance.
+A desktop app to track your Bitcoin portfolio. Import your trade history from Kraken or Coinbase, and see your position, break-even price, and P&L — all stored locally on your machine.
 
-Built with [Tauri 2](https://v2.tauri.app), Svelte 5, and Rust. Supports Kraken and Coinbase ledger exports.
-
-<img src="docs/dashboard.png" alt="Satfolio dashboard" />
+<img src="docs/dashboard.png" alt="satfolio dashboard" />
 
 ## Features
 
-- **Import trades** from Kraken and Coinbase CSV exports, with automatic duplicate detection
-- **Dashboard** with current BTC price, break-even price, position value, and unrealized P&L
-- **Price chart** with daily candles and trade history overlay
-- **Trade history** table with per-trade break-even price and realized P&L
-- **Multi-currency** support (EUR, USD, GBP)
-- **Local-only** — your data stays on your machine in a SQLite database
+- **Import trades** from Kraken and Coinbase CSV ledger exports, with automatic duplicate detection
+- **Dashboard** showing current BTC price, break-even price, position value, and unrealized P&L
+- **Price chart** with daily candles and your trade history overlaid
+- **Trade history** table with per-trade cost basis, break-even price, and realized P&L
+- ~~**Multi-currency** — track in EUR, USD, or GBP~~
+- **Private by default** — no accounts, no analytics, no telemetry. Data stays in a local SQLite database. The only network call is fetching the current BTC price from Kraken's public API.
 
 ## Install
 
-Download the latest release from the [Releases](https://github.com/guillevc/satfolio/releases) page:
+Download the latest release from the [Releases](https://github.com/guillevc/satfolio/releases) page.
 
 | Platform              | File                  |
 | --------------------- | --------------------- |
@@ -31,18 +25,15 @@ Download the latest release from the [Releases](https://github.com/guillevc/satf
 | macOS (Intel)         | `.dmg`                |
 | Linux (x64)           | `.deb` or `.AppImage` |
 
-### macOS installation note
-
-Satfolio is not signed with an Apple Developer certificate, so macOS will show a security warning on first launch. This is normal for independent open-source software.
+### macOS installation
 
 1. Open the `.dmg` and drag Satfolio to Applications
-2. Try to open Satfolio — macOS will block it
-3. Go to **System Settings > Privacy & Security**
-4. Scroll to **Security** — you'll see a message about Satfolio being blocked
+2. Try to open it — macOS will block it
+3. Go to **System Settings → Privacy & Security**
+4. Scroll down — you'll see a message about Satfolio being blocked
 5. Click **Open Anyway** and confirm with your password
-6. This is only needed once
 
-Alternatively, for technical users:
+This is only needed once. Alternatively:
 
 ```sh
 xattr -d com.apple.quarantine /Applications/Satfolio.app
@@ -50,18 +41,9 @@ xattr -d com.apple.quarantine /Applications/Satfolio.app
 
 ## Security & trust
 
-Satfolio is local-only. There are no analytics, no telemetry, and no network calls except fetching the current BTC price from Kraken's public API.
+This project is free and open source. Apple's Developer Program costs 99€/year, so instead of paying for a code signature, every release is built transparently in public CI with cryptographic provenance you can verify yourself.
 
-### Why no Apple code signing?
-
-Apple's Developer Program costs $99/year and requires identity verification. Satfolio is a free, open-source tool. Instead of paying for a signature, every release is built transparently in public CI with cryptographic provenance you can verify yourself.
-
-### Verifying a release
-
-Every release artifact has:
-
-- **SHA-256 checksums** in `SHA256SUMS.txt` attached to the release
-- **Build provenance attestations** signed via Sigstore through GitHub Actions ([SLSA Build L2](https://slsa.dev))
+Every release includes SHA-256 checksums (`SHA256SUMS.txt`) and [build provenance attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations) signed via Sigstore through GitHub Actions, achieving [SLSA Build Level 2](https://slsa.dev).
 
 ```sh
 # Check file integrity
@@ -73,24 +55,21 @@ gh attestation verify <filename> --owner guillevc
 
 ## Build from source
 
-If you prefer not to trust pre-built binaries:
-
 ```sh
 git clone https://github.com/guillevc/satfolio.git
 cd satfolio
-just install
-just build
+just install   # install frontend dependencies
+just build     # build the Tauri app
 ```
 
-Requires: Rust (see `rust-toolchain.toml`), Node.js, pnpm, and [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/).
+Requires just, Rust (see `rust-toolchain.toml`), Node.js, pnpm, and [Tauri 2 prerequisites](https://v2.tauri.app/start/prerequisites/).
 
 ## Development
 
 ```sh
-just install   # Install dependencies
-just dev       # Run Tauri desktop app
-just check     # Typecheck + lint + format check
-just test      # Run all tests
+just dev       # run in development mode
+just check     # typecheck + lint + format check
+just test      # run all tests
 ```
 
 Run `just` to see all available recipes.
