@@ -150,6 +150,11 @@ gen-types-core:
 
 # Release
 [group('release')]
+[doc("Print changelog (default: unreleased, e.g. just changelog v0.1.0)")]
+changelog ref='':
+    git-cliff {{ if ref == "" { "--unreleased" } else { ref + "..HEAD" } }}
+
+[group('release')]
 [doc("Bump version, commit, and tag (e.g. just version 1.0.0)")]
 version v:
     node -e "let p='package.json',j=JSON.parse(require('fs').readFileSync(p));j.version='{{v}}';require('fs').writeFileSync(p,JSON.stringify(j,null,2)+'\n')"

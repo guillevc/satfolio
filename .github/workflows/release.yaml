@@ -35,6 +35,8 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Install Linux system dependencies
         if: matrix.platform == 'ubuntu-22.04'
@@ -58,6 +60,66 @@ jobs:
 
       - run: pnpm install
 
+      - name: Generate release body
+        id: release-body
+        run: |
+          tmp=$(mktemp)
+          git-cliff --current --strip all > "$tmp"
+          cat >> "$tmp" <<'EOF'
+
+          ---
+
+          ## Install
+
+          | Platform | File |
+          |----------|------|
+          | macOS (Apple Silicon) | `Satfolio___VERSION___aarch64.dmg` |
+          | macOS (Intel) | `Satfolio___VERSION___x64.dmg` |
+          | Linux (x64 .deb) | `Satfolio___VERSION___amd64.deb` |
+          | Linux (x64 .rpm) | `Satfolio-__VERSION__-1.x86_64.rpm` |
+          | Linux (x64 .AppImage) | `Satfolio___VERSION___amd64.AppImage` |
+
+          ### macOS
+
+          > [!NOTE]
+          > macOS shows a warning because Satfolio isn't signed through Apple's paid developer program. The app is open source and every release is verifiably built from this repo — see [Security & trust](https://github.com/guillevc/satfolio#security--trust).
+
+          1. Open the `.dmg` and drag Satfolio to **Applications**
+          2. Try to open Satfolio — macOS will show a warning and block it
+          3. Open **System Settings → Privacy & Security**
+          4. Under Security, click **Open Anyway**
+          5. Enter your login password and click **OK**
+
+          This is only needed once — after that, Satfolio opens normally. See [Apple's support page](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac) for more details.
+
+          Alternatively, run this in Terminal:
+
+          ```sh
+          xattr -d com.apple.quarantine /Applications/Satfolio.app
+          ```
+
+          ## Verify this release
+
+          Every artifact is built in public CI and cryptographically signed via [Sigstore](https://www.sigstore.dev) through GitHub Actions. Release artifacts include SHA-256 checksums and [build provenance attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations) so you can verify exactly how each binary was built.
+
+          ```sh
+          # verify your download hasn't been tampered with
+          shasum -a 256 --check SHA256SUMS.txt
+
+          # verify the binary was built from this repo's source code (requires GitHub CLI)
+          gh attestation verify Satfolio___VERSION___aarch64.dmg --owner guillevc
+          gh attestation verify Satfolio___VERSION___x64.dmg --owner guillevc
+          gh attestation verify Satfolio___VERSION___amd64.deb --owner guillevc
+          gh attestation verify Satfolio-__VERSION__-1.x86_64.rpm --owner guillevc
+          gh attestation verify Satfolio___VERSION___amd64.AppImage --owner guillevc
+          ```
+          EOF
+          {
+            echo "body<<RELEASE_BODY_EOF"
+            cat "$tmp"
+            echo "RELEASE_BODY_EOF"
+          } >> "$GITHUB_OUTPUT"
+
       - name: Build and release
         uses: tauri-apps/tauri-action@v0
         env:
@@ -65,53 +127,7 @@ jobs:
         with:
           tagName: v__VERSION__
           releaseName: "Satfolio v__VERSION__"
-          releaseBody: |
-            See the [full changelog](https://github.com/guillevc/satfolio/compare/v...v__VERSION__) or edit this draft to add release notes before publishing.
-
-            ## Install
-
-            | Platform | File |
-            |----------|------|
-            | macOS (Apple Silicon) | `Satfolio___VERSION___aarch64.dmg` |
-            | macOS (Intel) | `Satfolio___VERSION___x64.dmg` |
-            | Linux (x64 .deb) | `Satfolio___VERSION___amd64.deb` |
-            | Linux (x64 .rpm) | `Satfolio-__VERSION__-1.x86_64.rpm` |
-            | Linux (x64 .AppImage) | `Satfolio___VERSION___amd64.AppImage` |
-
-            ### macOS
-
-            > [!NOTE]
-            > macOS shows a warning because Satfolio isn't signed through Apple's paid developer program. The app is open source and every release is verifiably built from this repo — see [Security & trust](https://github.com/guillevc/satfolio#security--trust).
-
-            1. Open the `.dmg` and drag Satfolio to **Applications**
-            2. Try to open Satfolio — macOS will show a warning and block it
-            3. Open **System Settings → Privacy & Security**
-            4. Under Security, click **Open Anyway**
-            5. Enter your login password and click **OK**
-
-            This is only needed once — after that, Satfolio opens normally. See [Apple's support page](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac) for more details.
-
-            Alternatively, run this in Terminal:
-
-            ```sh
-            xattr -d com.apple.quarantine /Applications/Satfolio.app
-            ```
-
-            ## Verify this release
-
-            Every artifact is built in public CI and cryptographically signed via [Sigstore](https://www.sigstore.dev) through GitHub Actions. Release artifacts include SHA-256 checksums and [build provenance attestations](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations) so you can verify exactly how each binary was built.
-
-            ```sh
-            # verify your download hasn't been tampered with
-            shasum -a 256 --check SHA256SUMS.txt
-
-            # verify the binary was built from this repo's source code (requires GitHub CLI)
-            gh attestation verify Satfolio___VERSION___aarch64.dmg --owner guillevc
-            gh attestation verify Satfolio___VERSION___x64.dmg --owner guillevc
-            gh attestation verify Satfolio___VERSION___amd64.deb --owner guillevc
-            gh attestation verify Satfolio-__VERSION__-1.x86_64.rpm --owner guillevc
-            gh attestation verify Satfolio___VERSION___amd64.AppImage --owner guillevc
-            ```
+          releaseBody: ${{ steps.release-body.outputs.body }}
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}
