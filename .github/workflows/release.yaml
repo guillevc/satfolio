@@ -76,9 +76,21 @@ jobs:
             | macOS (Intel) | `Satfolio_v__VERSION___x64.dmg` |
             | Linux (x64) | `.deb`, `.rpm`, or `.AppImage` |
 
-            ### macOS note
+            ### macOS installation
 
-            macOS will show a security warning on first launch since Satfolio is not signed with an Apple Developer certificate. Run `xattr -d com.apple.quarantine /Applications/Satfolio.app` once to allow it, or right-click the app → **Open**. See the [README](https://github.com/guillevc/satfolio#macos-installation) for details.
+            1. Open the `.dmg` and drag Satfolio to Applications
+            2. Try to open it — macOS will block it
+            3. Go to **System Settings → Privacy & Security**
+            4. Scroll down — you'll see a message about Satfolio being blocked
+            5. Click **Open Anyway** and confirm with your password
+
+            This is only needed once. Alternatively:
+
+            ```sh
+            xattr -d com.apple.quarantine /Applications/Satfolio.app
+            ```
+
+            See the [README](https://github.com/guillevc/satfolio#macos-installation) for details.
 
             ## Verify this release
 

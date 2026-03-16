@@ -1,6 +1,6 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
-  "productName": "satfolio",
+  "productName": "Satfolio",
   "identifier": "dev.guillevc.satfolio",
   "build": {
     "frontendDist": "../dist",
@@ -37,6 +37,9 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "resources": ["resources/prices/*.csv"]
+    "resources": ["resources/prices/*.csv"],
+    "macOS": {
+      "signingIdentity": "-"
+    }
   }
 }
