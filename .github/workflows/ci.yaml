@@ -1,0 +1,43 @@
+# yaml-language-server: $schema=https://json.schemastore.org/github-workflow.json
+---
+name: ci
+permissions:
+  contents: read
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Tauri system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libgtk-3-dev libwebkit2gtk-4.1-dev \
+            libappindicator3-dev librsvg2-dev \
+            libsoup-3.0-dev javascriptcoregtk-4.1 \
+            patchelf libxdo-dev
+
+      - uses: jdx/mise-action@v3
+        with:
+          version: 2026.3.9
+
+      - uses: Swatinem/rust-cache@v2
+
+      - run: just install
+
+      - run: just check
+      - run: just test
+      - run: just smoke-app

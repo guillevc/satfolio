@@ -9,9 +9,7 @@ function amt(amount: string, asset: string): AssetAmount {
   return { amount, asset };
 }
 
-function trade(
-  overrides: Partial<EnrichedTrade> = {},
-): EnrichedTrade {
+function trade(overrides: Partial<EnrichedTrade> = {}): EnrichedTrade {
   return {
     date: "2025-01-15T10:30:00Z",
     provider: "kraken",

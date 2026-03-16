@@ -24,13 +24,9 @@ export default defineConfig({
     sourcemap: !!debug,
   },
   resolve: {
+    conditions: process.env.VITEST ? ["browser"] : [],
     alias: {
       $lib: path.resolve("./src/lib"),
-    },
-  },
-  test: {
-    resolve: {
-      conditions: ["browser"],
     },
   },
 });

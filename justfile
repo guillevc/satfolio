@@ -7,7 +7,14 @@ alias dw := dev-web
 alias l  := lint
 alias f  := fmt
 alias t  := test
-alias c  := typecheck
+alias c  := check
+alias i  := install
+
+# Setup
+[group('setup')]
+[doc("Install all dependencies")]
+install:
+    pnpm install
 
 # Dev
 [group('dev')]
@@ -31,6 +38,16 @@ build:
 build-web:
     pnpm build
 
+# CI
+[group('ci')]
+[doc("Build Tauri app without bundling (smoke test)")]
+smoke-app:
+    pnpm tauri build --no-bundle
+
+[group('ci')]
+[doc("Full check: typecheck + lint + format")]
+check: typecheck lint fmt-check
+
 # Typecheck
 [group('typecheck')]
 [doc("Typecheck all (cargo + svelte)")]
@@ -45,11 +62,6 @@ typecheck-rust:
 [private]
 typecheck-web:
     pnpm svelte-check
-
-# Check
-[group('ci')]
-[doc("Full check: typecheck + lint + format")]
-check: typecheck lint fmt-check
 
 # Lint
 [group('lint')]
@@ -112,17 +124,12 @@ fmt-check-web:
 # Test
 [group('test')]
 [doc("Run all tests")]
-test: test-rust test-web
+test: test-core test-web
 
 [group('test')]
 [doc("Run app-core tests only")]
 test-core:
     cargo test -p app-core -- --skip export_bindings
-
-[group('test')]
-[private]
-test-rust:
-    cargo test -- --skip export_bindings
 
 [group('test')]
 [private]
@@ -138,7 +145,7 @@ gen-icons:
 
 [group('gen')]
 [doc("Generate TS types from Rust models")]
-gen-types:
+gen-types-core:
     TS_RS_EXPORT_DIR="$(pwd)/src/lib/types/bindings" cargo test -p app-core export_bindings
 
 # Release
