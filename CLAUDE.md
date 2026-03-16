@@ -24,7 +24,7 @@ Available recipes:
 
     [build]
     build          # Build native desktop bundle
-    build-web      # Build frontend only (tsc + vite)
+    build-ui       # Build frontend only (tsc + vite)
 
     [ci]
     check          # Full check: typecheck + lint + format [alias: c]
@@ -32,7 +32,7 @@ Available recipes:
 
     [dev]
     dev            # Run full Tauri desktop app [alias: d]
-    dev-web        # Run Vite dev server only (:5173) [alias: dw]
+    dev-ui         # Run Vite dev server only (:5173) [alias: du]
 
     [format]
     fmt            # Format all [alias: f]

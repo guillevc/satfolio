@@ -3,7 +3,7 @@ default:
 
 # Aliases
 alias d  := dev
-alias dw := dev-web
+alias du := dev-ui
 alias l  := lint
 alias f  := fmt
 alias t  := test
@@ -24,7 +24,7 @@ dev:
 
 [group('dev')]
 [doc("Run Vite dev server only (:5173)")]
-dev-web:
+dev-ui:
     pnpm dev
 
 # Build
@@ -35,7 +35,7 @@ build:
 
 [group('build')]
 [doc("Build frontend only (tsc + vite)")]
-build-web:
+build-ui:
     pnpm build
 
 # CI
@@ -51,7 +51,7 @@ check: typecheck lint fmt-check
 # Typecheck
 [group('typecheck')]
 [doc("Typecheck all (cargo + svelte)")]
-typecheck: typecheck-rust typecheck-web
+typecheck: typecheck-rust typecheck-ui
 
 [group('typecheck')]
 [private]
@@ -60,13 +60,13 @@ typecheck-rust:
 
 [group('typecheck')]
 [private]
-typecheck-web:
+typecheck-ui:
     pnpm svelte-check
 
 # Lint
 [group('lint')]
 [doc("Lint all")]
-lint: lint-rust lint-web
+lint: lint-rust lint-ui
 
 [group('lint')]
 [private]
@@ -75,12 +75,12 @@ lint-rust:
 
 [group('lint')]
 [private]
-lint-web:
+lint-ui:
     pnpm lint
 
 [group('lint')]
 [doc("Lint & fix all")]
-lint-fix: lint-fix-rust lint-fix-web
+lint-fix: lint-fix-rust lint-fix-ui
 
 [group('lint')]
 [private]
@@ -89,13 +89,13 @@ lint-fix-rust:
 
 [group('lint')]
 [private]
-lint-fix-web:
+lint-fix-ui:
     pnpm lint:fix
 
 # Format
 [group('format')]
 [doc("Format all")]
-fmt: fmt-rust fmt-web
+fmt: fmt-rust fmt-ui
 
 [group('format')]
 [private]
@@ -104,12 +104,12 @@ fmt-rust:
 
 [group('format')]
 [private]
-fmt-web:
+fmt-ui:
     pnpm format
 
 [group('format')]
 [doc("Check formatting (no write)")]
-fmt-check: fmt-check-rust fmt-check-web
+fmt-check: fmt-check-rust fmt-check-ui
 
 [group('format')]
 [private]
@@ -118,13 +118,13 @@ fmt-check-rust:
 
 [group('format')]
 [private]
-fmt-check-web:
+fmt-check-ui:
     pnpm format:check
 
 # Test
 [group('test')]
 [doc("Run all tests")]
-test: test-core test-web
+test: test-core test-ui
 
 [group('test')]
 [doc("Run app-core tests only")]
@@ -133,7 +133,7 @@ test-core:
 
 [group('test')]
 [private]
-test-web:
+test-ui:
     pnpm test
 
 # Gen
