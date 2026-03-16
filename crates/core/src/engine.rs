@@ -106,6 +106,7 @@ impl Accumulator {
     }
 }
 
+/// Compute running position: BEP, holdings, invested, proceeds, and fees.
 pub(crate) fn position_summary(
     pair: &AssetPair,
     trades: &[Trade],
@@ -125,6 +126,7 @@ pub(crate) fn position_summary(
     })
 }
 
+/// Aggregate trade counts, volumes, fees, and date range for a set of trades.
 pub(crate) fn trades_summary(pair: &AssetPair, trades: &[Trade]) -> EngineResult<TradesSummary> {
     let mut buys = 0;
     let mut sells = 0;
@@ -304,23 +306,6 @@ mod tests {
         }
     }
 
-    fn make_trade_at(
-        year: i32,
-        month: u32,
-        day: u32,
-        spent: Decimal,
-        received: Decimal,
-        fee: Decimal,
-    ) -> Trade {
-        Trade {
-            date: Utc.with_ymd_and_hms(year, month, day, 12, 0, 0).unwrap(),
-            spent: AssetAmount::new(spent, Asset::Eur),
-            received: AssetAmount::new(received, Asset::Btc),
-            fee: AssetAmount::new(fee, Asset::Eur),
-            provider: Provider::Kraken,
-        }
-    }
-
     // ── side_for ──────────────────────────────────────────
 
     #[test]
@@ -418,8 +403,8 @@ mod tests {
     #[test]
     fn summary_two_buys() {
         let trades = vec![
-            make_trade_at(2025, 2, 14, dec!(187.25), dec!(0.002), dec!(0.75)),
-            make_trade_at(2025, 6, 1, dec!(28.37), dec!(0.0003), dec!(0.28)),
+            make_buy(2025, 2, 14, dec!(187.25), dec!(0.002), dec!(0.75)),
+            make_buy(2025, 6, 1, dec!(28.37), dec!(0.0003), dec!(0.28)),
         ];
         let summary = trades_summary(&btc_eur(), &trades).unwrap();
 
@@ -672,5 +657,63 @@ mod tests {
         assert_eq!(stats.unrealized_pnl_pct, Decimal::ZERO);
         assert_eq!(stats.change_24h_pct, Decimal::ZERO);
         assert_eq!(stats.trade_count, 0);
+    }
+
+    // ── Unrelated trades in enrich ───────────────────────────
+
+    #[test]
+    fn enrich_unrelated_trade_passes_through() {
+        let eth_usd = Trade {
+            date: Utc.with_ymd_and_hms(2025, 1, 15, 12, 0, 0).unwrap(),
+            spent: AssetAmount::new(dec!(100), Asset::Usd),
+            received: AssetAmount::new(dec!(0.05), Asset::Other("ETH".into())),
+            fee: AssetAmount::new(dec!(0.5), Asset::Usd),
+            provider: Provider::Kraken,
+        };
+        let trades = vec![
+            make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
+            eth_usd,
+            make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
+        ];
+        let enriched = enrich_trades(&btc_eur(), trades).unwrap();
+        assert_eq!(enriched.len(), 3);
+
+        // Unrelated trade gets None for side/bep/pnl
+        let unrelated = &enriched[1];
+        assert_eq!(unrelated.side, None);
+        assert_eq!(unrelated.bep, None);
+        assert_eq!(unrelated.pnl, None);
+
+        // BEP after third trade should only reflect BTC/EUR buys, not the ETH/USD trade
+        // BEP = (100+200+0.50+1.00)/0.004 = 75_375
+        assert_eq!(
+            enriched[2].bep,
+            Some(AssetAmount::new(dec!(75375), Asset::Eur))
+        );
+    }
+
+    #[test]
+    fn summary_mixed_buy_and_sell() {
+        let trades = vec![
+            make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
+            make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
+            make_sell(2025, 3, 1, dec!(0.001), dec!(120), dec!(0.60)),
+        ];
+        let summary = trades_summary(&btc_eur(), &trades).unwrap();
+
+        assert_eq!(summary.total_trades, 3);
+        assert_eq!(summary.buys, 2);
+        assert_eq!(summary.sells, 1);
+        assert_eq!(summary.unknown, 0);
+        // spent accumulates buy spent + sell received (cross-wiring)
+        // Buys: 100 + 200 = 300, Sell: 120 → total spent = 420
+        assert_eq!(summary.spent.amount(), dec!(420));
+        assert_eq!(*summary.spent.asset(), Asset::Eur);
+        // received accumulates buy received + sell spent
+        // Buys: 0.001 + 0.003 = 0.004, Sell: 0.001 → total received = 0.005
+        assert_eq!(summary.received.amount(), dec!(0.005));
+        assert_eq!(*summary.received.asset(), Asset::Btc);
+        // fees: 0.50 + 1.00 + 0.60 = 2.10
+        assert_eq!(summary.fees.amount(), dec!(2.10));
     }
 }

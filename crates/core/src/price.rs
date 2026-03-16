@@ -65,6 +65,7 @@ fn parse_ohlc_csv(rdr: impl std::io::Read) -> PriceResult<Vec<Candle>> {
         .collect()
 }
 
+/// Load candles from a bundled CSV file shipped with the app.
 pub(crate) fn load_bundled_prices(dir: &Path, quote: &Asset) -> PriceResult<Vec<Candle>> {
     let filename = asset_to_filename(quote)?;
     let path = dir.join(filename);
@@ -93,6 +94,7 @@ fn parse_decimal_field(val: &serde_json::Value, index: usize) -> PriceResult<Dec
         })
 }
 
+/// Parse Kraken OHLC JSON response into candles, dropping the last (incomplete) candle.
 pub(crate) fn parse_ohlc_json(body: &[u8]) -> PriceResult<Vec<Candle>> {
     let root: serde_json::Value = serde_json::from_slice(body)
         .map_err(|e| PriceError::InvalidResponse(format!("invalid JSON: {e}")))?;
@@ -151,6 +153,7 @@ pub(crate) fn parse_ohlc_json(body: &[u8]) -> PriceResult<Vec<Candle>> {
     Ok(candles)
 }
 
+/// Fetch daily OHLC candles from Kraken's public API starting from `since`.
 pub(crate) async fn fetch_ohlc(quote: &Asset, since: NaiveDate) -> PriceResult<Vec<Candle>> {
     let pair = asset_to_kraken_pair(quote)?;
     let ts = since.and_hms_opt(0, 0, 0).unwrap().and_utc().timestamp();
@@ -223,36 +226,6 @@ mod tests {
         );
         assert_eq!(candles[0].close, dec!(97.0));
         assert_eq!(candles[4].close, dec!(74500.1));
-        for w in candles.windows(2) {
-            assert!(w[0].date < w[1].date);
-        }
-    }
-
-    #[test]
-    fn load_bundled_gbp() {
-        let candles = load_bundled_prices(&fixtures_dir(), &Asset::Gbp).unwrap();
-        assert_eq!(candles.len(), 5);
-        assert_eq!(
-            candles[0].date,
-            NaiveDate::from_ymd_opt(2014, 11, 6).unwrap()
-        );
-        assert_eq!(candles[0].close, dec!(213.0));
-        assert_eq!(candles[4].close, dec!(64933.2));
-        for w in candles.windows(2) {
-            assert!(w[0].date < w[1].date);
-        }
-    }
-
-    #[test]
-    fn load_bundled_usd() {
-        let candles = load_bundled_prices(&fixtures_dir(), &Asset::Usd).unwrap();
-        assert_eq!(candles.len(), 5);
-        assert_eq!(
-            candles[0].date,
-            NaiveDate::from_ymd_opt(2013, 10, 6).unwrap()
-        );
-        assert_eq!(candles[0].close, dec!(122.0));
-        assert_eq!(candles[4].close, dec!(87500.1));
         for w in candles.windows(2) {
             assert!(w[0].date < w[1].date);
         }

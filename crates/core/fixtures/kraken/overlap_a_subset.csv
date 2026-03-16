@@ -1,0 +1,5 @@
+"txid","refid","time","type","subtype","aclass","subclass","asset","wallet","amount","fee","balance"
+"LGFYGW-WQC38-HYF9SX","MECOSFO-GYR3X-KXWNRE","2025-02-14 22:18:09","trade","tradespot","currency","fiat","EUR","spot / main",-187.2514,0.7490,193.9828
+"LK8PK3-YR9OU-DOCUZR","MECOSFO-GYR3X-KXWNRE","2025-02-14 22:18:09","trade","tradespot","currency","crypto","BTC","spot / main",0.0020104289,0,0.0030521628
+"LENUN5-Z3JQI-P98Q1Z","XOI65FD-HJK1E-YY37Q9","2025-02-16 18:23:05","trade","tradespot","currency","fiat","EUR","spot / main",-193.9818,0,0.0010
+"LAH8RV-HS1K3-AQ6L6G","XOI65FD-HJK1E-YY37Q9","2025-02-16 18:23:05","trade","tradespot","currency","crypto","BTC","spot / main",0.0021553528,0.0000053897,0.0052021259

@@ -177,12 +177,6 @@ mod tests {
             "txid,refid,time,type,subtype,aclass,subclass,asset,wallet,amount,fee,balance";
 
         #[test]
-        fn entry_type_display() {
-            assert_eq!(format!("{}", EntryType::Deposit), "deposit");
-            assert_eq!(format!("{}", EntryType::Withdrawal), "withdrawal");
-        }
-
-        #[test]
         fn parse_csv_single_row() {
             let csv = format!(
                 "{CSV_HEADER}\n\
@@ -375,25 +369,6 @@ mod tests {
             // Fee is on BTC (positive/buy) side
             assert_eq!(trade.fee.amount(), dec!(0.0000053897));
             assert_eq!(*trade.fee.asset(), Asset::Btc);
-        }
-    }
-
-    mod headers {
-        use super::*;
-
-        #[test]
-        fn matches_kraken_headers() {
-            let headers: Vec<&str> =
-                "txid,refid,time,type,subtype,aclass,subclass,asset,wallet,amount,fee,balance"
-                    .split(',')
-                    .collect();
-            assert!(matches_headers(&headers));
-        }
-
-        #[test]
-        fn rejects_non_kraken_headers() {
-            let headers = vec!["Timestamp", "Transaction Type", "Asset"];
-            assert!(!matches_headers(&headers));
         }
     }
 

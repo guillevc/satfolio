@@ -330,6 +330,7 @@ pub struct ImportOutcome {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use rust_decimal_macros::dec;
 
     #[test]
     fn provider_as_str() {
@@ -367,17 +368,9 @@ mod tests {
     }
 
     #[test]
-    fn asset_from_eur() {
+    fn asset_from_known_fiats() {
         assert_eq!(Asset::from("EUR".to_string()), Asset::Eur);
-    }
-
-    #[test]
-    fn asset_from_gbp() {
         assert_eq!(Asset::from("GBP".to_string()), Asset::Gbp);
-    }
-
-    #[test]
-    fn asset_from_usd() {
         assert_eq!(Asset::from("USD".to_string()), Asset::Usd);
     }
 
@@ -403,5 +396,32 @@ mod tests {
         assert_eq!(Asset::Gbp.as_str(), "GBP");
         assert_eq!(Asset::Usd.as_str(), "USD");
         assert_eq!(Asset::Other("MSC".to_string()).as_str(), "MSC");
+    }
+
+    #[test]
+    fn checked_add_asset_mismatch() {
+        let eur = AssetAmount::new(dec!(100), Asset::Eur);
+        let btc = AssetAmount::new(dec!(0.001), Asset::Btc);
+        let err = eur.checked_add(&btc).unwrap_err();
+        assert_eq!(err.expected, Asset::Eur);
+        assert_eq!(err.got, Asset::Btc);
+    }
+
+    #[test]
+    fn checked_sub_asset_mismatch() {
+        let eur = AssetAmount::new(dec!(100), Asset::Eur);
+        let btc = AssetAmount::new(dec!(0.001), Asset::Btc);
+        let err = eur.checked_sub(&btc).unwrap_err();
+        assert_eq!(err.expected, Asset::Eur);
+        assert_eq!(err.got, Asset::Btc);
+    }
+
+    #[test]
+    fn checked_sub_allows_negative() {
+        let a = AssetAmount::new(dec!(1), Asset::Btc);
+        let b = AssetAmount::new(dec!(2), Asset::Btc);
+        let result = a.checked_sub(&b).unwrap();
+        assert_eq!(result.amount(), dec!(-1));
+        assert_eq!(*result.asset(), Asset::Btc);
     }
 }

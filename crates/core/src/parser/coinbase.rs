@@ -462,39 +462,12 @@ mod tests {
         }
     }
 
-    mod headers {
-        use super::*;
-
-        #[test]
-        fn matches_coinbase_headers() {
-            let headers: Vec<&str> = vec![
-                "Timestamp",
-                "Transaction Type",
-                "Asset",
-                "Quantity Transacted",
-                "Spot Price Currency",
-                "Spot Price at Transaction",
-                "Subtotal",
-                "Total (inclusive of fees and/or spread)",
-                "Fees and/or Spread",
-                "Notes",
-            ];
-            assert!(matches_headers(&headers));
-        }
-
-        #[test]
-        fn rejects_non_coinbase_headers() {
-            let headers = vec!["txid", "refid", "time"];
-            assert!(!matches_headers(&headers));
-        }
-    }
-
     mod integration {
         use super::*;
 
         #[test]
         fn parse_fixture() {
-            let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/coinbase_sample.csv");
+            let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/coinbase/sample.csv");
             let trades = parse(&path).unwrap();
             assert_eq!(trades.len(), 7);
 

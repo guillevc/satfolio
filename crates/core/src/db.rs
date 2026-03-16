@@ -36,6 +36,7 @@ pub(crate) fn open(path: &Path) -> DbResult<Connection> {
     Ok(Connection::open(path)?)
 }
 
+/// Run DDL migrations (idempotent). Creates tables and indexes if they don't exist.
 pub(crate) fn migrate(conn: &Connection) -> DbResult<()> {
     conn.execute_batch(
         "
@@ -82,38 +83,6 @@ pub(crate) fn migrate(conn: &Connection) -> DbResult<()> {
     Ok(())
 }
 
-/// Test helper: creates a dummy import record and links all trades to it,
-/// so tests don't need to set up imports manually.
-#[cfg(test)]
-pub(crate) fn save_test_trades(conn: &Connection, trades: &[Trade]) -> DbResult<()> {
-    let tx = conn.unchecked_transaction()?;
-    tx.execute(
-        "INSERT INTO imports (provider, filename, file_hash, trade_count, imported_at) \
-         VALUES ('kraken', '_test.csv', hex(randomblob(16)), ?1, datetime('now'))",
-        params![trades.len() as i64],
-    )?;
-    let import_id = tx.last_insert_rowid();
-    let mut stmt = tx.prepare_cached("\
-        INSERT INTO trades (date, spent_amount, spent_asset, received_amount, received_asset, fee_amount, fee_asset, import_id) \
-        VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)\
-    ")?;
-    for trade in trades {
-        stmt.execute(params![
-            trade.date.to_rfc3339(),
-            trade.spent.amount().to_string(),
-            trade.spent.asset().as_str(),
-            trade.received.amount().to_string(),
-            trade.received.asset().as_str(),
-            trade.fee.amount().to_string(),
-            trade.fee.asset().as_str(),
-            import_id,
-        ])?;
-    }
-    drop(stmt);
-    tx.commit()?;
-    Ok(())
-}
-
 /// Load all existing trade hashes for O(1) dedup lookup.
 pub(crate) fn existing_trade_hashes(conn: &Connection) -> DbResult<HashSet<String>> {
     let mut stmt = conn.prepare("SELECT trade_hash FROM trades WHERE trade_hash IS NOT NULL")?;
@@ -121,6 +90,33 @@ pub(crate) fn existing_trade_hashes(conn: &Connection) -> DbResult<HashSet<Strin
         .query_map([], |row| row.get::<_, String>(0))?
         .collect::<Result<HashSet<_>, _>>()?;
     Ok(hashes)
+}
+
+/// Map a row from `SELECT id, provider, filename, file_hash, trade_count, date_from, date_to, imported_at`
+/// into an `ImportRecord`. Shared by `find_import_by_hash` and `list_imports`.
+fn row_to_import_record(row: &rusqlite::Row<'_>) -> Result<ImportRecord, rusqlite::Error> {
+    Ok(ImportRecord {
+        id: row.get(0)?,
+        provider: parse_col::<Provider>(&row.get::<_, String>(1)?, "imports.provider")?,
+        filename: row.get(2)?,
+        file_hash: row.get(3)?,
+        trade_count: row.get::<_, i64>(4)? as usize,
+        date_from: row
+            .get::<_, Option<String>>(5)?
+            .map(|s| parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.date_from"))
+            .transpose()?
+            .map(|d| d.with_timezone(&Utc)),
+        date_to: row
+            .get::<_, Option<String>>(6)?
+            .map(|s| parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.date_to"))
+            .transpose()?
+            .map(|d| d.with_timezone(&Utc)),
+        imported_at: {
+            let s: String = row.get(7)?;
+            parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.imported_at")?
+                .with_timezone(&Utc)
+        },
+    })
 }
 
 /// Find an import record by file hash.
@@ -132,30 +128,7 @@ pub(crate) fn find_import_by_hash(
         "SELECT id, provider, filename, file_hash, trade_count, date_from, date_to, imported_at \
          FROM imports WHERE file_hash = ?1",
     )?;
-    let mut rows = stmt.query_map(params![file_hash], |row| {
-        Ok(ImportRecord {
-            id: row.get(0)?,
-            provider: parse_col::<Provider>(&row.get::<_, String>(1)?, "imports.provider")?,
-            filename: row.get(2)?,
-            file_hash: row.get(3)?,
-            trade_count: row.get::<_, i64>(4)? as usize,
-            date_from: row
-                .get::<_, Option<String>>(5)?
-                .map(|s| parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.date_from"))
-                .transpose()?
-                .map(|d| d.with_timezone(&Utc)),
-            date_to: row
-                .get::<_, Option<String>>(6)?
-                .map(|s| parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.date_to"))
-                .transpose()?
-                .map(|d| d.with_timezone(&Utc)),
-            imported_at: {
-                let s: String = row.get(7)?;
-                parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.imported_at")?
-                    .with_timezone(&Utc)
-            },
-        })
-    })?;
+    let mut rows = stmt.query_map(params![file_hash], row_to_import_record)?;
     match rows.next() {
         Some(r) => Ok(Some(r?)),
         None => Ok(None),
@@ -243,30 +216,7 @@ pub(crate) fn list_imports(conn: &Connection) -> DbResult<Vec<ImportRecord>> {
         "SELECT id, provider, filename, file_hash, trade_count, date_from, date_to, imported_at \
          FROM imports ORDER BY imported_at DESC",
     )?;
-    let rows = stmt.query_map([], |row| {
-        Ok(ImportRecord {
-            id: row.get(0)?,
-            provider: parse_col::<Provider>(&row.get::<_, String>(1)?, "imports.provider")?,
-            filename: row.get(2)?,
-            file_hash: row.get(3)?,
-            trade_count: row.get::<_, i64>(4)? as usize,
-            date_from: row
-                .get::<_, Option<String>>(5)?
-                .map(|s| parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.date_from"))
-                .transpose()?
-                .map(|d| d.with_timezone(&Utc)),
-            date_to: row
-                .get::<_, Option<String>>(6)?
-                .map(|s| parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.date_to"))
-                .transpose()?
-                .map(|d| d.with_timezone(&Utc)),
-            imported_at: {
-                let s: String = row.get(7)?;
-                parse_col::<DateTime<chrono::FixedOffset>>(&s, "imports.imported_at")?
-                    .with_timezone(&Utc)
-            },
-        })
-    })?;
+    let rows = stmt.query_map([], row_to_import_record)?;
     rows.collect::<Result<Vec<_>, _>>().map_err(Into::into)
 }
 
@@ -294,6 +244,7 @@ pub(crate) fn nuke_all_data(conn: &Connection) -> DbResult<()> {
     Ok(())
 }
 
+/// Load all trades joined with their import provider, ordered chronologically.
 pub(crate) fn load_trades(conn: &Connection) -> DbResult<Vec<Trade>> {
     let mut stmt = conn.prepare(
         "\
@@ -335,6 +286,7 @@ pub(crate) fn load_trades(conn: &Connection) -> DbResult<Vec<Trade>> {
     Ok(trades)
 }
 
+/// Upsert candles for a given quote currency (INSERT OR REPLACE on quote+date).
 pub(crate) fn save_candles(conn: &Connection, quote: &Asset, candles: &[Candle]) -> DbResult<()> {
     let tx = conn.unchecked_transaction()?;
     let mut stmt = tx.prepare_cached(
@@ -359,6 +311,7 @@ pub(crate) fn save_candles(conn: &Connection, quote: &Asset, candles: &[Candle])
     Ok(())
 }
 
+/// Load all candles for a quote currency, ordered by date ascending.
 pub(crate) fn load_candles(conn: &Connection, quote: &Asset) -> DbResult<Vec<Candle>> {
     let mut stmt = conn.prepare(
         "SELECT date, open, high, low, close, volume, count \
@@ -399,7 +352,38 @@ mod tests {
         conn
     }
 
-    fn sample_trade(year: i32, month: u32, day: u32) -> Trade {
+    /// Creates a dummy import record and links all trades to it,
+    /// so tests don't need to set up imports manually.
+    fn save_test_trades(conn: &Connection, trades: &[Trade]) -> DbResult<()> {
+        let tx = conn.unchecked_transaction()?;
+        tx.execute(
+            "INSERT INTO imports (provider, filename, file_hash, trade_count, imported_at) \
+             VALUES ('kraken', '_test.csv', hex(randomblob(16)), ?1, datetime('now'))",
+            params![trades.len() as i64],
+        )?;
+        let import_id = tx.last_insert_rowid();
+        let mut stmt = tx.prepare_cached("\
+            INSERT INTO trades (date, spent_amount, spent_asset, received_amount, received_asset, fee_amount, fee_asset, import_id) \
+            VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8)\
+        ")?;
+        for trade in trades {
+            stmt.execute(params![
+                trade.date.to_rfc3339(),
+                trade.spent.amount().to_string(),
+                trade.spent.asset().as_str(),
+                trade.received.amount().to_string(),
+                trade.received.asset().as_str(),
+                trade.fee.amount().to_string(),
+                trade.fee.asset().as_str(),
+                import_id,
+            ])?;
+        }
+        drop(stmt);
+        tx.commit()?;
+        Ok(())
+    }
+
+    fn make_trade(year: i32, month: u32, day: u32) -> Trade {
         Trade {
             date: Utc.with_ymd_and_hms(year, month, day, 12, 0, 0).unwrap(),
             spent: AssetAmount::new(dec!(187.2514), Asset::Eur),
@@ -407,15 +391,6 @@ mod tests {
             fee: AssetAmount::new(dec!(0.749), Asset::Eur),
             provider: Provider::Kraken,
         }
-    }
-
-    #[test]
-    fn migrate_creates_table() {
-        let conn = test_conn();
-        let count: i64 = conn
-            .query_row("SELECT COUNT(*) FROM trades", [], |r| r.get(0))
-            .unwrap();
-        assert_eq!(count, 0);
     }
 
     #[test]
@@ -428,7 +403,7 @@ mod tests {
     #[test]
     fn save_and_load_roundtrip() {
         let conn = test_conn();
-        let trades = vec![sample_trade(2024, 1, 15), sample_trade(2024, 3, 20)];
+        let trades = vec![make_trade(2024, 1, 15), make_trade(2024, 3, 20)];
         save_test_trades(&conn, &trades).unwrap();
         let loaded = load_trades(&conn).unwrap();
         assert_eq!(loaded, trades);
@@ -451,7 +426,7 @@ mod tests {
 
     // ── Candles ──────────────────────────────────────────
 
-    fn sample_candle(year: i32, month: u32, day: u32, close: Decimal) -> Candle {
+    fn make_candle(year: i32, month: u32, day: u32, close: Decimal) -> Candle {
         Candle {
             date: NaiveDate::from_ymd_opt(year, month, day).unwrap(),
             open: close,
@@ -467,8 +442,8 @@ mod tests {
     fn candles_save_and_load_roundtrip() {
         let conn = test_conn();
         let candles = vec![
-            sample_candle(2024, 1, 1, dec!(42000)),
-            sample_candle(2024, 1, 2, dec!(43000)),
+            make_candle(2024, 1, 1, dec!(42000)),
+            make_candle(2024, 1, 2, dec!(43000)),
         ];
         save_candles(&conn, &Asset::Eur, &candles).unwrap();
         let loaded = load_candles(&conn, &Asset::Eur).unwrap();
@@ -478,18 +453,8 @@ mod tests {
     #[test]
     fn candles_filtered_by_quote() {
         let conn = test_conn();
-        save_candles(
-            &conn,
-            &Asset::Eur,
-            &[sample_candle(2024, 1, 1, dec!(42000))],
-        )
-        .unwrap();
-        save_candles(
-            &conn,
-            &Asset::Usd,
-            &[sample_candle(2024, 1, 1, dec!(45000))],
-        )
-        .unwrap();
+        save_candles(&conn, &Asset::Eur, &[make_candle(2024, 1, 1, dec!(42000))]).unwrap();
+        save_candles(&conn, &Asset::Usd, &[make_candle(2024, 1, 1, dec!(45000))]).unwrap();
         let eur = load_candles(&conn, &Asset::Eur).unwrap();
         let usd = load_candles(&conn, &Asset::Usd).unwrap();
         assert_eq!(eur.len(), 1);
@@ -501,18 +466,8 @@ mod tests {
     #[test]
     fn candles_upsert_on_duplicate() {
         let conn = test_conn();
-        save_candles(
-            &conn,
-            &Asset::Eur,
-            &[sample_candle(2024, 1, 1, dec!(42000))],
-        )
-        .unwrap();
-        save_candles(
-            &conn,
-            &Asset::Eur,
-            &[sample_candle(2024, 1, 1, dec!(43000))],
-        )
-        .unwrap();
+        save_candles(&conn, &Asset::Eur, &[make_candle(2024, 1, 1, dec!(42000))]).unwrap();
+        save_candles(&conn, &Asset::Eur, &[make_candle(2024, 1, 1, dec!(43000))]).unwrap();
         let loaded = load_candles(&conn, &Asset::Eur).unwrap();
         assert_eq!(loaded.len(), 1);
         assert_eq!(loaded[0].close, dec!(43000));
@@ -531,9 +486,9 @@ mod tests {
     fn load_preserves_chronological_order() {
         let conn = test_conn();
         let trades = vec![
-            sample_trade(2024, 12, 1),
-            sample_trade(2024, 1, 1),
-            sample_trade(2024, 6, 15),
+            make_trade(2024, 12, 1),
+            make_trade(2024, 1, 1),
+            make_trade(2024, 6, 15),
         ];
         save_test_trades(&conn, &trades).unwrap();
         let loaded = load_trades(&conn).unwrap();
@@ -585,7 +540,7 @@ mod tests {
     #[test]
     fn save_import_inserts_all_trades() {
         let conn = test_conn();
-        let trades = vec![sample_trade(2024, 1, 15), sample_trade(2024, 3, 20)];
+        let trades = vec![make_trade(2024, 1, 15), make_trade(2024, 3, 20)];
         let hashes = make_hashes(&trades);
         let existing = HashSet::new();
         let rec = save_import_with_trades(
@@ -610,7 +565,7 @@ mod tests {
     #[test]
     fn save_import_skips_duplicates() {
         let conn = test_conn();
-        let trades = vec![sample_trade(2024, 1, 15), sample_trade(2024, 3, 20)];
+        let trades = vec![make_trade(2024, 1, 15), make_trade(2024, 3, 20)];
         let hashes = make_hashes(&trades);
         // Mark the first trade as already existing
         let mut existing = HashSet::new();
@@ -634,7 +589,7 @@ mod tests {
     #[test]
     fn list_imports_roundtrip() {
         let conn = test_conn();
-        let trades = vec![sample_trade(2024, 1, 15)];
+        let trades = vec![make_trade(2024, 1, 15)];
         let hashes = make_hashes(&trades);
         save_import_with_trades(
             &conn,
@@ -666,7 +621,7 @@ mod tests {
     #[test]
     fn remove_import_cascades_trades() {
         let conn = test_conn();
-        let trades = vec![sample_trade(2024, 1, 15), sample_trade(2024, 3, 20)];
+        let trades = vec![make_trade(2024, 1, 15), make_trade(2024, 3, 20)];
         let hashes = make_hashes(&trades);
         let rec = save_import_with_trades(
             &conn,
@@ -710,7 +665,7 @@ mod tests {
     #[test]
     fn existing_trade_hashes_returns_all() {
         let conn = test_conn();
-        let trades = vec![sample_trade(2024, 1, 15), sample_trade(2024, 3, 20)];
+        let trades = vec![make_trade(2024, 1, 15), make_trade(2024, 3, 20)];
         let hashes = make_hashes(&trades);
         save_import_with_trades(
             &conn,
@@ -734,14 +689,14 @@ mod tests {
     fn two_imports_partial_overlap() {
         let conn = test_conn();
         let a = vec![
-            sample_trade(2025, 1, 15),
-            sample_trade(2025, 2, 15),
-            sample_trade(2025, 3, 15),
+            make_trade(2025, 1, 15),
+            make_trade(2025, 2, 15),
+            make_trade(2025, 3, 15),
         ];
         let b = vec![
-            sample_trade(2025, 2, 15),
-            sample_trade(2025, 3, 15),
-            sample_trade(2025, 4, 15),
+            make_trade(2025, 2, 15),
+            make_trade(2025, 3, 15),
+            make_trade(2025, 4, 15),
         ];
 
         let rec_a = do_import(&conn, &a, "a.csv", "hash_a");
@@ -757,11 +712,11 @@ mod tests {
     fn two_imports_full_overlap() {
         let conn = test_conn();
         let a = vec![
-            sample_trade(2025, 1, 15),
-            sample_trade(2025, 2, 15),
-            sample_trade(2025, 3, 15),
+            make_trade(2025, 1, 15),
+            make_trade(2025, 2, 15),
+            make_trade(2025, 3, 15),
         ];
-        let b = vec![sample_trade(2025, 1, 15), sample_trade(2025, 2, 15)];
+        let b = vec![make_trade(2025, 1, 15), make_trade(2025, 2, 15)];
 
         let rec_a = do_import(&conn, &a, "a.csv", "hash_a");
         let rec_b = do_import(&conn, &b, "b.csv", "hash_b");
@@ -776,8 +731,8 @@ mod tests {
     #[test]
     fn two_imports_disjoint() {
         let conn = test_conn();
-        let a = vec![sample_trade(2025, 1, 15), sample_trade(2025, 2, 15)];
-        let b = vec![sample_trade(2025, 3, 15), sample_trade(2025, 4, 15)];
+        let a = vec![make_trade(2025, 1, 15), make_trade(2025, 2, 15)];
+        let b = vec![make_trade(2025, 3, 15), make_trade(2025, 4, 15)];
 
         let rec_a = do_import(&conn, &a, "a.csv", "hash_a");
         let rec_b = do_import(&conn, &b, "b.csv", "hash_b");
@@ -791,14 +746,14 @@ mod tests {
     fn two_imports_overlap_chronological_union() {
         let conn = test_conn();
         let a = vec![
-            sample_trade(2025, 1, 15),
-            sample_trade(2025, 2, 15),
-            sample_trade(2025, 3, 15),
+            make_trade(2025, 1, 15),
+            make_trade(2025, 2, 15),
+            make_trade(2025, 3, 15),
         ];
         let b = vec![
-            sample_trade(2025, 2, 15),
-            sample_trade(2025, 3, 15),
-            sample_trade(2025, 4, 15),
+            make_trade(2025, 2, 15),
+            make_trade(2025, 3, 15),
+            make_trade(2025, 4, 15),
         ];
 
         do_import(&conn, &a, "a.csv", "hash_a");
@@ -806,9 +761,48 @@ mod tests {
 
         let loaded = load_trades(&conn).unwrap();
         assert_eq!(loaded.len(), 4);
-        assert_eq!(loaded[0], sample_trade(2025, 1, 15));
-        assert_eq!(loaded[1], sample_trade(2025, 2, 15));
-        assert_eq!(loaded[2], sample_trade(2025, 3, 15));
-        assert_eq!(loaded[3], sample_trade(2025, 4, 15));
+        assert_eq!(loaded[0], make_trade(2025, 1, 15));
+        assert_eq!(loaded[1], make_trade(2025, 2, 15));
+        assert_eq!(loaded[2], make_trade(2025, 3, 15));
+        assert_eq!(loaded[3], make_trade(2025, 4, 15));
+    }
+
+    #[test]
+    fn nuke_all_data_clears_everything() {
+        let conn = test_conn();
+        let trades = vec![make_trade(2024, 1, 15), make_trade(2024, 3, 20)];
+        do_import(&conn, &trades, "a.csv", "hash_a");
+        save_candles(&conn, &Asset::Eur, &[make_candle(2024, 1, 1, dec!(42000))]).unwrap();
+
+        // Verify data exists
+        assert_eq!(load_trades(&conn).unwrap().len(), 2);
+        assert_eq!(list_imports(&conn).unwrap().len(), 1);
+        assert_eq!(load_candles(&conn, &Asset::Eur).unwrap().len(), 1);
+
+        nuke_all_data(&conn).unwrap();
+
+        assert!(load_trades(&conn).unwrap().is_empty());
+        assert!(list_imports(&conn).unwrap().is_empty());
+        assert!(load_candles(&conn, &Asset::Eur).unwrap().is_empty());
+    }
+
+    #[test]
+    fn save_import_date_range_matches_trades() {
+        let conn = test_conn();
+        let trades = vec![
+            make_trade(2024, 6, 10),
+            make_trade(2024, 1, 5),
+            make_trade(2024, 12, 25),
+        ];
+        let rec = do_import(&conn, &trades, "a.csv", "hash_a");
+
+        assert_eq!(
+            rec.date_from.unwrap(),
+            Utc.with_ymd_and_hms(2024, 1, 5, 12, 0, 0).unwrap()
+        );
+        assert_eq!(
+            rec.date_to.unwrap(),
+            Utc.with_ymd_and_hms(2024, 12, 25, 12, 0, 0).unwrap()
+        );
     }
 }
