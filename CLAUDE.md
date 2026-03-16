@@ -21,37 +21,40 @@ Use `just`
 ```
 Available recipes:
     default
-    shadcn *args # Tools
 
     [build]
-    build        # Build native desktop bundle
-    build-web    # Build frontend only (tsc + vite)
+    build          # Build native desktop bundle
+    build-web      # Build frontend only (tsc + vite)
 
     [ci]
-    check        # Full check: typecheck + lint + format
+    check          # Full check: typecheck + lint + format [alias: c]
+    smoke-app      # Build Tauri app without bundling (smoke test)
 
     [dev]
-    dev          # Run full Tauri desktop app [alias: d]
-    dev-web      # Run Vite dev server only (:5173) [alias: dw]
+    dev            # Run full Tauri desktop app [alias: d]
+    dev-web        # Run Vite dev server only (:5173) [alias: dw]
 
     [format]
-    fmt          # Format all [alias: f]
-    fmt-check    # Check formatting (no write)
+    fmt            # Format all [alias: f]
+    fmt-check      # Check formatting (no write)
 
     [gen]
-    gen-icons    # Generate app icons from SVG source
-    gen-types    # Generate TS types from Rust models
+    gen-icons      # Generate app icons from src-tauri/app-icon.svg
+    gen-types-core # Generate TS types from Rust models
 
     [lint]
-    lint         # Lint all [alias: l]
-    lint-fix     # Lint & fix all
+    lint           # Lint all [alias: l]
+    lint-fix       # Lint & fix all
+
+    [setup]
+    install        # Install all dependencies [alias: i]
 
     [test]
-    test         # Run all tests [alias: t]
-    test-core    # Run app-core tests only
+    test           # Run all tests [alias: t]
+    test-core      # Run app-core tests only
 
     [typecheck]
-    typecheck    # Typecheck all (cargo + svelte) [alias: c]
+    typecheck      # Typecheck all (cargo + svelte)
 ```
 
 ## Conventions
