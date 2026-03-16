@@ -11,7 +11,7 @@
   import { Button } from "$lib/components/ui/button";
   import { Separator } from "$lib/components/ui/separator";
   import { Spinner } from "$lib/components/ui/spinner";
-  import { displayAmount } from "$lib/utils";
+  import { displayAmount, formatCurrency } from "$lib/utils/format";
   import type { ImportPreview } from "$lib/types/bindings";
   import { providerMeta } from "$lib/utils/provider";
 
@@ -86,11 +86,7 @@
     <Card.Header class={statHeader}>
       <Card.Description class={statLabel}>Volume</Card.Description>
       <Card.Title class={statValue}>
-        {displayAmount(summary.spent).toLocaleString("en-US", {
-          style: "currency",
-          currency: "EUR",
-          maximumFractionDigits: 0,
-        })}
+        {formatCurrency(displayAmount(summary.spent), "EUR")}
       </Card.Title>
     </Card.Header>
   </Card.Root>

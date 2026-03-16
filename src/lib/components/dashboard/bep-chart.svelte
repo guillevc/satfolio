@@ -13,6 +13,7 @@
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import type { EnrichedTrade, Candle } from "$lib/types/bindings";
   import { Label } from "$lib/components/ui/label";
+  import { formatCurrency, formatSignedCurrency } from "$lib/utils/format";
 
   let {
     trades,
@@ -267,26 +268,12 @@
 
   function formatPrice(v: number | null): string {
     if (v === null) return "—";
-    return v.toLocaleString("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    });
+    return formatCurrency(v, "USD");
   }
 
   function formatSpread(v: number | null): string {
     if (v === null) return "—";
-    const sign = v >= 0 ? "+" : "";
-    return (
-      sign +
-      v.toLocaleString("en-US", {
-        style: "currency",
-        currency: "USD",
-        minimumFractionDigits: 0,
-        maximumFractionDigits: 0,
-      })
-    );
+    return formatSignedCurrency(v, "USD");
   }
 </script>
 

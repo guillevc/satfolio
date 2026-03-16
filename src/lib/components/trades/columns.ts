@@ -6,40 +6,18 @@ import {
 } from "$lib/components/ui/data-table/index.js";
 import type { EnrichedTrade } from "$lib/types/bindings";
 import { providerMeta } from "$lib/utils/provider";
+import { formatCurrency, formatSignedCurrency } from "$lib/utils/format";
+import {
+  FIAT_ASSETS,
+  isBuy,
+  baseAmount,
+  quoteAmount,
+  pricePerUnit,
+} from "$lib/utils/trade";
 import SortButton from "./sort-button.svelte";
 import TypeCell from "./type-cell.svelte";
 
-// ── Constants & helpers (shared with trades.svelte) ─────────
-
-const QUOTE_ASSET = "EUR";
-const FIAT_ASSETS = new Set(["EUR", "USD", "GBP"]);
-
-export function isBuy(t: EnrichedTrade): boolean {
-  return t.spent.asset === QUOTE_ASSET;
-}
-
-export function baseAmount(t: EnrichedTrade): string {
-  return isBuy(t) ? t.received.amount : t.spent.amount;
-}
-
-function quoteAmount(t: EnrichedTrade): string {
-  return isBuy(t) ? t.spent.amount : t.received.amount;
-}
-
-export function pricePerUnit(t: EnrichedTrade): number {
-  const units = parseFloat(baseAmount(t));
-  if (units === 0) return 0;
-  return parseFloat(quoteAmount(t)) / units;
-}
-
 // ── Formatters ──────────────────────────────────────────────
-
-const fiatFmt = new Intl.NumberFormat("en-US", {
-  style: "currency",
-  currency: "USD",
-  minimumFractionDigits: 2,
-  maximumFractionDigits: 2,
-});
 
 export function formatDate(iso: string): { date: string; time: string } {
   const d = new Date(iso);
@@ -56,16 +34,6 @@ function formatBtc(t: EnrichedTrade): string {
   const prefix = isBuy(t) ? "+" : "-";
   const formatted = n.toFixed(6);
   return `${prefix}${formatted}`;
-}
-
-function formatFiat(value: string | number): string {
-  return fiatFmt.format(typeof value === "number" ? value : parseFloat(value));
-}
-
-function formatPnl(value: string): string {
-  const n = parseFloat(value);
-  const formatted = fiatFmt.format(Math.abs(n));
-  return n >= 0 ? `+${formatted}` : `-${formatted}`;
 }
 
 // ── Null-safe sorting ───────────────────────────────────────
@@ -168,7 +136,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
         onclick: column.getToggleSortingHandler()!,
       }),
     cell: ({ row }) => {
-      const text = formatFiat(row.getValue("price") as number);
+      const text = formatCurrency(row.getValue("price") as number, "USD", 2);
       const snippet = createRawSnippet(() => ({
         render: () =>
           `<div class="text-right font-mono tabular-nums">${text}</div>`,
@@ -191,7 +159,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
     cell: ({ row }) => {
       const fee = row.original.fee;
       const text = FIAT_ASSETS.has(fee.asset)
-        ? formatFiat(fee.amount)
+        ? formatCurrency(parseFloat(fee.amount), "USD", 2)
         : `${parseFloat(fee.amount).toFixed(8)} ${fee.asset}`;
       const snippet = createRawSnippet(() => ({
         render: () =>
@@ -213,7 +181,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
         onclick: column.getToggleSortingHandler()!,
       }),
     cell: ({ row }) => {
-      const text = formatFiat(row.getValue("total") as number);
+      const text = formatCurrency(row.getValue("total") as number, "USD", 2);
       const snippet = createRawSnippet(() => ({
         render: () =>
           `<div class="text-right font-mono tabular-nums">${text}</div>`,
@@ -236,7 +204,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
     sortingFn: nullableSort,
     cell: ({ row }) => {
       const val = row.getValue("bep") as number | null;
-      const text = val !== null ? formatFiat(val) : "–";
+      const text = val !== null ? formatCurrency(val, "USD", 2) : "–";
       const cls =
         val !== null
           ? "text-right font-mono tabular-nums text-amber-400"
@@ -269,7 +237,11 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
         }));
         return renderSnippet(snippet);
       }
-      const text = formatPnl(row.original.pnl!.amount);
+      const text = formatSignedCurrency(
+        parseFloat(row.original.pnl!.amount),
+        "USD",
+        2,
+      );
       const color = val >= 0 ? "text-success" : "text-destructive";
       const snippet = createRawSnippet(() => ({
         render: () =>

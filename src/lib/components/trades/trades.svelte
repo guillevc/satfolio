@@ -18,13 +18,8 @@
   import { Button } from "$lib/components/ui/button";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import { trades } from "$lib/stores/trades.svelte";
-  import {
-    columns,
-    isBuy,
-    baseAmount,
-    pricePerUnit,
-    formatDate,
-  } from "./columns";
+  import { isBuy, baseAmount, pricePerUnit } from "$lib/utils/trade";
+  import { columns, formatDate } from "./columns";
   import Separator from "../ui/separator/separator.svelte";
 
   // ── Filter state ──────────────────────────────────────────

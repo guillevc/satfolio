@@ -2,7 +2,8 @@
   import { TrendingUp, TrendingDown } from "@lucide/svelte";
   import * as Card from "$lib/components/ui/card";
   import { Skeleton } from "$lib/components/ui/skeleton";
-  import { cn, displayAmount } from "$lib/utils";
+  import { cn } from "$lib/utils";
+  import { displayAmount, formatCurrency } from "$lib/utils/format";
   import type { DashboardStats } from "$lib/types/bindings";
 
   let { stats, syncing }: { stats: DashboardStats; syncing: boolean } =
@@ -15,23 +16,6 @@
   let positionValue = $derived(displayAmount(stats.position_value));
   let pnl = $derived(displayAmount(stats.unrealized_pnl));
   let pnlPct = $derived(parseFloat(stats.unrealized_pnl_pct));
-
-  function formatUsd(value: number): string {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      maximumFractionDigits: 0,
-    }).format(value);
-  }
-
-  function formatUsdFull(value: number): string {
-    return new Intl.NumberFormat("en-US", {
-      style: "currency",
-      currency: "USD",
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }).format(value);
-  }
 
   function formatBtc(value: number): string {
     return `${parseFloat(value.toFixed(4))} BTC`;
@@ -51,7 +35,9 @@
     <Card.Header class={cardHeader}>
       <Card.Description class={cardLabel}>BTC Price</Card.Description>
       {#if !syncing}
-        <Card.Title class={cardValue}>{formatUsd(btcPrice)}</Card.Title>
+        <Card.Title class={cardValue}
+          >{formatCurrency(btcPrice, "USD")}</Card.Title
+        >
       {:else}
         <Skeleton class="h-7 w-28" />
       {/if}
@@ -89,7 +75,7 @@
       <Card.Description class={[cardLabel, "text-primary"]}
         >Break-Even Price</Card.Description
       >
-      <Card.Title class={cardValue}>{formatUsd(bep)}</Card.Title>
+      <Card.Title class={cardValue}>{formatCurrency(bep, "USD")}</Card.Title>
     </Card.Header>
     <Card.Content class={cardContent}>
       <span class={cardSub}>{stats.trade_count} trades</span>
@@ -104,7 +90,7 @@
         <Card.Title
           class={[cardValue, pnl >= 0 ? "text-success" : "text-destructive"]}
         >
-          {pnl >= 0 ? "+" : ""}{formatUsd(pnl)}
+          {pnl >= 0 ? "+" : ""}{formatCurrency(pnl, "USD")}
         </Card.Title>
       {:else}
         <Skeleton class="h-7 w-28" />
@@ -128,7 +114,7 @@
       <Card.Title class={cardValue}>{formatBtc(held)}</Card.Title>
     </Card.Header>
     <Card.Content class={cardContent}>
-      <span class={cardSub}>{formatUsdFull(positionValue)}</span>
+      <span class={cardSub}>{formatCurrency(positionValue, "USD", 2)}</span>
     </Card.Content>
   </Card.Root>
 </div>
