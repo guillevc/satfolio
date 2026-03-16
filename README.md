@@ -17,11 +17,11 @@ Built with [Tauri 2](https://v2.tauri.app), Svelte 5, and Rust.
 
 Download the latest release from the [Releases](https://github.com/guillevc/satfolio/releases) page:
 
-| Platform | File |
-|----------|------|
-| macOS (Apple Silicon) | `.dmg` |
-| macOS (Intel) | `.dmg` |
-| Linux (x64) | `.deb` or `.AppImage` |
+| Platform              | File                  |
+| --------------------- | --------------------- |
+| macOS (Apple Silicon) | `.dmg`                |
+| macOS (Intel)         | `.dmg`                |
+| Linux (x64)           | `.deb` or `.AppImage` |
 
 ### macOS installation note
 
