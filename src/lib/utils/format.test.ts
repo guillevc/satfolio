@@ -1,6 +1,6 @@
 import { describe, expect, test, vi } from "vitest";
 
-vi.mock("$lib/utils/locale", () => ({ formattingLocale: "en-US" }));
+vi.mock("$lib/utils/locale", () => ({ systemLocale: "en-US" }));
 
 import {
   displayAmount,

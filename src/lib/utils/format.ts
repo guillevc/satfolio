@@ -1,5 +1,23 @@
 import type { AssetAmount } from "$lib/types/bindings";
-import { formattingLocale } from "$lib/utils/locale";
+import { systemLocale } from "$lib/utils/locale";
+
+/** Extract ISO 3166-1 alpha-2 region from a BCP-47 tag (handles script subtags). */
+function extractRegion(bcp47: string): string | undefined {
+  return bcp47.split("-").find((p) => /^[A-Z]{2}$/.test(p));
+}
+
+/** Build a region-native locale for Intl.NumberFormat.
+ *  en-ES → es-ES so NumberFormat uses Spanish grouping / symbol placement.
+ *  Falls back to the original tag when the candidate isn't supported
+ *  (e.g. en-US → "us-US" unsupported → stays en-US). */
+function toFormattingLocale(bcp47: string): string {
+  const region = extractRegion(bcp47);
+  if (!region) return bcp47;
+  const candidate = `${region.toLowerCase()}-${region}`;
+  return Intl.NumberFormat.supportedLocalesOf([candidate]).length > 0
+    ? candidate
+    : bcp47;
+}
 
 /** Convert AssetAmount decimal string to number for display formatting only.
  *  All financial math stays in Rust. */
@@ -15,7 +33,7 @@ function getCurrencyFmt(currency: string, decimals: number): Intl.NumberFormat {
   const key = `${currency}:${decimals}`;
   let fmt = fmtCache.get(key);
   if (!fmt) {
-    fmt = new Intl.NumberFormat(formattingLocale, {
+    fmt = new Intl.NumberFormat(toFormattingLocale(systemLocale), {
       style: "currency",
       currency,
       currencyDisplay: "narrowSymbol",
@@ -30,7 +48,7 @@ function getCurrencyFmt(currency: string, decimals: number): Intl.NumberFormat {
 function getBtcFmt(): Intl.NumberFormat {
   let fmt = fmtCache.get("BTC");
   if (!fmt) {
-    fmt = new Intl.NumberFormat(formattingLocale, {
+    fmt = new Intl.NumberFormat(toFormattingLocale(systemLocale), {
       minimumFractionDigits: 0,
       maximumFractionDigits: 8,
     });
@@ -43,7 +61,7 @@ function getDecimalFmt(decimals: number): Intl.NumberFormat {
   const key = `dec:${decimals}`;
   let fmt = fmtCache.get(key);
   if (!fmt) {
-    fmt = new Intl.NumberFormat(formattingLocale, {
+    fmt = new Intl.NumberFormat(toFormattingLocale(systemLocale), {
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     });
@@ -56,7 +74,7 @@ function getPercentFmt(decimals: number): Intl.NumberFormat {
   const key = `pct:${decimals}`;
   let fmt = fmtCache.get(key);
   if (!fmt) {
-    fmt = new Intl.NumberFormat(formattingLocale, {
+    fmt = new Intl.NumberFormat(toFormattingLocale(systemLocale), {
       style: "percent",
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
