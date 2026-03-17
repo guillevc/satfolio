@@ -1,8 +1,8 @@
 <h1> satfolio
-  <img src="https://img.shields.io/github/actions/workflow/status/guillevc/satfolio/ci.yaml?style=flat&labelColor=black&label=ci" alt="CI" />
-  <img src="https://img.shields.io/github/v/release/guillevc/satfolio?style=flat&labelColor=black" alt="Latest release" />
-  <img src="https://img.shields.io/badge/macOS-black?style=flat&labelColor=black&logo=apple&logoColor=white" alt="macOS" />
-  <img src="https://img.shields.io/badge/Linux-black?style=flat&labelColor=black&logo=linux&logoColor=white" alt="Linux" />
+  <a href="https://github.com/guillevc/satfolio/actions/workflows/ci.yaml"><img src="https://img.shields.io/github/actions/workflow/status/guillevc/satfolio/ci.yaml?style=flat&labelColor=black&label=ci" alt="CI" /></a>
+  <a href="https://github.com/guillevc/satfolio/releases/latest"><img src="https://img.shields.io/github/v/release/guillevc/satfolio?style=flat&labelColor=black" alt="Latest release" /></a>
+  <a href="https://github.com/guillevc/satfolio/releases/latest"><img src="https://img.shields.io/badge/macOS-black?style=flat&labelColor=black&logo=apple&logoColor=white" alt="macOS" /></a>
+  <a href="https://github.com/guillevc/satfolio/releases/latest"><img src="https://img.shields.io/badge/Linux-black?style=flat&labelColor=black&logo=linux&logoColor=white" alt="Linux" /></a>
   <img src="https://img.shields.io/badge/local--only-black?style=flat&labelColor=black&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPjxyZWN0IHg9IjMiIHk9IjExIiB3aWR0aD0iMTgiIGhlaWdodD0iMTEiIHJ4PSIyIi8+PHBhdGggZD0iTTcgMTFWN2E1IDUgMCAwIDEgMTAgMHY0Ii8+PC9zdmc+" alt="Local only" />
   <a href="https://github.com/guillevc/satfolio/attestations"><img src="https://img.shields.io/badge/Sigstore-black?style=flat&labelColor=black&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0xMiAyMnM4LTQgOC0xMFY1bC04LTMtOCAzdjdjMCA2IDggMTAgOCAxMHoiLz48cGF0aCBkPSJtOSAxMiAyIDIgNC00Ii8+PC9zdmc+" alt="Sigstore" /></a>
 </h1>
