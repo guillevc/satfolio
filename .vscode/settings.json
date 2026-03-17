@@ -5,7 +5,10 @@
     ".env": "dotenv"
   },
   "[rust]": {
-    "editor.formatOnSave": true
+    "editor.formatOnSave": true,
+    "editor.defaultFormatter": "loong-vsx.rust-analyzer"
   },
-  "mise.autoDetectMiseBinPath": true
+  "rust-analyzer.server.path": "rust-analyzer",
+  "mise.autoDetectMiseBinPath": true,
+  "mise.automaticallyTrustMiseConfigFiles": true
 }
