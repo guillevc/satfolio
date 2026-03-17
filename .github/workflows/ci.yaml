@@ -38,6 +38,14 @@ jobs:
 
       - run: just install
 
+      - name: Audit Rust dependencies
+        run: |
+          cargo install cargo-audit --locked
+          cargo audit
+
+      - name: Audit JS dependencies
+        run: pnpm audit
+
       - run: just check
       - run: just test
       - run: just smoke-app
