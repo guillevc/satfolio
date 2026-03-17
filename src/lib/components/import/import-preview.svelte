@@ -12,6 +12,7 @@
   import { Separator } from "$lib/components/ui/separator";
   import { Spinner } from "$lib/components/ui/spinner";
   import { displayAmount, formatCurrency } from "$lib/utils/format";
+  import { getQuote } from "$lib/stores/config.svelte";
   import type { ImportPreview } from "$lib/types/bindings";
   import { providerMeta } from "$lib/utils/provider";
 
@@ -86,7 +87,7 @@
     <Card.Header class={statHeader}>
       <Card.Description class={statLabel}>Volume</Card.Description>
       <Card.Title class={statValue}>
-        {formatCurrency(displayAmount(summary.spent), "EUR")}
+        {formatCurrency(displayAmount(summary.spent), getQuote())}
       </Card.Title>
     </Card.Header>
   </Card.Root>

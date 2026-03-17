@@ -14,6 +14,7 @@
   import type { EnrichedTrade, Candle } from "$lib/types/bindings";
   import { Label } from "$lib/components/ui/label";
   import { formatCurrency, formatSignedCurrency } from "$lib/utils/format";
+  import { getQuote } from "$lib/stores/config.svelte";
 
   let {
     trades,
@@ -268,12 +269,12 @@
 
   function formatPrice(v: number | null): string {
     if (v === null) return "—";
-    return formatCurrency(v, "USD");
+    return formatCurrency(v, getQuote());
   }
 
   function formatSpread(v: number | null): string {
     if (v === null) return "—";
-    return formatSignedCurrency(v, "USD");
+    return formatSignedCurrency(v, getQuote());
   }
 </script>
 

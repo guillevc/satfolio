@@ -4,11 +4,13 @@
   import { Skeleton } from "$lib/components/ui/skeleton";
   import { cn } from "$lib/utils";
   import { displayAmount, formatCurrency } from "$lib/utils/format";
+  import { getQuote } from "$lib/stores/config.svelte";
   import type { DashboardStats } from "$lib/types/bindings";
 
   let { stats, syncing }: { stats: DashboardStats; syncing: boolean } =
     $props();
 
+  let quote = $derived(getQuote());
   let btcPrice = $derived(displayAmount(stats.btc_price));
   let change24h = $derived(parseFloat(stats.change_24h_pct));
   let bep = $derived(stats.bep ? displayAmount(stats.bep) : 0);
@@ -36,7 +38,7 @@
       <Card.Description class={cardLabel}>BTC Price</Card.Description>
       {#if !syncing}
         <Card.Title class={cardValue}
-          >{formatCurrency(btcPrice, "USD")}</Card.Title
+          >{formatCurrency(btcPrice, quote)}</Card.Title
         >
       {:else}
         <Skeleton class="h-7 w-28" />
@@ -75,7 +77,7 @@
       <Card.Description class={[cardLabel, "text-primary"]}
         >Break-Even Price</Card.Description
       >
-      <Card.Title class={cardValue}>{formatCurrency(bep, "USD")}</Card.Title>
+      <Card.Title class={cardValue}>{formatCurrency(bep, quote)}</Card.Title>
     </Card.Header>
     <Card.Content class={cardContent}>
       <span class={cardSub}>{stats.trade_count} trades</span>
@@ -90,7 +92,7 @@
         <Card.Title
           class={[cardValue, pnl >= 0 ? "text-success" : "text-destructive"]}
         >
-          {pnl >= 0 ? "+" : ""}{formatCurrency(pnl, "USD")}
+          {pnl >= 0 ? "+" : ""}{formatCurrency(pnl, quote)}
         </Card.Title>
       {:else}
         <Skeleton class="h-7 w-28" />
@@ -114,7 +116,7 @@
       <Card.Title class={cardValue}>{formatBtc(held)}</Card.Title>
     </Card.Header>
     <Card.Content class={cardContent}>
-      <span class={cardSub}>{formatCurrency(positionValue, "USD", 2)}</span>
+      <span class={cardSub}>{formatCurrency(positionValue, quote, 2)}</span>
     </Card.Content>
   </Card.Root>
 </div>

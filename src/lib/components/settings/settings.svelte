@@ -14,13 +14,20 @@
   import { Separator } from "$lib/components/ui/separator";
   import * as ToggleGroup from "$lib/components/ui/toggle-group";
   import { nukeAllData } from "$lib/api";
+  import {
+    getQuote,
+    setQuote,
+    type QuoteCurrency,
+  } from "$lib/stores/config.svelte";
+  import { loadDashboard } from "$lib/stores/dashboard.svelte";
+  import { loadTrades } from "$lib/stores/trades.svelte";
   import Row from "./settings-row.svelte";
 
   let dbPath = $state("Loading\u2026");
   let nukeDialogOpen = $state(false);
   let copied = $state(false);
 
-  let baseCurrency = $state("EUR");
+  let baseCurrency: QuoteCurrency = $state(getQuote());
   let bitcoinUnit = $state("BTC");
 
   onMount(async () => {
@@ -57,11 +64,16 @@
             type="single"
             value={baseCurrency}
             onValueChange={(v) => {
-              if (v) baseCurrency = v;
+              if (v) {
+                const q = v as QuoteCurrency;
+                baseCurrency = q;
+                setQuote(q);
+                loadDashboard();
+                loadTrades();
+              }
             }}
             variant="outline"
             size="sm"
-            disabled
           >
             <ToggleGroup.Item
               value="EUR"

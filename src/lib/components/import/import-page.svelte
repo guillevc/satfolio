@@ -2,6 +2,7 @@
   import { AlertCircleIcon } from "@lucide/svelte";
   import { Spinner } from "$lib/components/ui/spinner";
   import { previewImport, confirmImport } from "$lib/api";
+  import { getQuote } from "$lib/stores/config.svelte";
   import { loadDashboard } from "$lib/stores/dashboard.svelte";
   import { loadTrades } from "$lib/stores/trades.svelte";
   import {
@@ -42,7 +43,7 @@
 
     loading = true;
     try {
-      const preview = await previewImport(path);
+      const preview = await previewImport(path, getQuote());
 
       if (preview.exact_file_duplicate) {
         const filename = path.split("/").pop() ?? path;
@@ -79,7 +80,7 @@
     const { path, preview } = dialogState;
     dialogState = { step: "confirming", path, preview };
     try {
-      const result = await confirmImport(path);
+      const result = await confirmImport(path, getQuote());
       addImport(result.import);
       dialogState = { step: "closed" };
       loadDashboard();

@@ -7,6 +7,7 @@ import {
 import type { EnrichedTrade } from "$lib/types/bindings";
 import { providerMeta } from "$lib/utils/provider";
 import { formatCurrency, formatSignedCurrency } from "$lib/utils/format";
+import { getQuote } from "$lib/stores/config.svelte";
 import {
   FIAT_ASSETS,
   isBuy,
@@ -136,7 +137,11 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
         onclick: column.getToggleSortingHandler()!,
       }),
     cell: ({ row }) => {
-      const text = formatCurrency(row.getValue("price") as number, "USD", 2);
+      const text = formatCurrency(
+        row.getValue("price") as number,
+        getQuote(),
+        2,
+      );
       const snippet = createRawSnippet(() => ({
         render: () =>
           `<div class="text-right font-mono tabular-nums">${text}</div>`,
@@ -159,7 +164,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
     cell: ({ row }) => {
       const fee = row.original.fee;
       const text = FIAT_ASSETS.has(fee.asset)
-        ? formatCurrency(parseFloat(fee.amount), "USD", 2)
+        ? formatCurrency(parseFloat(fee.amount), getQuote(), 2)
         : `${parseFloat(fee.amount).toFixed(8)} ${fee.asset}`;
       const snippet = createRawSnippet(() => ({
         render: () =>
@@ -181,7 +186,11 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
         onclick: column.getToggleSortingHandler()!,
       }),
     cell: ({ row }) => {
-      const text = formatCurrency(row.getValue("total") as number, "USD", 2);
+      const text = formatCurrency(
+        row.getValue("total") as number,
+        getQuote(),
+        2,
+      );
       const snippet = createRawSnippet(() => ({
         render: () =>
           `<div class="text-right font-mono tabular-nums">${text}</div>`,
@@ -204,7 +213,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
     sortingFn: nullableSort,
     cell: ({ row }) => {
       const val = row.getValue("bep") as number | null;
-      const text = val !== null ? formatCurrency(val, "USD", 2) : "–";
+      const text = val !== null ? formatCurrency(val, getQuote(), 2) : "\u2013";
       const cls =
         val !== null
           ? "text-right font-mono tabular-nums text-amber-400"
@@ -233,13 +242,13 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
       if (val === null) {
         const snippet = createRawSnippet(() => ({
           render: () =>
-            `<div class="text-right font-mono tabular-nums text-muted-foreground">–</div>`,
+            `<div class="text-right font-mono tabular-nums text-muted-foreground">\u2013</div>`,
         }));
         return renderSnippet(snippet);
       }
       const text = formatSignedCurrency(
         parseFloat(row.original.pnl!.amount),
-        "USD",
+        getQuote(),
         2,
       );
       const color = val >= 0 ? "text-success" : "text-destructive";

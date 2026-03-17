@@ -1,8 +1,9 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use std::path::Path;
 
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, NaiveDate, Utc};
 use rusqlite::{Connection, params};
+use rust_decimal::Decimal;
 
 use crate::{
     errors::DbResult,
@@ -309,6 +310,28 @@ pub(crate) fn save_candles(conn: &Connection, quote: &Asset, candles: &[Candle])
     drop(stmt);
     tx.commit()?;
     Ok(())
+}
+
+/// Load close prices for all currencies, indexed by (currency, date) for O(1) lookup.
+pub(crate) fn load_all_close_prices(
+    conn: &Connection,
+) -> DbResult<HashMap<Asset, HashMap<NaiveDate, Decimal>>> {
+    let mut stmt = conn.prepare("SELECT quote, date, close FROM candles ORDER BY date ASC")?;
+    let mut map: HashMap<Asset, HashMap<NaiveDate, Decimal>> = HashMap::new();
+    let rows = stmt.query_map([], |row| {
+        let quote_str: String = row.get(0)?;
+        let date_str: String = row.get(1)?;
+        let close_str: String = row.get(2)?;
+        Ok((quote_str, date_str, close_str))
+    })?;
+    for row in rows {
+        let (quote_str, date_str, close_str) = row?;
+        let quote = Asset::from(quote_str);
+        let date: NaiveDate = parse_col(&date_str, "candle.date")?;
+        let close: Decimal = parse_col(&close_str, "candle.close")?;
+        map.entry(quote).or_default().insert(date, close);
+    }
+    Ok(map)
 }
 
 /// Load all candles for a quote currency, ordered by date ascending.

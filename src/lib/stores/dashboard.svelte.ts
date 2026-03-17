@@ -1,4 +1,5 @@
 import { dashboardStats, syncCandles } from "$lib/api";
+import { getQuote } from "$lib/stores/config.svelte";
 import type { DashboardStats } from "$lib/types/bindings";
 
 export const dashboard = $state({
@@ -11,8 +12,9 @@ export const dashboard = $state({
 export async function loadDashboard(): Promise<void> {
   dashboard.error = null;
   dashboard.loading = true;
+  const quote = getQuote();
   try {
-    dashboard.stats = await dashboardStats();
+    dashboard.stats = await dashboardStats(quote);
   } catch (e) {
     dashboard.error =
       e && typeof e === "object" && "message" in e
@@ -26,7 +28,7 @@ export async function loadDashboard(): Promise<void> {
   // Gap-fill candles from Kraken in background, then refresh stats
   dashboard.syncing = true;
   syncCandles()
-    .then(() => dashboardStats())
+    .then(() => dashboardStats(quote))
     .then((fresh) => {
       const last = fresh.candles[fresh.candles.length - 1];
       console.log(
@@ -45,7 +47,7 @@ export async function refreshDashboard(): Promise<void> {
   dashboard.syncing = true;
   try {
     await syncCandles();
-    dashboard.stats = await dashboardStats();
+    dashboard.stats = await dashboardStats(getQuote());
   } catch (e) {
     console.error("refresh failed:", e);
   } finally {

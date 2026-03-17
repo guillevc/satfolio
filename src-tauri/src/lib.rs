@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use app_core::errors::CoreError;
 use app_core::models::{
-    AppConfig, Asset, DashboardStats, EnrichedTrade, ImportOutcome, ImportPreview, ImportRecord,
+    Asset, DashboardStats, EnrichedTrade, ImportOutcome, ImportPreview, ImportRecord,
 };
 use serde::Serialize;
 use tauri::{Manager, State};
@@ -34,7 +34,7 @@ impl From<CoreError> for AppError {
 // -- State ---------------------------------------------------------------
 
 struct AppState {
-    cfg: AppConfig,
+    db_path: PathBuf,
 }
 
 // -- Commands ------------------------------------------------------------
@@ -43,53 +43,66 @@ struct AppState {
 #[allow(clippy::unused_async)]
 async fn preview_import(
     state: State<'_, AppState>,
+    quote: Asset,
     path: PathBuf,
 ) -> Result<ImportPreview, AppError> {
-    Ok(app_core::api::preview_import(&state.cfg, &path)?)
+    Ok(app_core::api::preview_import(
+        &state.db_path,
+        &quote,
+        &path,
+    )?)
 }
 
 #[tauri::command]
 #[allow(clippy::unused_async)]
 async fn confirm_import(
     state: State<'_, AppState>,
+    quote: Asset,
     path: PathBuf,
 ) -> Result<ImportOutcome, AppError> {
-    Ok(app_core::api::confirm_import(&state.cfg, &path)?)
+    Ok(app_core::api::confirm_import(
+        &state.db_path,
+        &quote,
+        &path,
+    )?)
 }
 
 #[tauri::command]
 #[allow(clippy::unused_async)]
 async fn list_imports(state: State<'_, AppState>) -> Result<Vec<ImportRecord>, AppError> {
-    Ok(app_core::api::list_imports(&state.cfg)?)
+    Ok(app_core::api::list_imports(&state.db_path)?)
 }
 
 #[tauri::command]
 #[allow(clippy::unused_async)]
 async fn remove_import(state: State<'_, AppState>, import_id: i64) -> Result<(), AppError> {
-    Ok(app_core::api::remove_import(&state.cfg, import_id)?)
+    Ok(app_core::api::remove_import(&state.db_path, import_id)?)
 }
 
 #[tauri::command]
 #[allow(clippy::unused_async)]
-async fn dashboard_stats(state: State<'_, AppState>) -> Result<DashboardStats, AppError> {
-    Ok(app_core::api::dashboard_stats(&state.cfg)?)
+async fn dashboard_stats(
+    state: State<'_, AppState>,
+    quote: Asset,
+) -> Result<DashboardStats, AppError> {
+    Ok(app_core::api::dashboard_stats(&state.db_path, &quote)?)
 }
 
 #[tauri::command]
 #[allow(clippy::unused_async)]
-async fn trades(state: State<'_, AppState>) -> Result<Vec<EnrichedTrade>, AppError> {
-    Ok(app_core::api::trades(&state.cfg)?)
+async fn trades(state: State<'_, AppState>, quote: Asset) -> Result<Vec<EnrichedTrade>, AppError> {
+    Ok(app_core::api::trades(&state.db_path, &quote)?)
 }
 
 #[tauri::command]
 async fn sync_candles(state: State<'_, AppState>) -> Result<(), AppError> {
-    Ok(app_core::api::sync_candles(&state.cfg).await?)
+    Ok(app_core::api::sync_all_candles(&state.db_path).await?)
 }
 
 #[tauri::command]
 #[allow(clippy::unused_async)]
 async fn nuke_all_data(app: tauri::AppHandle, state: State<'_, AppState>) -> Result<(), AppError> {
-    app_core::api::nuke_all_data(&state.cfg)?;
+    app_core::api::nuke_all_data(&state.db_path)?;
     app.restart()
 }
 
@@ -97,13 +110,13 @@ async fn nuke_all_data(app: tauri::AppHandle, state: State<'_, AppState>) -> Res
 #[allow(clippy::unused_async)]
 async fn load_sample(state: State<'_, AppState>) -> Result<(), AppError> {
     if cfg!(debug_assertions) {
-        let trades = app_core::api::trades(&state.cfg)?;
+        let trades = app_core::api::trades(&state.db_path, &Asset::Eur)?;
         if trades.is_empty() {
             let fixture = std::path::PathBuf::from(concat!(
                 env!("CARGO_MANIFEST_DIR"),
                 "/../crates/core/fixtures/kraken_sample.csv"
             ));
-            let _ = app_core::api::confirm_import(&state.cfg, &fixture)?;
+            let _ = app_core::api::confirm_import(&state.db_path, &Asset::Eur, &fixture)?;
         }
     }
     Ok(())
@@ -125,18 +138,15 @@ pub fn run() {
             let data_dir = app.path().app_data_dir()?;
             std::fs::create_dir_all(&data_dir)?;
 
-            let cfg = AppConfig {
-                db_path: data_dir.join("satfolio.db"),
-                quote: Asset::Eur,
-            };
+            let db_path = data_dir.join("satfolio.db");
 
             let prices_dir = app
                 .path()
                 .resolve("resources/prices", tauri::path::BaseDirectory::Resource)?;
 
-            app_core::api::init_db(&cfg, &prices_dir).map_err(|e| e.to_string())?;
+            app_core::api::init_db(&db_path, &prices_dir).map_err(|e| e.to_string())?;
 
-            app.manage(AppState { cfg });
+            app.manage(AppState { db_path });
 
             Ok(())
         })

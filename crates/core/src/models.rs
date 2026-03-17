@@ -1,5 +1,4 @@
 use std::fmt;
-use std::path::PathBuf;
 use std::str::FromStr;
 
 use chrono::{DateTime, NaiveDate, Utc};
@@ -57,12 +56,8 @@ impl FromStr for Provider {
     }
 }
 
-/// Runtime configuration for the app.
-pub struct AppConfig {
-    pub db_path: PathBuf,
-    /// Fiat currency for all position/P&L calculations.
-    pub quote: Asset,
-}
+/// Fiat currencies supported for display/conversion.
+pub const SUPPORTED_FIATS: [Asset; 3] = [Asset::Eur, Asset::Usd, Asset::Gbp];
 
 /// Currency identifier. Normalizes exchange-specific tickers (XBT→BTC, ZEUR→EUR).
 #[derive(Deserialize, Serialize, Debug, Clone, PartialEq, Eq, Hash)]

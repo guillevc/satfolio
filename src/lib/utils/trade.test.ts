@@ -15,7 +15,7 @@ function trade(overrides: Partial<EnrichedTrade> = {}): EnrichedTrade {
     spent: amt("1000.00", "EUR"),
     received: amt("0.012345", "BTC"),
     fee: amt("1.50", "EUR"),
-    side: null,
+    side: "Buy",
     bep: null,
     pnl: null,
     ...overrides,
@@ -25,16 +25,21 @@ function trade(overrides: Partial<EnrichedTrade> = {}): EnrichedTrade {
 // ── isBuy ────────────────────────────────────────────────────
 
 describe("isBuy", () => {
-  test("returns true when spent asset is EUR (quote)", () => {
+  test("returns true when side is Buy", () => {
     expect(isBuy(trade())).toBe(true);
   });
 
-  test("returns false when spent asset is BTC (selling)", () => {
+  test("returns false when side is Sell", () => {
     const sell = trade({
+      side: "Sell",
       spent: amt("0.5", "BTC"),
       received: amt("45000.00", "EUR"),
     });
     expect(isBuy(sell)).toBe(false);
+  });
+
+  test("returns false when side is null", () => {
+    expect(isBuy(trade({ side: null }))).toBe(false);
   });
 });
 
@@ -47,6 +52,7 @@ describe("baseAmount", () => {
 
   test("returns spent amount for sells (BTC spent)", () => {
     const sell = trade({
+      side: "Sell",
       spent: amt("0.5", "BTC"),
       received: amt("45000.00", "EUR"),
     });
@@ -67,6 +73,7 @@ describe("pricePerUnit", () => {
 
   test("computes EUR received / BTC spent for a sell", () => {
     const t = trade({
+      side: "Sell",
       spent: amt("0.02", "BTC"),
       received: amt("1200.00", "EUR"),
     });

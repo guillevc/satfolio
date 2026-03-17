@@ -1,4 +1,5 @@
 import { trades as fetchTrades } from "$lib/api";
+import { getQuote } from "$lib/stores/config.svelte";
 import type { EnrichedTrade } from "$lib/types/bindings";
 import { tick } from "svelte";
 
@@ -13,7 +14,7 @@ export async function loadTrades(): Promise<void> {
   trades.error = null;
   await tick();
   try {
-    trades.rows = await fetchTrades();
+    trades.rows = await fetchTrades(getQuote());
   } catch (e) {
     trades.error =
       e && typeof e === "object" && "message" in e
