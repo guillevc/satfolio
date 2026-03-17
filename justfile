@@ -45,6 +45,13 @@ smoke-app:
     pnpm tauri build --no-bundle
 
 [group('ci')]
+[doc("Audit all dependencies for known vulnerabilities")]
+audit:
+    command -v cargo-audit > /dev/null || cargo install cargo-audit --locked
+    cargo audit
+    pnpm audit
+
+[group('ci')]
 [doc("Full check: typecheck + lint + format")]
 check: typecheck lint fmt-check
 

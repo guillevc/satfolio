@@ -38,10 +38,11 @@ jobs:
 
       - run: just install
 
+      - name: Install cargo-audit
+        run: cargo install cargo-audit --locked
+
       - name: Audit Rust dependencies
-        run: |
-          cargo install cargo-audit --locked
-          cargo audit
+        run: cargo audit
 
       - name: Audit JS dependencies
         run: pnpm audit
