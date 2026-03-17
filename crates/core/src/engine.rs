@@ -234,7 +234,6 @@ pub(crate) fn dashboard_stats(
     current_price: Decimal,
     prev_price: Option<Decimal>,
 ) -> DashboardStats {
-    let hundred = Decimal::ONE_HUNDRED;
     // held is in base (BTC), invested/proceeds/fees are in quote (EUR)
     let quote = summary.invested.asset().clone();
     let held_amount = summary.held.amount();
@@ -250,11 +249,11 @@ pub(crate) fn dashboard_stats(
     let unrealized_pnl_pct = if invested.is_zero() {
         Decimal::ZERO
     } else {
-        unrealized_pnl / invested * hundred
+        unrealized_pnl / invested
     };
 
     let change_24h_pct = match prev_price {
-        Some(prev) if !prev.is_zero() => (current_price - prev) / prev * hundred,
+        Some(prev) if !prev.is_zero() => (current_price - prev) / prev,
         _ => Decimal::ZERO,
     };
 
@@ -606,11 +605,10 @@ mod tests {
             stats.unrealized_pnl,
             AssetAmount::new(dec!(87.9), Asset::Eur)
         );
-        // unrealized_pnl_pct = 87.9 / 300 * 100 = 29.3
-        assert_eq!(stats.unrealized_pnl_pct, dec!(29.3));
-        // change_24h_pct = (90000 - 88000) / 88000 * 100 ≈ 2.272727...
-        // Decimal division is exact here
-        let expected_change = (dec!(2000) / dec!(88000)) * dec!(100);
+        // unrealized_pnl_pct = 87.9 / 300 = 0.293
+        assert_eq!(stats.unrealized_pnl_pct, dec!(0.293));
+        // change_24h_pct = (90000 - 88000) / 88000 (0–1 fraction)
+        let expected_change = dec!(2000) / dec!(88000);
         assert_eq!(stats.change_24h_pct, expected_change);
         assert_eq!(stats.trade_count, 3);
         assert_eq!(stats.btc_price, AssetAmount::new(dec!(90000), Asset::Eur));

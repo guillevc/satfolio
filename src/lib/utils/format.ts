@@ -52,11 +52,30 @@ function getDecimalFmt(decimals: number): Intl.NumberFormat {
   return fmt;
 }
 
+function getPercentFmt(decimals: number): Intl.NumberFormat {
+  const key = `pct:${decimals}`;
+  let fmt = fmtCache.get(key);
+  if (!fmt) {
+    fmt = new Intl.NumberFormat(formattingLocale, {
+      style: "percent",
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    fmtCache.set(key, fmt);
+  }
+  return fmt;
+}
+
 // ── Public API ──────────────────────────────────────────────
 
 /** Locale-aware number with exactly N fraction digits (e.g. "1.234,567800"). */
 export function formatDecimal(value: number, decimals: number): string {
   return getDecimalFmt(decimals).format(value);
+}
+
+/** Locale-aware percentage from a 0–1 fraction (e.g. 0.293 → "29.30%" in en-US). */
+export function formatPercent(value: number, decimals: number): string {
+  return getPercentFmt(decimals).format(value);
 }
 
 /** Format a BTC amount with locale-aware grouping (e.g. "1.234,5678 BTC"). */

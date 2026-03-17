@@ -257,7 +257,7 @@ pub struct DashboardStats {
     pub position_value: AssetAmount,
     /// (current_price − BEP) × held. Zero if no open position.
     pub unrealized_pnl: AssetAmount,
-    /// unrealized_pnl / invested × 100.
+    /// unrealized_pnl / invested (0–1 fraction).
     #[cfg_attr(test, ts(as = "String"))]
     pub unrealized_pnl_pct: Decimal,
     /// Full daily candle history.

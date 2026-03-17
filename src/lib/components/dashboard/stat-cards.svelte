@@ -3,7 +3,13 @@
   import * as Card from "$lib/components/ui/card";
   import { Skeleton } from "$lib/components/ui/skeleton";
   import { cn } from "$lib/utils";
-  import { displayAmount, formatBtc, formatCurrency } from "$lib/utils/format";
+  import {
+    displayAmount,
+    formatBtc,
+    formatCurrency,
+    formatDecimal,
+    formatPercent,
+  } from "$lib/utils/format";
   import { getQuote } from "$lib/stores/config.svelte";
   import type { DashboardStats } from "$lib/types/bindings";
 
@@ -54,7 +60,7 @@
           {:else}
             <TrendingDown class="size-3.5" />
           {/if}
-          {change24h > 0 ? "+" : ""}{change24h.toFixed(1)}% (24h)
+          {change24h > 0 ? "+" : ""}{formatPercent(change24h, 1)} (24h)
         </span>
       {:else}
         <Skeleton class="h-4 w-20" />
@@ -76,7 +82,7 @@
       <Card.Title class={cardValue}>{formatCurrency(bep, quote)}</Card.Title>
     </Card.Header>
     <Card.Content class={cardContent}>
-      <span class={cardSub}>{stats.trade_count} trades</span>
+      <span class={cardSub}>{formatDecimal(stats.trade_count, 0)} trades</span>
     </Card.Content>
   </Card.Root>
 
@@ -97,7 +103,7 @@
     <Card.Content class={cardContent}>
       {#if !syncing}
         <span class={cardSub}>
-          {pnl >= 0 ? "+" : ""}{pnlPct.toFixed(2)}%
+          {pnl >= 0 ? "+" : ""}{formatPercent(pnlPct, 2)}
         </span>
       {:else}
         <Skeleton class="h-4 w-20" />

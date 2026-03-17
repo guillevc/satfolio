@@ -3,6 +3,7 @@
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
   import { Button } from "$lib/components/ui/button";
   import type { ImportRecord } from "$lib/types/bindings";
+  import { formatDecimal } from "$lib/utils/format";
   import { systemLocale } from "$lib/utils/locale";
   import { providerMeta } from "$lib/utils/provider";
 
@@ -85,7 +86,7 @@
 
         <!-- Trades -->
         <div class="col-span-1 text-right font-mono text-sm text-foreground">
-          {file.trade_count.toLocaleString()}
+          {formatDecimal(file.trade_count, 0)}
         </div>
 
         <!-- Date Range -->

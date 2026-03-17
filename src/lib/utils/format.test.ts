@@ -7,6 +7,7 @@ import {
   formatBtc,
   formatCurrency,
   formatDecimal,
+  formatPercent,
   formatSignedCurrency,
 } from "./format";
 
@@ -59,6 +60,22 @@ describe("formatDecimal", () => {
 
   test("uses locale grouping", () => {
     expect(formatDecimal(1234.5, 2)).toBe("1,234.50");
+  });
+});
+
+// ── formatPercent ──────────────────────────────────────────
+
+describe("formatPercent", () => {
+  test("formats a 0–1 fraction as percent", () => {
+    expect(formatPercent(0.293, 2)).toBe("29.30%");
+  });
+
+  test("formats negative fractions", () => {
+    expect(formatPercent(-0.05, 1)).toBe("-5.0%");
+  });
+
+  test("formats zero", () => {
+    expect(formatPercent(0, 1)).toBe("0.0%");
   });
 });
 
