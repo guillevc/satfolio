@@ -6,7 +6,11 @@ import {
 } from "$lib/components/ui/data-table/index.js";
 import type { EnrichedTrade } from "$lib/types/bindings";
 import { providerMeta } from "$lib/utils/provider";
-import { formatCurrency, formatSignedCurrency } from "$lib/utils/format";
+import {
+  formatCurrency,
+  formatDecimal,
+  formatSignedCurrency,
+} from "$lib/utils/format";
 import { getQuote } from "$lib/stores/config.svelte";
 import {
   FIAT_ASSETS,
@@ -30,11 +34,10 @@ export function formatDate(iso: string): { date: string; time: string } {
   return { date, time };
 }
 
-function formatBtc(t: EnrichedTrade): string {
+function formatBtcSigned(t: EnrichedTrade): string {
   const n = parseFloat(baseAmount(t));
   const prefix = isBuy(t) ? "+" : "-";
-  const formatted = n.toFixed(6);
-  return `${prefix}${formatted}`;
+  return `${prefix}${formatDecimal(n, 6)}`;
 }
 
 // ── Null-safe sorting ───────────────────────────────────────
@@ -116,7 +119,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
         onclick: column.getToggleSortingHandler()!,
       }),
     cell: ({ row }) => {
-      const text = formatBtc(row.original);
+      const text = formatBtcSigned(row.original);
       const snippet = createRawSnippet(() => ({
         render: () =>
           `<div class="text-right font-mono tabular-nums text-foreground">${text}</div>`,
@@ -165,7 +168,7 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
       const fee = row.original.fee;
       const text = FIAT_ASSETS.has(fee.asset)
         ? formatCurrency(parseFloat(fee.amount), getQuote(), 2)
-        : `${parseFloat(fee.amount).toFixed(8)} ${fee.asset}`;
+        : `${formatDecimal(parseFloat(fee.amount), 8)} ${fee.asset}`;
       const snippet = createRawSnippet(() => ({
         render: () =>
           `<div class="text-muted-foreground text-right font-mono tabular-nums">${text}</div>`,

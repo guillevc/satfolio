@@ -3,7 +3,7 @@
   import * as Card from "$lib/components/ui/card";
   import { Skeleton } from "$lib/components/ui/skeleton";
   import { cn } from "$lib/utils";
-  import { displayAmount, formatCurrency } from "$lib/utils/format";
+  import { displayAmount, formatBtc, formatCurrency } from "$lib/utils/format";
   import { getQuote } from "$lib/stores/config.svelte";
   import type { DashboardStats } from "$lib/types/bindings";
 
@@ -18,10 +18,6 @@
   let positionValue = $derived(displayAmount(stats.position_value));
   let pnl = $derived(displayAmount(stats.unrealized_pnl));
   let pnlPct = $derived(parseFloat(stats.unrealized_pnl_pct));
-
-  function formatBtc(value: number): string {
-    return `${parseFloat(value.toFixed(4))} BTC`;
-  }
 
   const cardRoot = "gap-1 py-4 shadow-none";
   const cardHeader = "px-4 gap-1";

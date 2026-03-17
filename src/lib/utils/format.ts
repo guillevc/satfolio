@@ -27,7 +27,42 @@ function getCurrencyFmt(currency: string, decimals: number): Intl.NumberFormat {
   return fmt;
 }
 
+function getBtcFmt(): Intl.NumberFormat {
+  let fmt = fmtCache.get("BTC");
+  if (!fmt) {
+    fmt = new Intl.NumberFormat(formattingLocale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 8,
+    });
+    fmtCache.set("BTC", fmt);
+  }
+  return fmt;
+}
+
+function getDecimalFmt(decimals: number): Intl.NumberFormat {
+  const key = `dec:${decimals}`;
+  let fmt = fmtCache.get(key);
+  if (!fmt) {
+    fmt = new Intl.NumberFormat(formattingLocale, {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    });
+    fmtCache.set(key, fmt);
+  }
+  return fmt;
+}
+
 // ── Public API ──────────────────────────────────────────────
+
+/** Locale-aware number with exactly N fraction digits (e.g. "1.234,567800"). */
+export function formatDecimal(value: number, decimals: number): string {
+  return getDecimalFmt(decimals).format(value);
+}
+
+/** Format a BTC amount with locale-aware grouping (e.g. "1.234,5678 BTC"). */
+export function formatBtc(value: number): string {
+  return `${getBtcFmt().format(value)} BTC`;
+}
 
 /** Format a number as currency (e.g. "$84,210" or "€1,234.56"). */
 export function formatCurrency(

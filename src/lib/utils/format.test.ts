@@ -2,7 +2,13 @@ import { describe, expect, test, vi } from "vitest";
 
 vi.mock("$lib/utils/locale", () => ({ formattingLocale: "en-US" }));
 
-import { displayAmount, formatCurrency, formatSignedCurrency } from "./format";
+import {
+  displayAmount,
+  formatBtc,
+  formatCurrency,
+  formatDecimal,
+  formatSignedCurrency,
+} from "./format";
 
 // ── displayAmount ───────────────────────────────────────────
 
@@ -21,6 +27,38 @@ describe("displayAmount", () => {
 
   test("handles zero", () => {
     expect(displayAmount({ amount: "0", asset: "EUR" })).toBe(0);
+  });
+});
+
+// ── formatBtc ──────────────────────────────────────────────
+
+describe("formatBtc", () => {
+  test("formats with locale grouping", () => {
+    expect(formatBtc(1234.5678)).toBe("1,234.5678 BTC");
+  });
+
+  test("trims trailing zeros", () => {
+    expect(formatBtc(1)).toBe("1 BTC");
+  });
+
+  test("preserves up to 8 decimals", () => {
+    expect(formatBtc(0.00000001)).toBe("0.00000001 BTC");
+  });
+
+  test("formats zero", () => {
+    expect(formatBtc(0)).toBe("0 BTC");
+  });
+});
+
+// ── formatDecimal ──────────────────────────────────────────
+
+describe("formatDecimal", () => {
+  test("formats with exact fraction digits", () => {
+    expect(formatDecimal(0.1, 6)).toBe("0.100000");
+  });
+
+  test("uses locale grouping", () => {
+    expect(formatDecimal(1234.5, 2)).toBe("1,234.50");
   });
 });
 
