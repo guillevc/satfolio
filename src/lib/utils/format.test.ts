@@ -1,4 +1,7 @@
-import { describe, expect, test } from "vitest";
+import { describe, expect, test, vi } from "vitest";
+
+vi.mock("$lib/utils/locale", () => ({ formattingLocale: "en-US" }));
+
 import { displayAmount, formatCurrency, formatSignedCurrency } from "./format";
 
 // ── displayAmount ───────────────────────────────────────────

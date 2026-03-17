@@ -10,7 +10,12 @@
     "opener:default",
     {
       "identifier": "opener:allow-reveal-item-in-dir",
-      "allow": [{ "path": "$APPDATA/**" }]
-    }
+      "allow": [
+        {
+          "path": "$APPDATA/**"
+        }
+      ]
+    },
+    "os:default"
   ]
 }

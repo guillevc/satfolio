@@ -58,5 +58,8 @@
     "typescript-eslint": "^8.56.1",
     "vite": "^7.3.1",
     "vitest": "^4.1.0"
+  },
+  "dependencies": {
+    "@tauri-apps/plugin-os": "~2.3.2"
   }
 }

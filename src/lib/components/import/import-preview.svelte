@@ -12,6 +12,7 @@
   import { Separator } from "$lib/components/ui/separator";
   import { Spinner } from "$lib/components/ui/spinner";
   import { displayAmount, formatCurrency } from "$lib/utils/format";
+  import { systemLocale } from "$lib/utils/locale";
   import { getQuote } from "$lib/stores/config.svelte";
   import type { ImportPreview } from "$lib/types/bindings";
   import { providerMeta } from "$lib/utils/provider";
@@ -32,7 +33,7 @@
   let hasOverlap = $derived(preview.duplicate_trades > 0);
 
   function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString(undefined, {
+    return new Date(iso).toLocaleDateString(systemLocale, {
       day: "numeric",
       month: "short",
       year: "2-digit",

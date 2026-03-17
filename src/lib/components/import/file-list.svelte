@@ -3,6 +3,7 @@
   import * as AlertDialog from "$lib/components/ui/alert-dialog";
   import { Button } from "$lib/components/ui/button";
   import type { ImportRecord } from "$lib/types/bindings";
+  import { systemLocale } from "$lib/utils/locale";
   import { providerMeta } from "$lib/utils/provider";
 
   interface Props {
@@ -13,7 +14,7 @@
   let { files, onremove }: Props = $props();
 
   function formatDate(iso: string): string {
-    return new Date(iso).toLocaleDateString(undefined, {
+    return new Date(iso).toLocaleDateString(systemLocale, {
       day: "numeric",
       month: "short",
       year: "2-digit",

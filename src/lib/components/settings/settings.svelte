@@ -21,6 +21,7 @@
   } from "$lib/stores/config.svelte";
   import { loadDashboard } from "$lib/stores/dashboard.svelte";
   import { loadTrades } from "$lib/stores/trades.svelte";
+  import { systemLocale } from "$lib/utils/locale";
   import Row from "./settings-row.svelte";
 
   let dbPath = $state("Loading\u2026");
@@ -118,6 +119,13 @@
               >sats</ToggleGroup.Item
             >
           </ToggleGroup.Root>
+        </Row>
+
+        <Row
+          label="Locale"
+          description="Detected from system language. Controls number and date formatting."
+        >
+          <span class="font-mono text-sm">{systemLocale}</span>
         </Row>
       </div>
     </section>

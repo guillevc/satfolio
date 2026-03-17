@@ -1,4 +1,5 @@
 import type { AssetAmount } from "$lib/types/bindings";
+import { formattingLocale } from "$lib/utils/locale";
 
 /** Convert AssetAmount decimal string to number for display formatting only.
  *  All financial math stays in Rust. */
@@ -14,9 +15,10 @@ function getCurrencyFmt(currency: string, decimals: number): Intl.NumberFormat {
   const key = `${currency}:${decimals}`;
   let fmt = fmtCache.get(key);
   if (!fmt) {
-    fmt = new Intl.NumberFormat("en-US", {
+    fmt = new Intl.NumberFormat(formattingLocale, {
       style: "currency",
       currency,
+      currencyDisplay: "narrowSymbol",
       minimumFractionDigits: decimals,
       maximumFractionDigits: decimals,
     });
