@@ -89,4 +89,4 @@ Run `just` to see all available recipes.
 
 ## License
 
-[GPL-3.0](LICENSE)
+[AGPL-3.0](LICENSE)
