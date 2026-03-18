@@ -1,4 +1,4 @@
-<h1> satfolio
+<h1> Satfolio
   <a href="https://github.com/guillevc/satfolio/actions/workflows/ci.yaml"><img src="https://img.shields.io/github/actions/workflow/status/guillevc/satfolio/ci.yaml?style=flat&labelColor=black&label=ci" alt="CI" /></a>
   <a href="https://github.com/guillevc/satfolio/releases/latest"><img src="https://img.shields.io/github/v/release/guillevc/satfolio?style=flat&labelColor=black" alt="Latest release" /></a>
   <a href="https://github.com/guillevc/satfolio/releases/latest"><img src="https://img.shields.io/badge/macOS-black?style=flat&labelColor=black&logo=apple&logoColor=white" alt="macOS" /></a>
@@ -9,7 +9,7 @@
 
 A desktop app to track your Bitcoin portfolio. Import your trade history from Kraken or Coinbase, and see your position, break-even price, and P&L — all stored locally on your machine.
 
-<img src="docs/dashboard.png" alt="satfolio dashboard" />
+<img src="docs/dashboard.png" alt="Satfolio dashboard" />
 
 ## Features
 

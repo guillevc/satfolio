@@ -8,6 +8,6 @@
 >
   <GemIcon class="size-3.5 text-primary" />
   <span class="text-sm font-semibold tracking-wide text-sidebar-foreground"
-    >satfolio</span
+    >Satfolio</span
   >
 </header>

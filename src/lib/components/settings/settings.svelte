@@ -138,7 +138,7 @@
       >
         <Row
           label="Database location"
-          description="SQLite file used by satfolio."
+          description="SQLite file used by Satfolio."
         >
           <div class="flex items-center gap-2">
             <Input
