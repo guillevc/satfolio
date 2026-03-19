@@ -132,9 +132,13 @@ fn parse_csv_rows(path: &Path) -> ParseResult<Vec<CoinbaseRow>> {
 fn find_trades(rows: &[CoinbaseRow]) -> Vec<Trade> {
     rows.iter()
         .filter_map(|row| {
+            // Convert, Retail Simple Dust, and Retail MGX DEX Buy are trade-like
+            // types we intentionally skip. Convert (crypto-to-crypto) doesn't
+            // include the received quantity in the CSV — only the Notes field
+            // mentions the target asset, without an amount.
             let is_buy = matches!(
                 row.transaction_type.as_str(),
-                "Buy" | "Advanced Trade Buy" | "Advance Trade Buy"
+                "Buy" | "Advanced Trade Buy" | "Advance Trade Buy" | "Credit"
             );
             let is_sell = matches!(
                 row.transaction_type.as_str(),
@@ -382,6 +386,26 @@ mod tests {
         }
 
         #[test]
+        fn credit_mapped_as_buy() {
+            let row = make_row(
+                "Credit",
+                Asset::Btc,
+                Some(dec!(0.001)),
+                Some("EUR"),
+                Some(dec!(65.00)),
+                Some(dec!(1.95)),
+            );
+            let trades = find_trades(&[row]);
+            assert_eq!(trades.len(), 1);
+            let t = &trades[0];
+            assert_eq!(t.spent.amount(), dec!(65.00));
+            assert_eq!(*t.spent.asset(), Asset::Eur);
+            assert_eq!(t.received.amount(), dec!(0.001));
+            assert_eq!(*t.received.asset(), Asset::Btc);
+            assert_eq!(t.fee.amount(), dec!(1.95));
+        }
+
+        #[test]
         fn non_trade_types_excluded() {
             let rows = vec![
                 make_row(
@@ -410,6 +434,7 @@ mod tests {
                     Some(dec!(3.20)),
                     Some(dec!(0.00)),
                 ),
+                // Convert is intentionally skipped — see comment in find_trades()
                 make_row(
                     "Convert",
                     Asset::Btc,
