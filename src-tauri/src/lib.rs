@@ -5,7 +5,9 @@ use app_core::models::{
     Asset, DashboardStats, EnrichedTrade, ImportOutcome, ImportPreview, ImportRecord,
 };
 use serde::Serialize;
-use tauri::{Manager, State};
+use tauri::{AppHandle, Manager, State};
+use tauri_plugin_dialog::DialogExt;
+use tauri_plugin_updater::UpdaterExt;
 
 // -- Error ---------------------------------------------------------------
 
@@ -122,6 +124,56 @@ async fn load_sample(state: State<'_, AppState>) -> Result<(), AppError> {
     Ok(())
 }
 
+// -- Updater -------------------------------------------------------------
+
+async fn check_for_updates(app: AppHandle) {
+    let updater = match app.updater() {
+        Ok(u) => u,
+        Err(e) => {
+            log::warn!("Failed to create updater: {e}");
+            return;
+        }
+    };
+
+    let update = match updater.check().await {
+        Ok(Some(update)) => update,
+        Ok(None) => return,
+        Err(e) => {
+            log::warn!("Update check failed: {e}");
+            return;
+        }
+    };
+
+    let version = update.version.clone();
+    let body = update.body.clone().unwrap_or_default();
+
+    let mut message = format!("Version {version} is available. Would you like to install it?");
+    if !body.is_empty() {
+        message = format!("{message}\n\n{body}");
+    }
+
+    let confirmed = app
+        .dialog()
+        .message(message)
+        .title("Update Available")
+        .buttons(tauri_plugin_dialog::MessageDialogButtons::OkCancelCustom(
+            "Install".into(),
+            "Later".into(),
+        ))
+        .blocking_show();
+
+    if !confirmed {
+        return;
+    }
+
+    if let Err(e) = update.download_and_install(|_, _| {}, || {}).await {
+        log::warn!("Failed to install update: {e}");
+        return;
+    }
+
+    app.restart();
+}
+
 // -- Entrypoint ----------------------------------------------------------
 
 pub fn run() {
@@ -149,10 +201,18 @@ pub fn run() {
 
             app.manage(AppState { db_path });
 
+            if !cfg!(debug_assertions) {
+                let handle = app.handle().clone();
+                tauri::async_runtime::spawn(async move {
+                    check_for_updates(handle).await;
+                });
+            }
+
             Ok(())
         })
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_opener::init())
+        .plugin(tauri_plugin_updater::Builder::new().build())
         .invoke_handler(tauri::generate_handler![
             preview_import,
             confirm_import,

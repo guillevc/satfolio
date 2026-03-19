@@ -115,6 +115,8 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
           tagName: v__VERSION__
           releaseName: "Satfolio v__VERSION__"
@@ -146,3 +148,50 @@ jobs:
         uses: actions/attest-build-provenance@v4
         with:
           subject-path: ${{ matrix.bundle_base }}/appimage/*.AppImage
+
+      - name: Attest macOS updater tarball provenance
+        if: matrix.platform == 'macos-latest'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ matrix.bundle_base }}/macos/*.tar.gz
+
+      - name: Attest macOS updater signature provenance
+        if: matrix.platform == 'macos-latest'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ matrix.bundle_base }}/macos/*.tar.gz.sig
+
+      - name: Attest Linux updater tarball provenance
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ matrix.bundle_base }}/appimage/*.tar.gz
+
+      - name: Attest Linux updater signature provenance
+        if: matrix.platform == 'ubuntu-22.04'
+        uses: actions/attest-build-provenance@v4
+        with:
+          subject-path: ${{ matrix.bundle_base }}/appimage/*.tar.gz.sig
+
+  publish:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - name: Publish draft release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          RELEASE_ID=$(gh api "repos/${GH_REPO}/releases" \
+            --jq ".[] | select(.tag_name == \"${TAG}\" and .draft == true) | .id")
+          if [ -n "$RELEASE_ID" ]; then
+            gh api --method PATCH "repos/${GH_REPO}/releases/${RELEASE_ID}" \
+              -f draft=false
+            echo "Published release ${RELEASE_ID} for tag ${TAG}"
+          else
+            echo "No draft release found for tag ${TAG} — may already be published"
+          fi
