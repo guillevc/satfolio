@@ -173,6 +173,16 @@ version v:
     git tag "v{{v}}"
     @echo "Tagged v{{v}} — push with: git push && git push --tags"
 
+# Clean
+[group('dev')]
+[doc("Purge all build caches (cargo, node_modules, vite)")]
+[confirm("This will delete target/, node_modules/, and .vite cache. Continue?")]
+clean:
+    rm -rf target
+    rm -rf node_modules
+    rm -rf .vite
+    @echo "All caches purged — run 'just install' to restore node_modules"
+
 # Dev utilities
 [group('dev')]
 [doc("Open local SQLite database in VS Code")]

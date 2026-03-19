@@ -46,6 +46,17 @@ enum EntryType {
     Earn,
     Spend,
     Receive,
+    Transfer,
+    Staking,
+    Dividend,
+    Adjustment,
+    Margin,
+    Rollover,
+    Settled,
+    #[serde(rename = "invite bonus")]
+    InviteBonus,
+    #[serde(untagged)]
+    Other(String),
 }
 
 impl fmt::Display for EntryType {
@@ -57,6 +68,15 @@ impl fmt::Display for EntryType {
             EntryType::Earn => "earn",
             EntryType::Spend => "spend",
             EntryType::Receive => "receive",
+            EntryType::Transfer => "transfer",
+            EntryType::Staking => "staking",
+            EntryType::Dividend => "dividend",
+            EntryType::Adjustment => "adjustment",
+            EntryType::Margin => "margin",
+            EntryType::Rollover => "rollover",
+            EntryType::Settled => "settled",
+            EntryType::InviteBonus => "invite bonus",
+            EntryType::Other(s) => s.as_str(),
         })
     }
 }
@@ -223,6 +243,32 @@ mod tests {
             let entries = parse_csv_entries(f.path()).unwrap();
             assert!(entries.is_empty());
         }
+
+        #[test]
+        fn parse_csv_transfer_and_staking_types() {
+            let csv = format!(
+                "{CSV_HEADER}\n\
+            TX1,REF-T,2024-03-01 10:00:00,transfer,,currency,,ETH,spot,1.5,0,1.5\n\
+            TX2,REF-S,2024-03-02 10:00:00,staking,,currency,,DOT,spot,10.0,0,10.0"
+            );
+            let f = csv_tempfile(&csv);
+            let entries = parse_csv_entries(f.path()).unwrap();
+            assert_eq!(entries.len(), 2);
+            assert_eq!(entries[0].type_, EntryType::Transfer);
+            assert_eq!(entries[1].type_, EntryType::Staking);
+        }
+
+        #[test]
+        fn parse_csv_unknown_type_becomes_other() {
+            let csv = format!(
+                "{CSV_HEADER}\n\
+            TX1,REF-X,2024-04-01 10:00:00,something_new,,currency,,BTC,spot,0.1,0,0.1"
+            );
+            let f = csv_tempfile(&csv);
+            let entries = parse_csv_entries(f.path()).unwrap();
+            assert_eq!(entries.len(), 1);
+            assert_eq!(entries[0].type_, EntryType::Other("something_new".into()));
+        }
     }
 
     mod trades {
@@ -298,6 +344,33 @@ mod tests {
                 Decimal::ZERO,
             );
             let result = find_trades(&[a, b]);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn transfer_and_staking_excluded() {
+            let transfer = make_entry(
+                "XFER-001",
+                EntryType::Transfer,
+                Asset::Btc,
+                dec!(0.5),
+                Decimal::ZERO,
+            );
+            let staking = make_entry(
+                "STAKE-001",
+                EntryType::Staking,
+                Asset::Other("DOT".into()),
+                dec!(10.0),
+                Decimal::ZERO,
+            );
+            let unknown = make_entry(
+                "UNK-001",
+                EntryType::Other("mystery".into()),
+                Asset::Eur,
+                dec!(100),
+                Decimal::ZERO,
+            );
+            let result = find_trades(&[transfer, staking, unknown]);
             assert!(result.is_empty());
         }
 
