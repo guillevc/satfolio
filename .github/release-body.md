@@ -1,11 +1,11 @@
 ## Install
 
-| Platform | File |
-|----------|------|
-| macOS (Apple Silicon) | `Satfolio___VERSION___aarch64.dmg` |
-| macOS (Intel) | `Satfolio___VERSION___x64.dmg` |
-| Linux (x64 .deb) | `Satfolio___VERSION___amd64.deb` |
-| Linux (x64 .rpm) | `Satfolio-__VERSION__-1.x86_64.rpm` |
+| Platform              | File                                  |
+| --------------------- | ------------------------------------- |
+| macOS (Apple Silicon) | `Satfolio___VERSION___aarch64.dmg`    |
+| macOS (Intel)         | `Satfolio___VERSION___x64.dmg`        |
+| Linux (x64 .deb)      | `Satfolio___VERSION___amd64.deb`      |
+| Linux (x64 .rpm)      | `Satfolio-__VERSION__-1.x86_64.rpm`   |
 | Linux (x64 .AppImage) | `Satfolio___VERSION___amd64.AppImage` |
 
 > [!NOTE]
