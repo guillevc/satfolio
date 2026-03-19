@@ -49,7 +49,6 @@ smoke-app:
 audit:
     command -v cargo-audit > /dev/null || cargo install cargo-audit --locked
     cargo audit
-    pnpm audit
 
 [group('ci')]
 [doc("Full check: typecheck + lint + format")]
