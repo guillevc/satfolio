@@ -60,51 +60,26 @@ jobs:
 
       - run: pnpm install
 
+      - name: Find previous tag
+        id: prev-tag
+        run: |
+          prev=$(git tag --list 'v*' --sort=-version:refname | grep -v "^${GITHUB_REF_NAME}$" | head -1)
+          echo "tag=${prev:-}" >> "$GITHUB_OUTPUT"
+
       - name: Generate release body
         id: release-body
         run: |
           tmp=$(mktemp)
           git-cliff --current --strip all > "$tmp"
-          cat >> "$tmp" <<'EOF'
-
-          ## Install
-
-          | Platform | File |
-          |----------|------|
-          | macOS (Apple Silicon) | `Satfolio___VERSION___aarch64.dmg` |
-          | macOS (Intel) | `Satfolio___VERSION___x64.dmg` |
-          | Linux (x64 .deb) | `Satfolio___VERSION___amd64.deb` |
-          | Linux (x64 .rpm) | `Satfolio-__VERSION__-1.x86_64.rpm` |
-          | Linux (x64 .AppImage) | `Satfolio___VERSION___amd64.AppImage` |
-
-          > [!NOTE]
-          > **macOS:** Satfolio isn't signed through Apple's paid developer program, so macOS will show a warning on first launch. The app is open source and every release is verifiably built from this repo — see [Security & trust](https://github.com/guillevc/satfolio#security--trust).
-          >
-          > 1. Open the `.dmg` and drag Satfolio to Applications
-          > 2. Try to open Satfolio — macOS will show a warning and block it
-          > 3. Open **System Settings → Privacy & Security**
-          > 4. Under Security, click **Open Anyway**
-          > 5. Enter your login password and click OK
-          >
-          > This is only needed once — after that, Satfolio opens normally. See [Apple's support page](https://support.apple.com/en-us/102445) for more details.
-
-          ## Verify this release
-
-          Every artifact is built in public CI and cryptographically signed via [Sigstore](https://www.sigstore.dev) through GitHub Actions. Each binary has a [build provenance attestation](https://docs.github.com/en/actions/security-for-github-actions/using-artifact-attestations) so you can verify exactly how it was built.
-
-          ```sh
-          # verify your download matches the checksum shown in the release assets
-          shasum -a 256 <filename>
-
-          # verify the binary was built from this repo's source code (requires GitHub CLI)
-          gh attestation verify <filename> --owner guillevc
-          ```
-
-          ---
-
-          Built by @guillevc · [Full Changelog](https://github.com/guillevc/satfolio/commits/v__VERSION__)
-
-          EOF
+          echo "" >> "$tmp"
+          cat .github/release-body.md >> "$tmp"
+          PREV_TAG="${{ steps.prev-tag.outputs.tag }}"
+          if [ -n "$PREV_TAG" ]; then
+            CHANGELOG_LINE="**Full Changelog**: https://github.com/guillevc/satfolio/compare/${PREV_TAG}...${GITHUB_REF_NAME}"
+          else
+            CHANGELOG_LINE="**Full Changelog**: https://github.com/guillevc/satfolio/commits/${GITHUB_REF_NAME}"
+          fi
+          echo -e "\n---\n\nBuilt by @guillevc · ${CHANGELOG_LINE}" >> "$tmp"
           {
             echo "body<<RELEASE_BODY_EOF"
             cat "$tmp"
@@ -125,53 +100,25 @@ jobs:
           prerelease: false
           args: ${{ matrix.args }}
 
-      - name: Attest DMG provenance
+      - name: Attest macOS artifacts
         if: matrix.platform == 'macos-latest'
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: ${{ matrix.bundle_base }}/dmg/*.dmg
+          subject-path: |
+            ${{ matrix.bundle_base }}/dmg/*.dmg
+            ${{ matrix.bundle_base }}/macos/*.tar.gz
+            ${{ matrix.bundle_base }}/macos/*.tar.gz.sig
 
-      - name: Attest DEB provenance
+      - name: Attest Linux artifacts
         if: matrix.platform == 'ubuntu-22.04'
         uses: actions/attest-build-provenance@v4
         with:
-          subject-path: ${{ matrix.bundle_base }}/deb/*.deb
-
-      - name: Attest RPM provenance
-        if: matrix.platform == 'ubuntu-22.04'
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: ${{ matrix.bundle_base }}/rpm/*.rpm
-
-      - name: Attest AppImage provenance
-        if: matrix.platform == 'ubuntu-22.04'
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: ${{ matrix.bundle_base }}/appimage/*.AppImage
-
-      - name: Attest macOS updater tarball provenance
-        if: matrix.platform == 'macos-latest'
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: ${{ matrix.bundle_base }}/macos/*.tar.gz
-
-      - name: Attest macOS updater signature provenance
-        if: matrix.platform == 'macos-latest'
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: ${{ matrix.bundle_base }}/macos/*.tar.gz.sig
-
-      - name: Attest Linux updater tarball provenance
-        if: matrix.platform == 'ubuntu-22.04'
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: ${{ matrix.bundle_base }}/appimage/*.tar.gz
-
-      - name: Attest Linux updater signature provenance
-        if: matrix.platform == 'ubuntu-22.04'
-        uses: actions/attest-build-provenance@v4
-        with:
-          subject-path: ${{ matrix.bundle_base }}/appimage/*.tar.gz.sig
+          subject-path: |
+            ${{ matrix.bundle_base }}/deb/*.deb
+            ${{ matrix.bundle_base }}/rpm/*.rpm
+            ${{ matrix.bundle_base }}/appimage/*.AppImage
+            ${{ matrix.bundle_base }}/appimage/*.tar.gz
+            ${{ matrix.bundle_base }}/appimage/*.tar.gz.sig
 
   publish:
     needs: build
