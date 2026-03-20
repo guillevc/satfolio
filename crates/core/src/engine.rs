@@ -164,7 +164,7 @@ pub(crate) fn trades_summary(pair: &AssetPair, trades: &[Trade]) -> EngineResult
     }
 
     Ok(TradesSummary {
-        total_trades: trades.len(),
+        total_trades: buys + sells,
         buys,
         sells,
         unknown,
@@ -445,7 +445,7 @@ mod tests {
         };
         let summary = trades_summary(&btc_eur(), &[trade]).unwrap();
 
-        assert_eq!(summary.total_trades, 1);
+        assert_eq!(summary.total_trades, 0);
         assert_eq!(summary.buys, 0);
         assert_eq!(summary.unknown, 1);
         assert_eq!(summary.spent.amount(), Decimal::ZERO);

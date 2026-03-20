@@ -68,14 +68,6 @@ pub fn confirm_import(db_path: &Path, quote: &Asset, path: &Path) -> CoreResult<
     let pair = trading_pair(quote);
     let trades = parser::parse_csv(&provider, path)?;
 
-    let converter = build_converter(db_path)?;
-    let normalized: Vec<_> = trades
-        .iter()
-        .cloned()
-        .filter_map(|t| converter.normalize_trade(t, quote))
-        .collect();
-    let summary = engine::trades_summary(&pair, &normalized)?;
-
     let file_hash = hash::file_sha256(path)?;
     let conn = db::open(db_path)?;
 
@@ -102,7 +94,7 @@ pub fn confirm_import(db_path: &Path, quote: &Asset, path: &Path) -> CoreResult<
         .map(|n| n.to_string_lossy().into_owned())
         .unwrap_or_default();
 
-    let import = db::save_import_with_trades(
+    let mut import = db::save_import_with_trades(
         &conn,
         &provider,
         &filename,
@@ -111,6 +103,24 @@ pub fn confirm_import(db_path: &Path, quote: &Asset, path: &Path) -> CoreResult<
         &trade_hashes,
         &existing,
     )?;
+
+    // Compute summary from only the newly-inserted trades (excluding duplicates),
+    // so trade_count reflects resolved trades actually added by this import.
+    let converter = build_converter(db_path)?;
+    let new_normalized: Vec<_> = trades
+        .iter()
+        .zip(trade_hashes.iter())
+        .filter(|(_, h)| !existing.contains(*h))
+        .filter_map(|(t, _)| converter.normalize_trade(t.clone(), quote))
+        .collect();
+    let summary = engine::trades_summary(&pair, &new_normalized)?;
+
+    // Update import trade_count to match resolved count (buys + sells).
+    let resolved_count = summary.buys + summary.sells;
+    if import.trade_count != resolved_count {
+        db::update_import_trade_count(&conn, import.id, resolved_count)?;
+        import.trade_count = resolved_count;
+    }
 
     let message = if duplicate_count > 0 {
         Some(format!(

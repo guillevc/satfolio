@@ -211,6 +211,19 @@ pub(crate) fn save_import_with_trades(
     })
 }
 
+/// Update the display trade count on an existing import record.
+pub(crate) fn update_import_trade_count(
+    conn: &Connection,
+    import_id: i64,
+    count: usize,
+) -> DbResult<()> {
+    conn.execute(
+        "UPDATE imports SET trade_count = ?1 WHERE id = ?2",
+        params![count as i64, import_id],
+    )?;
+    Ok(())
+}
+
 /// List all imports ordered by most recent first.
 pub(crate) fn list_imports(conn: &Connection) -> DbResult<Vec<ImportRecord>> {
     let mut stmt = conn.prepare(
