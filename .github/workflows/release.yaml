@@ -133,12 +133,5 @@ jobs:
           GH_REPO: ${{ github.repository }}
         run: |
           TAG="${GITHUB_REF#refs/tags/}"
-          RELEASE_ID=$(gh api "repos/${GH_REPO}/releases" \
-            --jq ".[] | select(.tag_name == \"${TAG}\" and .draft == true) | .id")
-          if [ -n "$RELEASE_ID" ]; then
-            gh api --method PATCH "repos/${GH_REPO}/releases/${RELEASE_ID}" \
-              -f draft=false -f make_latest=true
-            echo "Published release ${RELEASE_ID} for tag ${TAG}"
-          else
-            echo "No draft release found for tag ${TAG} — may already be published"
-          fi
+          gh release edit "$TAG" --draft=false --latest
+          echo "Published release ${TAG} as latest"
