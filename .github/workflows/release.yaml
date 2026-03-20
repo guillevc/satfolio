@@ -70,7 +70,7 @@ jobs:
         id: release-body
         run: |
           tmp=$(mktemp)
-          git-cliff --current --strip all > "$tmp"
+          git-cliff --current --config .github/cliff-release.toml > "$tmp"
           echo "" >> "$tmp"
           cat .github/release-body.md >> "$tmp"
           PREV_TAG="${{ steps.prev-tag.outputs.tag }}"
