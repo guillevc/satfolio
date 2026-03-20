@@ -137,7 +137,7 @@ jobs:
             --jq ".[] | select(.tag_name == \"${TAG}\" and .draft == true) | .id")
           if [ -n "$RELEASE_ID" ]; then
             gh api --method PATCH "repos/${GH_REPO}/releases/${RELEASE_ID}" \
-              -f draft=false
+              -f draft=false -f make_latest=true
             echo "Published release ${RELEASE_ID} for tag ${TAG}"
           else
             echo "No draft release found for tag ${TAG} — may already be published"
