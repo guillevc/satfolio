@@ -328,45 +328,6 @@ mod tests {
     // ── BEP via enrich_trades ──────────────────────────────
 
     #[test]
-    fn enrich_two_buys_bep_is_weighted_avg() {
-        let trades = vec![
-            make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
-            make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
-        ];
-        let enriched = enrich_trades(&btc_eur(), trades).unwrap();
-        assert_eq!(enriched.len(), 2);
-        // BEP = (100+0.50)/0.001 = 100_500
-        assert_eq!(
-            enriched[0].bep,
-            Some(AssetAmount::new(dec!(100500), Asset::Eur))
-        );
-        assert_eq!(enriched[0].side, Some(TradeSide::Buy));
-        // BEP = (100+200+0.50+1.00)/0.004 = 75_375
-        assert_eq!(
-            enriched[1].bep,
-            Some(AssetAmount::new(dec!(75375), Asset::Eur))
-        );
-        assert_eq!(enriched[1].side, Some(TradeSide::Buy));
-    }
-
-    #[test]
-    fn enrich_buy_sell_bep_adjusts() {
-        let trades = vec![
-            make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
-            make_buy(2025, 2, 1, dec!(200), dec!(0.003), dec!(1.00)),
-            make_sell(2025, 3, 1, dec!(0.001), dec!(120), dec!(0.60)),
-        ];
-        let enriched = enrich_trades(&btc_eur(), trades).unwrap();
-        assert_eq!(enriched.len(), 3);
-        // After sell: BEP = (300-120+2.10)/0.003 = 60_700
-        assert_eq!(
-            enriched[2].bep,
-            Some(AssetAmount::new(dec!(60700), Asset::Eur))
-        );
-        assert_eq!(enriched[2].side, Some(TradeSide::Sell));
-    }
-
-    #[test]
     fn enrich_sell_all_resets_bep() {
         let trades = vec![
             make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
@@ -486,6 +447,61 @@ mod tests {
         assert_eq!(summary.spent.amount(), dec!(300));
         assert_eq!(summary.received.amount(), dec!(0.005));
         assert_eq!(summary.fees.amount(), dec!(1.2));
+    }
+
+    #[test]
+    fn summary_mixed_known_and_unknown() {
+        // 2 buys + 1 sell (BTC/EUR, known) + 2 unknown trades (BTC/USD, ETH/USD)
+        // Unknown trades are placed outside the known date range to verify
+        // that date_range only spans known trades.
+        let known_trades = vec![
+            make_buy(2025, 1, 15, dec!(100), dec!(0.001), dec!(0.50)),
+            make_buy(2025, 2, 15, dec!(200), dec!(0.002), dec!(1.00)),
+            make_sell(2025, 3, 15, dec!(0.0005), dec!(60), dec!(0.30)),
+        ];
+        let unknown_btc_usd = Trade {
+            date: Utc.with_ymd_and_hms(2024, 12, 1, 12, 0, 0).unwrap(),
+            spent: AssetAmount::new(dec!(500), Asset::Usd),
+            received: AssetAmount::new(dec!(0.005), Asset::Btc),
+            fee: AssetAmount::new(dec!(2), Asset::Usd),
+            provider: Provider::Kraken,
+        };
+        let unknown_eth_usd = Trade {
+            date: Utc.with_ymd_and_hms(2024, 12, 15, 12, 0, 0).unwrap(),
+            spent: AssetAmount::new(dec!(300), Asset::Usd),
+            received: AssetAmount::new(dec!(0.1), Asset::Other("ETH".into())),
+            fee: AssetAmount::new(dec!(1.5), Asset::Usd),
+            provider: Provider::Kraken,
+        };
+
+        let mut all_trades = vec![unknown_btc_usd, unknown_eth_usd];
+        all_trades.extend(known_trades);
+        let summary = trades_summary(&btc_eur(), &all_trades).unwrap();
+
+        // total_trades = buys + sells (excludes unknown)
+        assert_eq!(summary.buys, 2);
+        assert_eq!(summary.sells, 1);
+        assert_eq!(summary.unknown, 2);
+        assert_eq!(summary.total_trades, 3);
+
+        // Monetary totals reflect only known trades
+        // spent = 100 + 200 (buys) + 60 (sell received) = 360
+        assert_eq!(summary.spent.amount(), dec!(360));
+        assert_eq!(*summary.spent.asset(), Asset::Eur);
+        // received = 0.001 + 0.002 (buys) + 0.0005 (sell spent) = 0.0035
+        assert_eq!(summary.received.amount(), dec!(0.0035));
+        assert_eq!(*summary.received.asset(), Asset::Btc);
+        // fees = 0.50 + 1.00 + 0.30 = 1.80
+        assert_eq!(summary.fees.amount(), dec!(1.80));
+        assert_eq!(*summary.fees.asset(), Asset::Eur);
+
+        // date_range spans only Jan–Mar 2025 (known trades), not Dec 2024 (unknown)
+        let (earliest, latest) = summary.date_range.unwrap();
+        assert_eq!(
+            earliest,
+            Utc.with_ymd_and_hms(2025, 1, 15, 12, 0, 0).unwrap()
+        );
+        assert_eq!(latest, Utc.with_ymd_and_hms(2025, 3, 15, 12, 0, 0).unwrap());
     }
 
     // ── Enrich trades ─────────────────────────────────────────

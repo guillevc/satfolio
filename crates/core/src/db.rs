@@ -699,6 +699,24 @@ mod tests {
     }
 
     #[test]
+    fn update_import_trade_count_persists() {
+        let conn = test_conn();
+        let trades = vec![make_trade(2024, 1, 15), make_trade(2024, 3, 20)];
+        let rec = do_import(&conn, &trades, "test.csv", "hash_tc");
+        assert_eq!(rec.trade_count, 2);
+
+        // Simulate post-import correction (e.g. unknown trades excluded)
+        update_import_trade_count(&conn, rec.id, 1).unwrap();
+
+        // Persisted count reflects the update
+        let updated = find_import_by_hash(&conn, "hash_tc").unwrap().unwrap();
+        assert_eq!(updated.trade_count, 1);
+
+        // Actual trade rows are unchanged — display count ≠ row count
+        assert_eq!(load_trades(&conn).unwrap().len(), 2);
+    }
+
+    #[test]
     fn existing_trade_hashes_returns_all() {
         let conn = test_conn();
         let trades = vec![make_trade(2024, 1, 15), make_trade(2024, 3, 20)];
