@@ -7,17 +7,17 @@
   <a href="https://github.com/guillevc/satfolio/attestations"><img src="https://img.shields.io/badge/Sigstore-black?style=flat&labelColor=black&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0xMiAyMnM4LTQgOC0xMFY1bC04LTMtOCAzdjdjMCA2IDggMTAgOCAxMHoiLz48cGF0aCBkPSJtOSAxMiAyIDIgNC00Ii8+PC9zdmc+" alt="Sigstore" /></a>
 </h1>
 
-A desktop app to track your Bitcoin portfolio. Import your trade history from Kraken or Coinbase, and see your position, break-even price, and P&L — all stored locally on your machine.
+A desktop app to track your Bitcoin portfolio. Import your trade history from Kraken or Coinbase, and see your position, break-even price, and profit & loss — all stored locally on your machine.
 
 <img src="docs/dashboard.png" alt="Satfolio dashboard" />
 
 ## Features
 
-- **Import trades** from Kraken and Coinbase CSV ledger exports, with automatic duplicate detection
+- **Import trades** from Kraken and Coinbase CSV exports — re-import safely without duplicates
 - **Dashboard** showing current BTC price, break-even price, position value, and unrealized P&L
-- **Price chart** with daily candles and your trade history overlaid
+- **Price chart** with daily prices and your trades overlaid
 - **Trade history** table with per-trade cost basis, break-even price, and realized P&L
-- **Multi-currency** — supports EUR, USD, and GBP with locale-aware formatting
+- **Multi-currency** — supports EUR, USD, and GBP, formatted for your locale
 - **Private by default** — no accounts, no analytics, no telemetry. Data stays in a local SQLite database. The only network call is fetching the current BTC price from Kraken's public API.
 
 ## Install
