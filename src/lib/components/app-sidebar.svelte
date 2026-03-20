@@ -7,6 +7,7 @@
   } from "@lucide/svelte";
   import * as Tooltip from "$lib/components/ui/tooltip";
   import { Separator } from "$lib/components/ui/separator";
+  import { getVersion } from "@tauri-apps/api/app";
   import type { View } from "$lib/types";
 
   interface Props {
@@ -16,6 +17,9 @@
   }
 
   let { active, onnavigate, hasImports }: Props = $props();
+
+  let appVersion = $state("");
+  getVersion().then((v) => (appVersion = v));
 
   const navItems: { view: View; icon: typeof ChartLineIcon; label: string }[] =
     [
@@ -68,5 +72,13 @@
     />
 
     {@render navItem("settings", SettingsIcon, "Settings")}
+
+    {#if appVersion}
+      <span
+        class="mt-auto mb-3 rounded-full border border-border px-1.5 py-0.5 font-mono text-[10px] tracking-wide text-muted-foreground"
+      >
+        v{appVersion}
+      </span>
+    {/if}
   </nav>
 </Tooltip.Provider>
