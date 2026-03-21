@@ -29,7 +29,7 @@
   },
   "plugins": {
     "updater": {
-      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBQUYyRUMxQUVGRDYxMUEKUldRYVlmMnV3UzZ2K2w1bnphMWlvZUI1T0o3KzBQMnBpa29sS0E0OHV3UWR5Q1E0SG5hdXZYY0IKdW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IEZBQUYyRUMxQUVGRDYxMUEKUldRYVlmMnV3UzZ2K2w1bnphMWlvZUI1T0o3KzBQMnBpa29sS0E0OHV3UWR5Q1E0SG5hdXZYY0IKdW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRFMDM2QkQ2NjQwNUYxMzkKUldRNThRVmsxbXNEVGxoVU8yendHSVRiSXZ3NnBLeEd0bHFTQVZ5azE0N2cxYlZ5RmJNaG1QTW8K",
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDRFMDM2QkQ2NjQwNUYxMzkKUldRNThRVmsxbXNEVGxoVU8yendHSVRiSXZ3NnBLeEd0bHFTQVZ5azE0N2cxYlZ5RmJNaG1QTW8K",
       "endpoints": [
         "https://github.com/guillevc/satfolio/releases/latest/download/latest.json"
       ]

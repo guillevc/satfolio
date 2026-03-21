@@ -223,5 +223,11 @@
         </div>
       </div>
     </section>
+
+    {#if import.meta.env.DEV}
+      {#await import("./debug-settings.svelte") then { default: DebugSettings }}
+        <DebugSettings />
+      {/await}
+    {/if}
   </div>
 </div>

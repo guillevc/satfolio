@@ -184,6 +184,13 @@ clean:
 
 # Dev utilities
 [group('dev')]
+[doc("Spoof app version for updater testing (e.g. just spoof-version 0.1.0). Revert with: git checkout src-tauri/Cargo.toml")]
+spoof-version v:
+    sed -i '' '3s/version = "[^"]*"/version = "{{v}}"/' src-tauri/Cargo.toml
+    @echo "src-tauri/Cargo.toml version set to {{v}}"
+    @echo "Revert with: git checkout src-tauri/Cargo.toml"
+
+[group('dev')]
 [doc("Open local SQLite database in VS Code")]
 open-db:
     codium "$HOME/Library/Application Support/dev.guillevc.satfolio/satfolio.db"

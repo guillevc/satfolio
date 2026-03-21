@@ -7,6 +7,7 @@
   import { Trades } from "$lib/components/trades";
   import { ImportPage } from "$lib/components/import";
   import { Settings } from "$lib/components/settings";
+  import UpdateDialog from "$lib/components/update-dialog.svelte";
   import { type View, viewTitles } from "$lib/types";
   import { loadSample } from "$lib/api";
   import { loadDashboard } from "$lib/stores/dashboard.svelte";
@@ -58,3 +59,5 @@
     </main>
   </div>
 </div>
+
+<UpdateDialog />
