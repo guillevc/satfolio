@@ -83,7 +83,7 @@
       <Dialog.Header>
         <Dialog.Title class="flex items-center gap-2">
           <Loader class="size-5 animate-spin text-primary" />
-          Installing Update
+          Downloading Update
         </Dialog.Title>
         <Dialog.Description>
           {#if typeof updater.progress === "number" && updater.progress > 0}

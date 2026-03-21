@@ -87,8 +87,7 @@
     </Card.Header>
     <Card.Content class="px-5">
       <p class="text-sm leading-relaxed text-muted-foreground">
-        Your data is processed entirely locally on your machine. No financial
-        information is ever sent to external servers or cloud storage.
+        Everything runs on your machine. Your trade data never touches a server.
       </p>
     </Card.Content>
   </Card.Root>

@@ -52,7 +52,7 @@
       </button>
     </Tooltip.Trigger>
     <Tooltip.Content side="right">
-      <p>{label}{disabled ? " (import data first)" : ""}</p>
+      <p>{label}{disabled ? " (import trades first)" : ""}</p>
     </Tooltip.Content>
   </Tooltip.Root>
 {/snippet}

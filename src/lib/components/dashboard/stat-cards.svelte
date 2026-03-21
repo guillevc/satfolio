@@ -82,7 +82,9 @@
       <Card.Title class={cardValue}>{formatCurrency(bep, quote)}</Card.Title>
     </Card.Header>
     <Card.Content class={cardContent}>
-      <span class={cardSub}>{formatDecimal(stats.trade_count, 0)} trades</span>
+      <span class={cardSub}
+        >from {formatDecimal(stats.trade_count, 0)} trades</span
+      >
     </Card.Content>
   </Card.Root>
 

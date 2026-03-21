@@ -121,7 +121,8 @@
                 >
                 <AlertDialog.Description>
                   This will permanently remove the import record and its {file.trade_count}
-                  associated trades from the database. This action cannot be undone.
+                  associated trades. You can re-import the same CSV to restore them.
+                  This action cannot be undone.
                 </AlertDialog.Description>
               </AlertDialog.Header>
               <AlertDialog.Footer>

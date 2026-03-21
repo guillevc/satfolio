@@ -281,7 +281,7 @@
 <div class="glass-panel flex min-h-0 flex-1 flex-col gap-4 p-5">
   <div class="flex items-center justify-between">
     <div class="flex items-center gap-2">
-      <h3 class="text-sm font-semibold">Performance vs. BEP</h3>
+      <h3 class="text-sm font-semibold">Price vs. Break-Even</h3>
       <Button
         variant="ghost"
         size="icon"
@@ -350,7 +350,7 @@
         {/if}
         {#if legendSpread !== null}
           <span class="flex items-center gap-1">
-            <span class="font-medium text-muted-foreground">Spread</span>
+            <span class="font-medium text-muted-foreground">Gap</span>
             <span
               class={legendSpread >= 0 ? "text-emerald-400" : "text-red-400"}
             >

@@ -56,11 +56,14 @@
   <div class="flex flex-col gap-8 px-6">
     <!-- Currency -->
     <section>
-      <h3 class="mb-3 text-lg font-semibold">Currency</h3>
+      <h3 class="mb-3 text-lg font-semibold">Display</h3>
       <div
         class="divide-y divide-border overflow-hidden rounded-xl border bg-card"
       >
-        <Row label="Currency" description="Quote currency for all price data.">
+        <Row
+          label="Currency"
+          description="Currency used to display all prices and values."
+        >
           <ToggleGroup.Root
             type="single"
             value={baseCurrency}
@@ -208,8 +211,9 @@
                 <AlertDialog.Title>Delete all data?</AlertDialog.Title>
                 <AlertDialog.Description>
                   This will permanently delete all imports, trades, and cached
-                  price data from the database. The app will restart
-                  automatically. This action cannot be undone.
+                  price data. Your settings (currency, locale) will be
+                  preserved. The app will restart automatically. This action
+                  cannot be undone.
                 </AlertDialog.Description>
               </AlertDialog.Header>
               <AlertDialog.Footer>

@@ -23,8 +23,7 @@
   </div>
   <Dialog.Description class="mt-2">
     {#if mode === "file"}
-      &ldquo;{filename}&rdquo; has already been imported (verified by content
-      hash).
+      &ldquo;{filename}&rdquo; has already been imported.
     {:else}
       All {count} trades in this file already exist in the database.
     {/if}

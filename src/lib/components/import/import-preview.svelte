@@ -49,7 +49,7 @@
 <Dialog.Header>
   <Dialog.Title class="flex items-center gap-2">
     <TableIcon class="size-4" />
-    Review import
+    Review Import
   </Dialog.Title>
   <Dialog.Description class="flex items-center gap-2">
     {filename}
@@ -86,7 +86,7 @@
   <!-- Volume -->
   <Card.Root class={[statCard, "rounded-lg bg-muted/30"]}>
     <Card.Header class={statHeader}>
-      <Card.Description class={statLabel}>Volume</Card.Description>
+      <Card.Description class={statLabel}>Total Spent</Card.Description>
       <Card.Title class={statValue}>
         {formatCurrency(displayAmount(summary.spent), getQuote())}
       </Card.Title>
@@ -118,7 +118,7 @@
   >
     <Card.Header class={statHeader}>
       <Card.Description class={[statLabel, "text-primary"]}>
-        New Entries
+        New Trades
       </Card.Description>
       <Card.Title class={statValue}>{newTradeCount}</Card.Title>
     </Card.Header>
@@ -150,7 +150,7 @@
     <Button onclick={onconfirm} disabled={confirming} class="flex-1">
       {#if confirming}
         <Spinner />
-        Importing...
+        Importing…
       {:else}
         <SparklesIcon class="size-4" />
         Import {newTradeCount}

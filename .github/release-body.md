@@ -11,13 +11,13 @@
 > [!NOTE]
 > **macOS:** Satfolio isn't signed through Apple's paid developer program, so macOS will show a warning on first launch. The app is open source and every release is verifiably built from this repo — see [Security & trust](https://github.com/guillevc/satfolio#security--trust).
 >
-> 1. Open the `.dmg` and drag Satfolio to Applications
+> 1. Open the `.dmg` and drag Satfolio to **Applications**
 > 2. Try to open Satfolio — macOS will show a warning and block it
 > 3. Open **System Settings → Privacy & Security**
 > 4. Under Security, click **Open Anyway**
-> 5. Enter your login password and click OK
+> 5. Enter your login password and click **OK**
 >
-> This is only needed once — after that, Satfolio opens normally. See [Apple's support page](https://support.apple.com/en-us/102445) for more details.
+> This is only needed once — after that, Satfolio opens normally. See [Apple's support page](https://support.apple.com/guide/mac-help/open-a-mac-app-from-an-unknown-developer-mh40616/mac) for more details.
 
 ## Verify this release
 

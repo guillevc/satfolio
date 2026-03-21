@@ -7,19 +7,19 @@
   <a href="https://github.com/guillevc/satfolio/attestations"><img src="https://img.shields.io/badge/Sigstore-black?style=flat&labelColor=black&logo=data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0IiBmaWxsPSJub25lIiBzdHJva2U9IndoaXRlIiBzdHJva2Utd2lkdGg9IjIiPjxwYXRoIGQ9Ik0xMiAyMnM4LTQgOC0xMFY1bC04LTMtOCAzdjdjMCA2IDggMTAgOCAxMHoiLz48cGF0aCBkPSJtOSAxMiAyIDIgNC00Ii8+PC9zdmc+" alt="Sigstore" /></a>
 </h1>
 
-A desktop app to track your Bitcoin portfolio. Import your trade history from Kraken or Coinbase, and see your position, break-even price, and profit & loss — all stored locally on your machine.
+Know exactly where you stand with your Bitcoin. Import trades from Kraken or Coinbase and see your break-even price, P&L, and total position — calculated and stored locally on your machine, no accounts or cloud required.
 
 <img src="docs/dashboard.png" alt="Satfolio dashboard" />
 
 ## Features
 
 - **Import trades** from Kraken and Coinbase CSV exports — re-import safely without duplicates
-- **Dashboard** showing current BTC price, break-even price, position value, and unrealized P&L
-- **Price chart** with daily prices and your trades overlaid
-- **Trade history** table with per-trade cost basis, break-even price, and realized P&L
+- **Dashboard** showing current BTC price, break-even price, total holdings, and unrealized P&L
+- **Price chart** with daily prices, break-even line, and trade markers
+- **Trade history** table with running break-even price and realized P&L per trade
 - **Multi-currency** — supports EUR, USD, and GBP, formatted for your locale
 - **Auto-update** — get notified when a new version is available and install it without leaving the app
-- **Private by default** — no accounts, no analytics, no telemetry. Data stays in a local SQLite database. The only network calls are fetching the current BTC price from Kraken's public API and checking for updates from GitHub Releases.
+- **Private by default** — no accounts, no analytics, no telemetry. Your data never leaves your machine. The app connects to the internet for two things only: live BTC price (Kraken public API) and update checks (GitHub Releases).
 
 ## Install
 
