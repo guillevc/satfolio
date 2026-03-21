@@ -88,6 +88,32 @@ just test      # run all tests
 
 Run `just` to see all available recipes.
 
+## Support
+
+If you find Satfolio useful, consider supporting its development:
+
+<p>
+  <a href="https://ko-fi.com/guillevc" target="_blank"><img height="36" style="border:0px;height:36px;" src="https://storage.ko-fi.com/cdn/kofi1.png?v=6" border="0" alt="Buy Me a Coffee at ko-fi.com" /></a>
+  <a href="https://github.com/sponsors/guillevc"><img src="https://img.shields.io/badge/GitHub_Sponsors-EA4AAA?style=flat&logo=githubsponsors&logoColor=white" alt="GitHub Sponsors" /></a>
+</p>
+
+**Bitcoin:**
+
+<table>
+  <tr>
+    <td align="center">
+      <strong>Lightning</strong><br />
+      <code>guille@guillevc.dev</code><br /><br />
+      <img src="docs/donate-lightning-qr.svg" alt="Lightning address QR code" width="180" />
+    </td>
+    <td align="center">
+      <strong>On-chain</strong><br />
+      <code>bc1q3hvgvmw9qpqvl0z6r9uqdz3v5405xdgwt44pgq</code><br /><br />
+      <img src="docs/donate-onchain-qr.svg" alt="Bitcoin address QR code" width="180" />
+    </td>
+  </tr>
+</table>
+
 ## License
 
 [AGPL-3.0](LICENSE)
