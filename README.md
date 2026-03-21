@@ -18,7 +18,8 @@ A desktop app to track your Bitcoin portfolio. Import your trade history from Kr
 - **Price chart** with daily prices and your trades overlaid
 - **Trade history** table with per-trade cost basis, break-even price, and realized P&L
 - **Multi-currency** — supports EUR, USD, and GBP, formatted for your locale
-- **Private by default** — no accounts, no analytics, no telemetry. Data stays in a local SQLite database. The only network call is fetching the current BTC price from Kraken's public API.
+- **Auto-update** — get notified when a new version is available and install it without leaving the app
+- **Private by default** — no accounts, no analytics, no telemetry. Data stays in a local SQLite database. The only network calls are fetching the current BTC price from Kraken's public API and checking for updates from GitHub Releases.
 
 ## Install
 
