@@ -2,8 +2,13 @@ import type { EnrichedTrade } from "$lib/types/bindings";
 
 export const FIAT_ASSETS = new Set(["EUR", "USD", "GBP"]);
 
+/** True for buys and rewards (both are inflows of base asset). */
 export function isBuy(t: EnrichedTrade): boolean {
-  return t.side === "Buy";
+  return t.side === "Buy" || t.side === "Reward";
+}
+
+export function isReward(t: EnrichedTrade): boolean {
+  return t.side === "Reward";
 }
 
 export function baseAmount(t: EnrichedTrade): string {

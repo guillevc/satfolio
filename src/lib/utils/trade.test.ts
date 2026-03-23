@@ -38,6 +38,18 @@ describe("isBuy", () => {
     expect(isBuy(sell)).toBe(false);
   });
 
+  test("returns true when side is Reward", () => {
+    expect(
+      isBuy(
+        trade({
+          side: "Reward",
+          spent: amt("0", "BTC"),
+          received: amt("0.0001", "BTC"),
+        }),
+      ),
+    ).toBe(true);
+  });
+
   test("returns false when side is null", () => {
     expect(isBuy(trade({ side: null }))).toBe(false);
   });

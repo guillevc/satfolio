@@ -97,7 +97,7 @@
       byDate.set(dateKey, {
         time: dateKey as Time,
         value: 999_999_999,
-        color: trade.side === "Buy" ? buyColor : sellColor,
+        color: trade.side === "Sell" ? sellColor : buyColor,
       });
     }
 

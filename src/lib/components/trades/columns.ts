@@ -15,6 +15,7 @@ import { getQuote } from "$lib/stores/config.svelte";
 import {
   FIAT_ASSETS,
   isBuy,
+  isReward,
   baseAmount,
   quoteAmount,
   pricePerUnit,
@@ -98,7 +99,8 @@ export const columns: ColumnDef<EnrichedTrade>[] = [
   // Type
   {
     id: "type",
-    accessorFn: (row) => (isBuy(row) ? "Buy" : "Sell"),
+    accessorFn: (row) =>
+      isReward(row) ? "Reward" : isBuy(row) ? "Buy" : "Sell",
     header: "Type",
     enableSorting: false,
     cell: ({ row }) =>

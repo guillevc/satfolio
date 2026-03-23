@@ -3,4 +3,4 @@
 /**
  * Direction relative to the tracked pair, not the raw ledger row.
  */
-export type TradeSide = "Buy" | "Sell";
+export type TradeSide = "Buy" | "Sell" | "Reward";

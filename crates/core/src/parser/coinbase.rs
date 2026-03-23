@@ -144,6 +144,23 @@ fn find_trades(rows: &[CoinbaseRow]) -> Vec<Trade> {
                 row.transaction_type.as_str(),
                 "Sell" | "Advanced Trade Sell" | "Advance Trade Sell"
             );
+            let is_reward = matches!(
+                row.transaction_type.as_str(),
+                "Staking Income" | "Learning Reward" | "Inflation Reward"
+            );
+
+            if is_reward {
+                let quantity = row.quantity?;
+                // Reward: free inflow — zero-cost buy, same model as Kraken staking
+                return Some(Trade {
+                    date: row.timestamp,
+                    spent: AssetAmount::zero(row.asset.clone()),
+                    received: AssetAmount::new(quantity, row.asset.clone()),
+                    fee: AssetAmount::zero(row.asset.clone()),
+                    provider: Provider::Coinbase,
+                });
+            }
+
             if !is_buy && !is_sell {
                 return None;
             }
@@ -418,22 +435,6 @@ mod tests {
                 ),
                 make_row("Receive", Asset::Btc, Some(dec!(0.0005)), None, None, None),
                 make_row("Send", Asset::Btc, Some(dec!(0.001)), None, None, None),
-                make_row(
-                    "Learning Reward",
-                    Asset::Other("GRT".into()),
-                    Some(dec!(5.0)),
-                    Some("EUR"),
-                    Some(dec!(0.75)),
-                    Some(dec!(0.00)),
-                ),
-                make_row(
-                    "Staking Income",
-                    Asset::Other("ETH".into()),
-                    Some(dec!(0.001)),
-                    Some("EUR"),
-                    Some(dec!(3.20)),
-                    Some(dec!(0.00)),
-                ),
                 // Convert is intentionally skipped — see comment in find_trades()
                 make_row(
                     "Convert",
@@ -454,6 +455,58 @@ mod tests {
             ];
             let trades = find_trades(&rows);
             assert!(trades.is_empty());
+        }
+
+        #[test]
+        fn staking_income_parsed_as_reward() {
+            let row = make_row(
+                "Staking Income",
+                Asset::Btc,
+                Some(dec!(0.00001)),
+                Some("EUR"),
+                Some(dec!(0.85)),
+                Some(dec!(0.00)),
+            );
+            let trades = find_trades(&[row]);
+            assert_eq!(trades.len(), 1);
+            let t = &trades[0];
+            assert_eq!(t.received.amount(), dec!(0.00001));
+            assert_eq!(*t.received.asset(), Asset::Btc);
+            assert_eq!(t.spent.amount(), Decimal::ZERO);
+        }
+
+        #[test]
+        fn learning_reward_parsed_as_reward() {
+            let row = make_row(
+                "Learning Reward",
+                Asset::Other("GRT".into()),
+                Some(dec!(5.0)),
+                Some("EUR"),
+                Some(dec!(0.75)),
+                Some(dec!(0.00)),
+            );
+            let trades = find_trades(&[row]);
+            assert_eq!(trades.len(), 1);
+            let t = &trades[0];
+            assert_eq!(t.received.amount(), dec!(5.0));
+            assert_eq!(*t.received.asset(), Asset::Other("GRT".into()));
+            assert_eq!(t.spent.amount(), Decimal::ZERO);
+        }
+
+        #[test]
+        fn inflation_reward_parsed_as_reward() {
+            let row = make_row(
+                "Inflation Reward",
+                Asset::Btc,
+                Some(dec!(0.000005)),
+                Some("EUR"),
+                Some(dec!(0.43)),
+                Some(dec!(0.00)),
+            );
+            let trades = find_trades(&[row]);
+            assert_eq!(trades.len(), 1);
+            assert_eq!(trades[0].received.amount(), dec!(0.000005));
+            assert_eq!(trades[0].spent.amount(), Decimal::ZERO);
         }
 
         #[test]
@@ -494,7 +547,7 @@ mod tests {
         fn parse_fixture() {
             let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/coinbase/sample.csv");
             let trades = parse(&path).unwrap();
-            assert_eq!(trades.len(), 7);
+            assert_eq!(trades.len(), 9);
 
             // Verify chronological order
             for w in trades.windows(2) {
@@ -528,15 +581,25 @@ mod tests {
             assert_eq!(*trades[4].spent.asset(), Asset::Btc);
             assert_eq!(trades[4].received.amount(), dec!(155.16));
 
-            // Trade 6: Advance Trade Buy (typo variant) 2025-04-05
-            assert_eq!(trades[5].received.amount(), dec!(0.00100000));
-            assert_eq!(trades[5].fee.amount(), dec!(2.28));
+            // Trade 6: Learning Reward GRT 2025-04-01 (reward — zero cost)
+            assert_eq!(*trades[5].received.asset(), Asset::Other("GRT".into()));
+            assert_eq!(trades[5].received.amount(), dec!(5.00000000));
+            assert_eq!(trades[5].spent.amount(), Decimal::ZERO);
 
-            // Trade 7: Buy GRT 2025-05-01 (non-BTC asset → Asset::Other)
-            assert_eq!(*trades[6].received.asset(), Asset::Other("GRT".into()));
-            assert_eq!(trades[6].received.amount(), dec!(100.00000000));
-            assert_eq!(trades[6].spent.amount(), dec!(18.00));
-            assert_eq!(trades[6].fee.amount(), dec!(0.54));
+            // Trade 7: Advance Trade Buy (typo variant) 2025-04-05
+            assert_eq!(trades[6].received.amount(), dec!(0.00100000));
+            assert_eq!(trades[6].fee.amount(), dec!(2.28));
+
+            // Trade 8: Staking Income ETH 2025-04-10 (reward — zero cost)
+            assert_eq!(*trades[7].received.asset(), Asset::Other("ETH".into()));
+            assert_eq!(trades[7].received.amount(), dec!(0.00100000));
+            assert_eq!(trades[7].spent.amount(), Decimal::ZERO);
+
+            // Trade 9: Buy GRT 2025-05-01 (non-BTC asset → Asset::Other)
+            assert_eq!(*trades[8].received.asset(), Asset::Other("GRT".into()));
+            assert_eq!(trades[8].received.amount(), dec!(100.00000000));
+            assert_eq!(trades[8].spent.amount(), dec!(18.00));
+            assert_eq!(trades[8].fee.amount(), dec!(0.54));
         }
     }
 }

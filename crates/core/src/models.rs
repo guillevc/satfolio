@@ -75,7 +75,7 @@ pub enum Asset {
 impl From<String> for Asset {
     fn from(s: String) -> Self {
         match s.as_str() {
-            "BTC" | "XBT" => Self::Btc,
+            "BTC" | "XBT" | "XXBT" | "BTC.M" => Self::Btc,
             "EUR" | "ZEUR" => Self::Eur,
             "GBP" | "ZGBP" => Self::Gbp,
             "USD" | "ZUSD" => Self::Usd,
@@ -176,6 +176,8 @@ impl AssetAmount {
 pub enum TradeSide {
     Buy,
     Sell,
+    /// Free inflow (staking reward, learning reward, etc.) — a buy at zero cost.
+    Reward,
 }
 
 /// Raw ledger row. Direction-agnostic: uses spent/received, not buy/sell.
@@ -360,6 +362,16 @@ mod tests {
     #[test]
     fn asset_from_xbt_is_btc() {
         assert_eq!(Asset::from("XBT".to_string()), Asset::Btc);
+    }
+
+    #[test]
+    fn asset_from_xxbt_is_btc() {
+        assert_eq!(Asset::from("XXBT".to_string()), Asset::Btc);
+    }
+
+    #[test]
+    fn asset_from_btc_m_is_btc() {
+        assert_eq!(Asset::from("BTC.M".to_string()), Asset::Btc);
     }
 
     #[test]

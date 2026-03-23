@@ -9,6 +9,10 @@ use crate::models::{
 
 impl Trade {
     fn side_for(&self, pair: &AssetPair) -> Option<TradeSide> {
+        // Reward: received is the base asset, spent is zero (free inflow)
+        if self.received.asset() == &pair.base && self.spent.amount().is_zero() {
+            return Some(TradeSide::Reward);
+        }
         let trade_pair = (self.spent.asset(), self.received.asset());
         if trade_pair == (&pair.quote, &pair.base) {
             Some(TradeSide::Buy)
@@ -30,7 +34,7 @@ struct ResolvedTrade {
 fn resolve(trade: &Trade, pair: &AssetPair) -> Option<ResolvedTrade> {
     let side = trade.side_for(pair)?;
     let (units, quote_amount) = match side {
-        TradeSide::Buy => (trade.received.amount(), trade.spent.amount()),
+        TradeSide::Buy | TradeSide::Reward => (trade.received.amount(), trade.spent.amount()),
         TradeSide::Sell => (trade.spent.amount(), trade.received.amount()),
     };
     let price = quote_amount.checked_div(units).unwrap_or(Decimal::ZERO);
@@ -82,6 +86,12 @@ impl Accumulator {
                 self.buys += 1;
                 self.held = self.held.checked_add(&trade.received)?;
                 self.invested = self.invested.checked_add(&trade.spent)?;
+            }
+            TradeSide::Reward => {
+                self.buys += 1;
+                self.held = self.held.checked_add(&trade.received)?;
+                // Rewards are free BTC — they add to held but NOT invested,
+                // which correctly lowers the break-even price.
             }
             TradeSide::Sell => {
                 self.sells += 1;
@@ -146,7 +156,7 @@ pub(crate) fn trades_summary(pair: &AssetPair, trades: &[Trade]) -> EngineResult
             }
         };
         match r.side {
-            TradeSide::Buy => {
+            TradeSide::Buy | TradeSide::Reward => {
                 buys += 1;
                 spent = spent.checked_add(&trade.spent)?;
                 received = received.checked_add(&trade.received)?;
@@ -704,6 +714,84 @@ mod tests {
             enriched[2].bep,
             Some(AssetAmount::new(dec!(75375), Asset::Eur))
         );
+    }
+
+    // ── Reward handling ────────────────────────────────────
+
+    fn make_reward(y: i32, m: u32, d: u32, btc: Decimal) -> Trade {
+        Trade {
+            date: Utc.with_ymd_and_hms(y, m, d, 12, 0, 0).unwrap(),
+            spent: AssetAmount::zero(Asset::Btc),
+            received: AssetAmount::new(btc, Asset::Btc),
+            fee: AssetAmount::zero(Asset::Btc),
+            provider: Provider::Kraken,
+        }
+    }
+
+    #[test]
+    fn reward_detected_as_reward_side() {
+        let reward = make_reward(2025, 4, 1, dec!(0.0001));
+        assert_eq!(reward.side_for(&btc_eur()), Some(TradeSide::Reward));
+    }
+
+    #[test]
+    fn reward_lowers_bep() {
+        // Buy 0.001 BTC for 100 EUR (fee 0.50) → BEP = (100+0.50)/0.001 = 100_500
+        // Then receive 0.001 BTC reward (free) → held = 0.002, invested still 100
+        // BEP = (100 - 0 + 0.50) / 0.002 = 50_250
+        let trades = vec![
+            make_buy(2025, 1, 1, dec!(100), dec!(0.001), dec!(0.50)),
+            make_reward(2025, 2, 1, dec!(0.001)),
+        ];
+        let enriched = enrich_trades(&btc_eur(), trades).unwrap();
+        assert_eq!(enriched.len(), 2);
+
+        // First: buy
+        assert_eq!(enriched[0].side, Some(TradeSide::Buy));
+        assert_eq!(
+            enriched[0].bep,
+            Some(AssetAmount::new(dec!(100500), Asset::Eur))
+        );
+
+        // Second: reward — BEP should halve (double the held, same invested)
+        assert_eq!(enriched[1].side, Some(TradeSide::Reward));
+        assert_eq!(
+            enriched[1].bep,
+            Some(AssetAmount::new(dec!(50250), Asset::Eur))
+        );
+        assert_eq!(enriched[1].pnl, None); // No realized P&L for rewards
+    }
+
+    #[test]
+    fn non_btc_reward_is_unknown() {
+        // ETH reward should not match BTC/EUR pair
+        let eth_reward = Trade {
+            date: Utc.with_ymd_and_hms(2025, 4, 1, 12, 0, 0).unwrap(),
+            spent: AssetAmount::zero(Asset::Other("ETH".into())),
+            received: AssetAmount::new(dec!(0.001), Asset::Other("ETH".into())),
+            fee: AssetAmount::zero(Asset::Other("ETH".into())),
+            provider: Provider::Kraken,
+        };
+        assert_eq!(eth_reward.side_for(&btc_eur()), None);
+    }
+
+    #[test]
+    fn sell_after_reward_uses_lowered_bep() {
+        // Buy 0.002 BTC for 200 EUR (fee 1) → BEP = 201/0.002 = 100_500
+        // Reward 0.001 BTC → held = 0.003, BEP = 201/0.003 = 67_000
+        // Sell 0.001 BTC for 80 EUR (fee 0.40)
+        // P&L = 80 - 0.40 - 67_000 * 0.001 = 80 - 0.40 - 67 = 12.60
+        let trades = vec![
+            make_buy(2025, 1, 1, dec!(200), dec!(0.002), dec!(1)),
+            make_reward(2025, 2, 1, dec!(0.001)),
+            make_sell(2025, 3, 1, dec!(0.001), dec!(80), dec!(0.40)),
+        ];
+        let enriched = enrich_trades(&btc_eur(), trades).unwrap();
+        assert_eq!(enriched.len(), 3);
+
+        let sell = &enriched[2];
+        assert_eq!(sell.side, Some(TradeSide::Sell));
+        assert_eq!(sell.pnl, Some(AssetAmount::new(dec!(12.60), Asset::Eur)));
     }
 
     #[test]

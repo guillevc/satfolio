@@ -9,6 +9,23 @@ use serde::Deserialize;
 use crate::errors::ParseResult;
 use crate::models::{Asset, AssetAmount, Provider, Trade};
 
+/// Kraken fee-credit token — has no market value. Fees in KFEE should be zero.
+/// Source: <https://support.kraken.com/articles/204799657-What-are-Kraken-fee-credits-KFEE->
+fn is_kfee(asset: &Asset) -> bool {
+    matches!(asset, Asset::Other(s) if s == "KFEE")
+}
+
+/// Returns true if this entry is a staking/earn reward.
+///
+/// Per Kraken's CSV docs (<https://support.kraken.com/articles/360001169383>):
+/// - `type=earn, subtype=reward` — "payouts from on-chain Staking or Opt-In Rewards"
+/// - `type=staking` — "primarily used for staking rewards" (legacy)
+fn is_reward(entry: &LedgerEntry) -> bool {
+    let is_earn_reward = entry.type_ == EntryType::Earn && entry.subtype == "reward";
+    let is_legacy_staking = entry.type_ == EntryType::Staking;
+    (is_earn_reward || is_legacy_staking) && entry.amount.is_sign_positive()
+}
+
 /// Expected Kraken ledger CSV columns (12 fields).
 const KRAKEN_HEADERS: &[&str] = &[
     "txid", "refid", "time", "type", "subtype", "aclass", "subclass", "asset", "wallet", "amount",
@@ -37,20 +54,25 @@ mod datetime_format {
     }
 }
 
+/// Kraken ledger CSV `type` field values.
+///
+/// Source: <https://support.kraken.com/articles/360001169383-how-to-interpret-ledger-history-fields>
+///
+/// Types not in CSV exports (API-only or filter-only) fall into `Other`.
 #[derive(Deserialize, Debug, Clone, PartialEq, Eq, Hash)]
 #[serde(rename_all = "lowercase")]
 enum EntryType {
-    Deposit,
     Trade,
-    Withdrawal,
     Earn,
     Spend,
     Receive,
-    Transfer,
     Staking,
-    Dividend,
+    Deposit,
+    Withdrawal,
+    Transfer,
     Adjustment,
-    Margin,
+    #[serde(rename = "margin trade")]
+    MarginTrade,
     Rollover,
     Settled,
     #[serde(rename = "invite bonus")]
@@ -62,17 +84,16 @@ enum EntryType {
 impl fmt::Display for EntryType {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.pad(match self {
-            EntryType::Deposit => "deposit",
             EntryType::Trade => "trade",
-            EntryType::Withdrawal => "withdrawal",
             EntryType::Earn => "earn",
             EntryType::Spend => "spend",
             EntryType::Receive => "receive",
-            EntryType::Transfer => "transfer",
             EntryType::Staking => "staking",
-            EntryType::Dividend => "dividend",
+            EntryType::Deposit => "deposit",
+            EntryType::Withdrawal => "withdrawal",
+            EntryType::Transfer => "transfer",
             EntryType::Adjustment => "adjustment",
-            EntryType::Margin => "margin",
+            EntryType::MarginTrade => "margin trade",
             EntryType::Rollover => "rollover",
             EntryType::Settled => "settled",
             EntryType::InviteBonus => "invite bonus",
@@ -127,25 +148,48 @@ fn parse_csv_entries(path: &Path) -> ParseResult<Vec<LedgerEntry>> {
 
 fn find_trades(entries: &[LedgerEntry]) -> Vec<Trade> {
     let mut by_refid = HashMap::<&str, Vec<&LedgerEntry>>::new();
+    let mut trades = Vec::new();
 
     for entry in entries {
+        if entry.refid.is_empty() {
+            if is_reward(entry) {
+                trades.push(make_reward(entry));
+            }
+            continue;
+        }
         by_refid.entry(&entry.refid).or_default().push(entry);
     }
 
-    by_refid
-        .into_iter()
-        .filter_map(|(_, entries)| {
-            let [left, right] = *entries.as_slice() else {
-                return None;
-            };
-            match (&left.type_, &right.type_) {
-                (EntryType::Trade, EntryType::Trade)
-                | (EntryType::Spend, EntryType::Receive)
-                | (EntryType::Receive, EntryType::Spend) => Some((left, right)),
-                _ => None,
+    for (_, group) in by_refid {
+        // Single-entry groups: staking/earn rewards with a refid
+        if group.len() == 1 {
+            let entry = group[0];
+            if is_reward(entry) {
+                trades.push(make_reward(entry));
             }
-        })
-        .map(|(left, right)| {
+            continue;
+        }
+
+        let [left, right] = *group.as_slice() else {
+            continue;
+        };
+
+        // Failed/cancelled events: same type & subtype, amounts cancel out
+        if left.type_ == right.type_
+            && left.subtype == right.subtype
+            && (left.amount + right.amount).is_zero()
+        {
+            continue;
+        }
+
+        let pair = match (&left.type_, &right.type_) {
+            (EntryType::Trade, EntryType::Trade)
+            | (EntryType::Spend, EntryType::Receive)
+            | (EntryType::Receive, EntryType::Spend) => Some((left, right)),
+            _ => None,
+        };
+
+        if let Some((left, right)) = pair {
             let (buy, sell) = if left.amount.is_sign_positive() {
                 (left, right)
             } else {
@@ -153,20 +197,39 @@ fn find_trades(entries: &[LedgerEntry]) -> Vec<Trade> {
             };
             // Kraken places the fee on either entry — pick whichever has a
             // non-zero fee (first non-zero wins, matching BittyTax behaviour).
-            let (fee_amount, fee_asset) = if !sell.fee.is_zero() {
+            // KFEE tokens have no monetary value — treat as zero fee.
+            let (fee_amount, fee_asset) = if !sell.fee.is_zero() && !is_kfee(&sell.asset) {
                 (sell.fee.abs(), sell.asset.clone())
-            } else {
+            } else if !buy.fee.is_zero() && !is_kfee(&buy.asset) {
                 (buy.fee.abs(), buy.asset.clone())
+            } else {
+                // Both zero or KFEE — use sell asset with zero amount
+                (Decimal::ZERO, sell.asset.clone())
             };
-            Trade {
+            trades.push(Trade {
                 date: buy.time,
                 spent: AssetAmount::new(sell.amount.abs(), sell.asset.clone()),
                 received: AssetAmount::new(buy.amount.abs(), buy.asset.clone()),
                 fee: AssetAmount::new(fee_amount, fee_asset),
                 provider: Provider::Kraken,
-            }
-        })
-        .collect()
+            });
+        }
+    }
+
+    trades
+}
+
+/// Create a reward trade from a single staking/earn entry.
+/// Modeled as a zero-cost inflow: spent = 0, received = reward amount.
+/// The engine detects this pattern (received = base asset, spent = 0) as `TradeSide::Reward`.
+fn make_reward(entry: &LedgerEntry) -> Trade {
+    Trade {
+        date: entry.time,
+        spent: AssetAmount::zero(entry.asset.clone()),
+        received: AssetAmount::new(entry.amount.abs(), entry.asset.clone()),
+        fee: AssetAmount::zero(entry.asset.clone()),
+        provider: Provider::Kraken,
+    }
 }
 
 pub(super) fn parse(path: &Path) -> ParseResult<Vec<Trade>> {
@@ -348,19 +411,12 @@ mod tests {
         }
 
         #[test]
-        fn transfer_and_staking_excluded() {
+        fn transfer_and_unknown_excluded() {
             let transfer = make_entry(
                 "XFER-001",
                 EntryType::Transfer,
                 Asset::Btc,
                 dec!(0.5),
-                Decimal::ZERO,
-            );
-            let staking = make_entry(
-                "STAKE-001",
-                EntryType::Staking,
-                Asset::Other("DOT".into()),
-                dec!(10.0),
                 Decimal::ZERO,
             );
             let unknown = make_entry(
@@ -370,7 +426,169 @@ mod tests {
                 dec!(100),
                 Decimal::ZERO,
             );
-            let result = find_trades(&[transfer, staking, unknown]);
+            let result = find_trades(&[transfer, unknown]);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn staking_reward_parsed() {
+            let mut staking = make_entry(
+                "STAKE-001",
+                EntryType::Staking,
+                Asset::Btc,
+                dec!(0.00000123),
+                Decimal::ZERO,
+            );
+            // Staking rewards typically have no refid
+            staking.refid = String::new();
+            let result = find_trades(&[staking]);
+            assert_eq!(result.len(), 1);
+            let trade = &result[0];
+            assert_eq!(trade.received.amount(), dec!(0.00000123));
+            assert_eq!(*trade.received.asset(), Asset::Btc);
+            assert_eq!(trade.spent.amount(), Decimal::ZERO);
+        }
+
+        #[test]
+        fn staking_reward_with_refid_parsed() {
+            let staking = make_entry(
+                "STAKE-002",
+                EntryType::Staking,
+                Asset::Btc,
+                dec!(0.00000456),
+                Decimal::ZERO,
+            );
+            let result = find_trades(&[staking]);
+            assert_eq!(result.len(), 1);
+            assert_eq!(result[0].received.amount(), dec!(0.00000456));
+        }
+
+        /// Kraken Earn rewards use type=earn, subtype=reward (current unified system).
+        #[test]
+        fn earn_reward_parsed() {
+            let mut entry = make_entry(
+                "EARN-R01",
+                EntryType::Earn,
+                Asset::Btc,
+                dec!(0.00000789),
+                Decimal::ZERO,
+            );
+            entry.subtype = "reward".into();
+            let result = find_trades(&[entry]);
+            assert_eq!(result.len(), 1);
+            let trade = &result[0];
+            assert_eq!(trade.received.amount(), dec!(0.00000789));
+            assert_eq!(*trade.received.asset(), Asset::Btc);
+            assert_eq!(trade.spent.amount(), Decimal::ZERO);
+        }
+
+        /// Fiat earn rewards (EUR interest from earn/flexible) are also parsed.
+        #[test]
+        fn earn_reward_fiat_parsed() {
+            let mut entry = make_entry(
+                "EARN-R02",
+                EntryType::Earn,
+                Asset::Eur,
+                dec!(0.0179),
+                Decimal::ZERO,
+            );
+            entry.subtype = "reward".into();
+            let result = find_trades(&[entry]);
+            assert_eq!(result.len(), 1);
+            assert_eq!(result[0].received.amount(), dec!(0.0179));
+            assert_eq!(*result[0].received.asset(), Asset::Eur);
+        }
+
+        /// Earn allocations (subtype=allocation) should NOT be treated as rewards.
+        #[test]
+        fn earn_allocation_excluded() {
+            let mut alloc = make_entry(
+                "EARN-A01",
+                EntryType::Earn,
+                Asset::Btc,
+                dec!(-0.001),
+                Decimal::ZERO,
+            );
+            alloc.subtype = "allocation".into();
+            let mut alloc2 = make_entry(
+                "EARN-A01",
+                EntryType::Earn,
+                Asset::Btc,
+                dec!(0.001),
+                Decimal::ZERO,
+            );
+            alloc2.subtype = "allocation".into();
+            let result = find_trades(&[alloc, alloc2]);
+            assert!(result.is_empty());
+        }
+
+        #[test]
+        fn kfee_fee_on_buy_side_treated_as_zero() {
+            let sell_entry = make_entry(
+                "KFEE-T1",
+                EntryType::Trade,
+                Asset::Eur,
+                dec!(-100),
+                Decimal::ZERO,
+            );
+            let buy_entry = LedgerEntry {
+                fee: dec!(5),
+                asset: Asset::Other("KFEE".into()),
+                ..make_entry(
+                    "KFEE-T1",
+                    EntryType::Trade,
+                    Asset::Btc,
+                    dec!(0.001),
+                    Decimal::ZERO,
+                )
+            };
+            let result = find_trades(&[sell_entry, buy_entry]);
+            assert_eq!(result.len(), 1);
+            assert_eq!(result[0].fee.amount(), Decimal::ZERO);
+        }
+
+        #[test]
+        fn kfee_fee_on_sell_side_treated_as_zero() {
+            let sell_entry = LedgerEntry {
+                fee: dec!(3),
+                asset: Asset::Other("KFEE".into()),
+                ..make_entry(
+                    "KFEE-T2",
+                    EntryType::Trade,
+                    Asset::Eur,
+                    dec!(-100),
+                    Decimal::ZERO,
+                )
+            };
+            let buy_entry = make_entry(
+                "KFEE-T2",
+                EntryType::Trade,
+                Asset::Btc,
+                dec!(0.001),
+                Decimal::ZERO,
+            );
+            let result = find_trades(&[sell_entry, buy_entry]);
+            assert_eq!(result.len(), 1);
+            assert_eq!(result[0].fee.amount(), Decimal::ZERO);
+        }
+
+        #[test]
+        fn failed_event_cancelled() {
+            let a = make_entry(
+                "FAIL-001",
+                EntryType::Withdrawal,
+                Asset::Btc,
+                dec!(-0.01),
+                Decimal::ZERO,
+            );
+            let b = make_entry(
+                "FAIL-001",
+                EntryType::Withdrawal,
+                Asset::Btc,
+                dec!(0.01),
+                Decimal::ZERO,
+            );
+            let result = find_trades(&[a, b]);
             assert!(result.is_empty());
         }
 
@@ -466,6 +684,39 @@ mod tests {
             amount,
             fee,
             balance: Decimal::ZERO,
+        }
+    }
+
+    mod integration {
+        use super::*;
+
+        #[test]
+        fn parse_fixture() {
+            let path = Path::new(env!("CARGO_MANIFEST_DIR")).join("fixtures/kraken/sample.csv");
+            let trades = parse(&path).unwrap();
+
+            // 12 trade pairs + 25 spend/receive pairs + 61 earn rewards = 98
+            assert_eq!(trades.len(), 98);
+
+            // Verify chronological order
+            for w in trades.windows(2) {
+                assert!(w[0].date <= w[1].date);
+            }
+
+            // First trade is a BTC buy via trade pair (2025-02-14)
+            assert_eq!(*trades[0].received.asset(), Asset::Btc);
+            assert_eq!(*trades[0].spent.asset(), Asset::Eur);
+            assert!(trades[0].spent.amount() > Decimal::ZERO);
+
+            // Earn rewards have zero spent (free BTC/EUR/ETH)
+            let rewards: Vec<_> = trades
+                .iter()
+                .filter(|t| t.spent.amount().is_zero())
+                .collect();
+            assert_eq!(rewards.len(), 61);
+            for r in &rewards {
+                assert!(r.received.amount() > Decimal::ZERO);
+            }
         }
     }
 }

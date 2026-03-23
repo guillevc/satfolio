@@ -19,7 +19,7 @@ position_value: AssetAmount,
  */
 unrealized_pnl: AssetAmount, 
 /**
- * unrealized_pnl / invested × 100.
+ * unrealized_pnl / invested (0–1 fraction).
  */
 unrealized_pnl_pct: string, 
 /**
