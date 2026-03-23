@@ -44,11 +44,12 @@ From Kraken's [official support article](https://support.kraken.com/articles/360
 | `spend`        | Amount of asset debited, for transactions via the Buy Crypto button or Kraken app.                                                                                                        | **Yes** — alternative trade format (paired with receive) |
 | `receive`      | Amount of asset credited, for transactions via the Buy Crypto button or Kraken app.                                                                                                       | **Yes** — alternative trade format (paired with spend)   |
 | `staking`      | Primarily used for staking rewards.                                                                                                                                                       | **Yes** — staking rewards                                |
+| `reward`       | Reported in real CSV exports by community (CoinTaxman). Not in official docs but handled defensively.                                                                                     | **Yes** — staking rewards (defensive)                    |
 | `deposit`      | Deposit of funds, including KFEE credits and Futures wallet transfers.                                                                                                                    | No — not a trade                                         |
 | `withdrawal`   | Withdrawal of funds outside of Kraken account.                                                                                                                                            | No — not a trade                                         |
 | `transfer`     | Credit of airdrops/forks, OTC transfers, Futures wallet transfers. Also staking movements when paired with staking-related subtypes.                                                      | Partial — staking allocation/deallocation                |
 | `adjustment`   | Conversion of one currency to another outside of trading (e.g. ICN-to-ETH after delisting).                                                                                               | Rare — forced conversions                                |
-| `margin trade` | Profits/loss for a margin trade.                                                                                                                                                          | No — out of scope                                        |
+| `margin trade` | Profits/loss for a margin trade. Note: CoinTaxman reports seeing `margin` (one word) in real CSVs, not `margin trade` (two words). Both are handled.                                      | No — out of scope                                        |
 | `rollover`     | Charge for a margin trade.                                                                                                                                                                | No — out of scope                                        |
 | `settled`      | Settling of a margin position on spot.                                                                                                                                                    | No — out of scope                                        |
 | `sale`         | Filter-only — **not shown in CSV exports**. Brings up spend/receive entries from the Kraken app.                                                                                          | N/A — not in CSV                                         |
@@ -114,6 +115,8 @@ Two entries with the same `refid` — used by Kraken's "Buy Crypto" button and r
 
 ### Staking Reward (type=`staking`)
 
+Per CoinTaxman community reports, staking rewards may appear as **two rows**: a `deposit` of the staked asset followed by a `staking` entry. Satfolio parses the `staking` row as a reward and skips the `deposit` (which is correct — the deposit is an internal credit, not a user deposit).
+
 **Single entry** — "primarily used for staking rewards" per Kraken docs:
 
 ```csv
@@ -153,6 +156,15 @@ Kraken uses its own asset codes. See [Kraken's asset code explanation](https://s
 | `KFEE`        | —        | Fee credit token (**zero monetary value**) |
 | `BTC.M`       | —        | BTC in Opt-In Rewards program              |
 | `ETH2.S`      | —        | Staked ETH variant                         |
+
+Kraken appends suffixes for earn/staking products:
+
+- `.S` — staked assets (e.g., `BTC.S`, `ETH2.S`)
+- `.M` — Opt-In Rewards (e.g., `BTC.M`)
+- `.F` — flexible earn
+- `.B` — bonded earn
+
+Satfolio strips these suffixes before matching, so `BTC.S` and `BTC.M` both resolve to `BTC`.
 
 Newer asset listings may use standard tickers directly (e.g., `BTC` instead of `XXBT`). Both formats appear in real exports.
 

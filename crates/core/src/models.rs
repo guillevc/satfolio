@@ -74,8 +74,17 @@ pub enum Asset {
 
 impl From<String> for Asset {
     fn from(s: String) -> Self {
-        match s.as_str() {
-            "BTC" | "XBT" | "XXBT" | "BTC.M" => Self::Btc,
+        // Kraken uses suffixes for earn/staking products: .S (staked), .M (opt-in rewards),
+        // .F (flexible earn), .B (bonded earn). Strip before matching.
+        // Source: https://support.kraken.com/articles/360001185506-Explanation-of-Asset-Codes
+        let normalized = s
+            .strip_suffix(".S")
+            .or_else(|| s.strip_suffix(".M"))
+            .or_else(|| s.strip_suffix(".F"))
+            .or_else(|| s.strip_suffix(".B"))
+            .unwrap_or(&s);
+        match normalized {
+            "BTC" | "XBT" | "XXBT" => Self::Btc,
             "EUR" | "ZEUR" => Self::Eur,
             "GBP" | "ZGBP" => Self::Gbp,
             "USD" | "ZUSD" => Self::Usd,
@@ -370,8 +379,20 @@ mod tests {
     }
 
     #[test]
-    fn asset_from_btc_m_is_btc() {
+    fn asset_from_staking_suffixes_is_btc() {
         assert_eq!(Asset::from("BTC.M".to_string()), Asset::Btc);
+        assert_eq!(Asset::from("BTC.S".to_string()), Asset::Btc);
+        assert_eq!(Asset::from("BTC.F".to_string()), Asset::Btc);
+        assert_eq!(Asset::from("BTC.B".to_string()), Asset::Btc);
+    }
+
+    #[test]
+    fn asset_from_unknown_suffix_stays_other() {
+        // Unknown suffix should NOT be stripped
+        assert_eq!(
+            Asset::from("FOO.X".to_string()),
+            Asset::Other("FOO.X".to_string())
+        );
     }
 
     #[test]

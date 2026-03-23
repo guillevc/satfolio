@@ -23,7 +23,8 @@ fn is_kfee(asset: &Asset) -> bool {
 fn is_reward(entry: &LedgerEntry) -> bool {
     let is_earn_reward = entry.type_ == EntryType::Earn && entry.subtype == "reward";
     let is_staking = entry.type_ == EntryType::Staking;
-    (is_earn_reward || is_staking) && entry.amount.is_sign_positive()
+    let is_reward_type = entry.type_ == EntryType::Reward;
+    (is_earn_reward || is_staking || is_reward_type) && entry.amount.is_sign_positive()
 }
 
 /// Expected Kraken ledger CSV columns (12 fields).
@@ -67,12 +68,14 @@ enum EntryType {
     Spend,
     Receive,
     Staking,
+    Reward,
     Deposit,
     Withdrawal,
     Transfer,
     Adjustment,
     #[serde(rename = "margin trade")]
     MarginTrade,
+    Margin,
     Rollover,
     Settled,
     #[serde(rename = "invite bonus")]
@@ -89,11 +92,13 @@ impl fmt::Display for EntryType {
             EntryType::Spend => "spend",
             EntryType::Receive => "receive",
             EntryType::Staking => "staking",
+            EntryType::Reward => "reward",
             EntryType::Deposit => "deposit",
             EntryType::Withdrawal => "withdrawal",
             EntryType::Transfer => "transfer",
             EntryType::Adjustment => "adjustment",
             EntryType::MarginTrade => "margin trade",
+            EntryType::Margin => "margin",
             EntryType::Rollover => "rollover",
             EntryType::Settled => "settled",
             EntryType::InviteBonus => "invite bonus",
@@ -497,6 +502,22 @@ mod tests {
             assert_eq!(result.len(), 1);
             assert_eq!(result[0].received.amount(), dec!(0.0179));
             assert_eq!(*result[0].received.asset(), Asset::Eur);
+        }
+
+        /// Standalone type=reward entries (reported by CoinTaxman community).
+        #[test]
+        fn reward_type_parsed() {
+            let entry = make_entry(
+                "RWD-001",
+                EntryType::Reward,
+                Asset::Btc,
+                dec!(0.00000100),
+                Decimal::ZERO,
+            );
+            let result = find_trades(&[entry]);
+            assert_eq!(result.len(), 1);
+            assert_eq!(result[0].received.amount(), dec!(0.00000100));
+            assert_eq!(result[0].spent.amount(), Decimal::ZERO);
         }
 
         /// Earn allocations (subtype=allocation) should NOT be treated as rewards.
