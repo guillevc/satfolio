@@ -19,11 +19,11 @@ fn is_kfee(asset: &Asset) -> bool {
 ///
 /// Per Kraken's CSV docs (<https://support.kraken.com/articles/360001169383>):
 /// - `type=earn, subtype=reward` — "payouts from on-chain Staking or Opt-In Rewards"
-/// - `type=staking` — "primarily used for staking rewards" (legacy)
+/// - `type=staking` — "primarily used for staking rewards"
 fn is_reward(entry: &LedgerEntry) -> bool {
     let is_earn_reward = entry.type_ == EntryType::Earn && entry.subtype == "reward";
-    let is_legacy_staking = entry.type_ == EntryType::Staking;
-    (is_earn_reward || is_legacy_staking) && entry.amount.is_sign_positive()
+    let is_staking = entry.type_ == EntryType::Staking;
+    (is_earn_reward || is_staking) && entry.amount.is_sign_positive()
 }
 
 /// Expected Kraken ledger CSV columns (12 fields).

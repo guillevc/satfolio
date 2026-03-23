@@ -43,7 +43,7 @@ From Kraken's [official support article](https://support.kraken.com/articles/360
 | `earn`         | Relates to all on-chain staking and Opt-In Rewards activities, including allocation, deallocation, rewards, and other transactions. Encompasses both types of staking under one category. | **Yes** — BTC earn/staking rewards (with `subtype`)      |
 | `spend`        | Amount of asset debited, for transactions via the Buy Crypto button or Kraken app.                                                                                                        | **Yes** — alternative trade format (paired with receive) |
 | `receive`      | Amount of asset credited, for transactions via the Buy Crypto button or Kraken app.                                                                                                       | **Yes** — alternative trade format (paired with spend)   |
-| `staking`      | Primarily used for staking rewards.                                                                                                                                                       | **Yes** — legacy staking rewards                         |
+| `staking`      | Primarily used for staking rewards.                                                                                                                                                       | **Yes** — staking rewards                                |
 | `deposit`      | Deposit of funds, including KFEE credits and Futures wallet transfers.                                                                                                                    | No — not a trade                                         |
 | `withdrawal`   | Withdrawal of funds outside of Kraken account.                                                                                                                                            | No — not a trade                                         |
 | `transfer`     | Credit of airdrops/forks, OTC transfers, Futures wallet transfers. Also staking movements when paired with staking-related subtypes.                                                      | Partial — staking allocation/deallocation                |
@@ -112,9 +112,9 @@ Two entries with the same `refid` — used by Kraken's "Buy Crypto" button and r
 "LGMSOX","5GAS442","2025-05-31 22:25:09","earn","reward","currency","fiat","EUR","earn / flexible",0.0179,0,149.1339
 ```
 
-### Legacy Staking Reward (type=`staking`)
+### Staking Reward (type=`staking`)
 
-**Single entry** — the legacy format, "primarily used for staking rewards":
+**Single entry** — "primarily used for staking rewards" per Kraken docs:
 
 ```csv
 "LG005","","2025-04-01 00:00:00","staking","","currency","crypto","BTC.M","spot / main",0.00000123,0,0.00300123
@@ -191,5 +191,8 @@ From [Kraken's docs](https://support.kraken.com/articles/204799657-What-are-Krak
 
 - **Kraken Support: What are Kraken fee credits (KFEE)?** — KFEE token documentation
   https://support.kraken.com/articles/204799657-What-are-Kraken-fee-credits-KFEE-
+
+- **CoinTaxman Issue #97** — community-reported Kraken CSV types from real exports, including `type=staking`
+  https://github.com/provinzio/CoinTaxman/issues/97
 
 - **Real Kraken CSV exports** — verified against `fixtures/kraken/sample.csv` in this repository
